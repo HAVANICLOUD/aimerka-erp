@@ -1,0 +1,3038 @@
+{
+  "source": "ERP_AIMERKA_V28_CONCILIACION_LOTES_PRUEBA.xlsm",
+  "version": 28,
+  "parameters": {
+    "vatWithholding": 0.08,
+    "incomeWithholding": 0.025,
+    "priceEnding": 99,
+    "competitiveTolerance": 0.03
+  },
+  "commissions": {
+    "T1 Comercios": [
+      {
+        "category": "Todas las categorías",
+        "path": "T1 Comercios / Sears / Sanborns / Comisión general",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 4
+      },
+      {
+        "category": "Automotriz",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 5
+      },
+      {
+        "category": "Bebés",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 6
+      },
+      {
+        "category": "Bolsas y Equipaje",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 7
+      },
+      {
+        "category": "Calzado, Ropa y Accesorios",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 8
+      },
+      {
+        "category": "Celulares",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 9
+      },
+      {
+        "category": "Celulares Reacondicionados",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 10
+      },
+      {
+        "category": "Cómputo",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 11
+      },
+      {
+        "category": "Consolas Reacondicionadas",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 12
+      },
+      {
+        "category": "Consolas y Videojuegos",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 13
+      },
+      {
+        "category": "Electrónica",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 14
+      },
+      {
+        "category": "Deportes y Aire Libre",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 15
+      },
+      {
+        "category": "Electrodomésticos",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 16
+      },
+      {
+        "category": "Herramientas Eléctricas Hogar",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 17
+      },
+      {
+        "category": "Herramientas Manuales Hogar",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 18
+      },
+      {
+        "category": "Hogar, Cocina y Jardín (Línea Blanca)",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 19
+      },
+      {
+        "category": "Instrumentos Musicales",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 20
+      },
+      {
+        "category": "Juguetes",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 21
+      },
+      {
+        "category": "Libros, Revistas y Comics",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 22
+      },
+      {
+        "category": "Mascotas",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 23
+      },
+      {
+        "category": "Relojes, Lentes y Joyería",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 24
+      },
+      {
+        "category": "Salud, Belleza y Cuidado Personal",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 25
+      },
+      {
+        "category": "Joyería (Alta Gama)",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 26
+      },
+      {
+        "category": "Motos y Accesorios",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 27
+      },
+      {
+        "category": "Industria y Oficinas",
+        "path": "T1 Comercios / Categoría equivalente",
+        "rate": 0.18,
+        "note": "T1 cobra 18% en todas las categorías",
+        "sourceRow": 28
+      }
+    ],
+    "Coppel": [
+      {
+        "category": "Automotriz",
+        "path": "Coppel Marketplace",
+        "rate": 0.12,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 4
+      },
+      {
+        "category": "Bebés",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 5
+      },
+      {
+        "category": "Bolsas y Equipaje",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 6
+      },
+      {
+        "category": "Calzado, Ropa y Accesorios",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 7
+      },
+      {
+        "category": "Celulares",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 8
+      },
+      {
+        "category": "Celulares Reacondicionados",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 9
+      },
+      {
+        "category": "Cómputo",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 10
+      },
+      {
+        "category": "Consolas Reacondicionadas",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 11
+      },
+      {
+        "category": "Consolas y Videojuegos",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 12
+      },
+      {
+        "category": "Electrónica",
+        "path": "Coppel Marketplace",
+        "rate": 0.1,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 13
+      },
+      {
+        "category": "Deportes y Aire Libre",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 14
+      },
+      {
+        "category": "Electrodomésticos",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 15
+      },
+      {
+        "category": "Herramientas Eléctricas Hogar",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 16
+      },
+      {
+        "category": "Herramientas Manuales Hogar",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 17
+      },
+      {
+        "category": "Hogar, Cocina y Jardín (Línea Blanca)",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 18
+      },
+      {
+        "category": "Instrumentos Musicales",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 19
+      },
+      {
+        "category": "Juguetes",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 20
+      },
+      {
+        "category": "Libros, Revistas y Comics",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 21
+      },
+      {
+        "category": "Mascotas",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 22
+      },
+      {
+        "category": "Relojes, Lentes y Joyería",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 23
+      },
+      {
+        "category": "Salud, Belleza y Cuidado Personal",
+        "path": "Coppel Marketplace",
+        "rate": 0.15,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 24
+      },
+      {
+        "category": "Joyería (Alta Gama)",
+        "path": "Coppel Marketplace",
+        "rate": 0.14,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 25
+      },
+      {
+        "category": "Motos y Accesorios",
+        "path": "Coppel Marketplace",
+        "rate": 0.13,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 26
+      },
+      {
+        "category": "Industria y Oficinas",
+        "path": "Coppel Marketplace",
+        "rate": 0.12,
+        "note": "Comisión incluye IVA según PDF",
+        "sourceRow": 27
+      },
+      {
+        "category": "General",
+        "path": "Coppel Marketplace / categoría por definir",
+        "rate": 0.15,
+        "note": "Default editable para categorías pendientes",
+        "sourceRow": 38
+      }
+    ],
+    "Mercado Libre": [
+      {
+        "category": "Aspiradoras y limpiadores a vapor",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para hogar > Aspiradoras y limpiadores a vapor",
+        "rate": 0.15,
+        "note": "Nombre original coincide con el nombre de categoría/producto; ruta pública exacta no apareció en el listado indexado.",
+        "sourceRow": 4,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Audífonos",
+        "path": "Electrónica, Audio y Video > Audio > Audífonos",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 5,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Bocinas",
+        "path": "Electrónica, Audio y Video > Audio > Bocinas",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 6,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Bocinas inteligentes",
+        "path": "Electrónica, Audio y Video > Audio > Asistentes Virtuales",
+        "rate": 0.1,
+        "note": "En Mercado Libre la categoría pública aparece como “Asistentes Virtuales”.",
+        "sourceRow": 7,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Cables y adaptadores de datos",
+        "path": "Computación > Cables y Conectores > Cables > Cables de Datos",
+        "rate": 0.15,
+        "note": "Normalizado a “Cables de Datos”; también hay rutas de adaptadores según dispositivo.",
+        "sourceRow": 8,
+        "parentCategory": "Computación",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Cafeteras eléctricas",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para cocina > Cafeteras",
+        "rate": 0.15,
+        "note": "La ruta pública aparece como Cafeteras; el nombre del Excel especifica eléctricas.",
+        "sourceRow": 9,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Celulares",
+        "path": "Celulares y Telefonía > Celulares y Smartphones",
+        "rate": 0.1,
+        "note": "Coincidencia directa con la categoría principal.",
+        "sourceRow": 10,
+        "parentCategory": "Celulares y Telefonía",
+        "premiumRate": 0.125
+      },
+      {
+        "category": "Computadoras all in one",
+        "path": "Computación > PC de Escritorio > All In One",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 11,
+        "parentCategory": "Computación",
+        "premiumRate": 0.13
+      },
+      {
+        "category": "Consolas de videojuegos",
+        "path": "Consolas y Videojuegos > Consolas",
+        "rate": 0.08,
+        "note": "El nombre original se transformó a la categoría pública “Consolas”.",
+        "sourceRow": 12,
+        "parentCategory": "Consolas y Videojuegos",
+        "premiumRate": 0.105
+      },
+      {
+        "category": "Controladores DJ",
+        "path": "Electrónica, Audio y Video > Audio > Equipos de DJ y Accesorios > Controladores",
+        "rate": 0.1,
+        "note": "La ruta pública aparece como Controladores dentro de Equipos de DJ y Accesorios.",
+        "sourceRow": 13,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Dispositivos de streaming",
+        "path": "Electrónica, Audio y Video > Media Streaming",
+        "rate": 0.1,
+        "note": "Normalizado a la categoría pública “Media Streaming”.",
+        "sourceRow": 14,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Gamepads y joysticks",
+        "path": "Consolas y Videojuegos > Accesorios para Consolas > Gamepads y Joysticks",
+        "rate": 0.15,
+        "note": "Coincidencia directa en una ruta pública de accesorios para consola.",
+        "sourceRow": 15,
+        "parentCategory": "Consolas y Videojuegos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Home theaters",
+        "path": "Electrónica, Audio y Video > Audio > Home Theaters",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 16,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Hornos",
+        "path": "Electrodomésticos > Cocción > Hornos",
+        "rate": 0.15,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 17,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.18
+      },
+      {
+        "category": "Jugueras",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para cocina > Preparación de bebidas > Jugueras",
+        "rate": 0.15,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 18,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Laptops",
+        "path": "Computación > Laptops y Accesorios > Laptops",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 19,
+        "parentCategory": "Computación",
+        "premiumRate": 0.13
+      },
+      {
+        "category": "Localizadores de objetos",
+        "path": "Hogar, Muebles y Jardín > Seguridad para el Hogar > Localizadores de Objetos",
+        "rate": 0.115,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 20,
+        "parentCategory": "Hogar, Muebles y Jardín",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Lápices ópticos",
+        "path": "Celulares y Telefonía > Accesorios para Celulares > Lápices Ópticos",
+        "rate": 0.1,
+        "note": "Mercado Libre lo ubica bajo accesorios para celulares.",
+        "sourceRow": 21,
+        "parentCategory": "Celulares y Telefonía",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Planchas",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para hogar > Planchas",
+        "rate": 0.15,
+        "note": "Interpretado como planchas de ropa, no planchas de cabello.",
+        "sourceRow": 22,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Planchas de cabello",
+        "path": "Belleza y Cuidado Personal > Artefactos para el Cabello > Planchas para Cabello",
+        "rate": 0.15,
+        "note": "Coincidencia directa con la ruta pública “Planchas para Cabello”.",
+        "sourceRow": 23,
+        "parentCategory": "Belleza y Cuidado Personal",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Purificadores de aire",
+        "path": "Salud y Equipamiento Médico > Cuidado de la Salud > Tratamientos Respiratorios > Purificadores de Aire",
+        "rate": 0.15,
+        "note": "Mercado Libre lo ubica en Salud y Equipamiento Médico.",
+        "sourceRow": 24,
+        "parentCategory": "Salud y Equipamiento Médico",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Scooters eléctricos",
+        "path": "Deportes y Fitness > Monopatines y Scooters > Scooters Eléctricos",
+        "rate": 0.15,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 25,
+        "parentCategory": "Deportes y Fitness",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Secadoras de cabello",
+        "path": "Belleza y Cuidado Personal > Artefactos para el Cabello > Secadoras de Cabello",
+        "rate": 0.15,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 26,
+        "parentCategory": "Belleza y Cuidado Personal",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Smartwatches",
+        "path": "Celulares y Telefonía > Smartwatches y Accesorios > Smartwatch",
+        "rate": 0.1,
+        "note": "Coincidencia directa; la ruta pública incluye Smartwatches y Accesorios.",
+        "sourceRow": 27,
+        "parentCategory": "Celulares y Telefonía",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Tablets",
+        "path": "Computación > Tablets y Accesorios > Tablets",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 28,
+        "parentCategory": "Computación",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Teclados para tablets",
+        "path": "Computación > Tablets y Accesorios > Accesorios > Teclados para Tablets",
+        "rate": 0.1,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 29,
+        "parentCategory": "Computación",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Tinas de baño",
+        "path": "Construcción > Mobiliario para Baños > Tinas de Baño",
+        "rate": 0.15,
+        "note": "El listado público lo ubica en Construcción, no en Hogar.",
+        "sourceRow": 30,
+        "parentCategory": "Construcción",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Touchpads",
+        "path": "Computación > Periféricos de PC > Mouses y Teclados > Touchpads",
+        "rate": 0.135,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 31,
+        "parentCategory": "Computación",
+        "premiumRate": 0.18
+      },
+      {
+        "category": "Videocámaras",
+        "path": "Cámaras y Accesorios > Cámaras de Video",
+        "rate": 0.1,
+        "note": "Normalizado a la categoría pública “Cámaras de Video”.",
+        "sourceRow": 32,
+        "parentCategory": "Cámaras y Accesorios",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "Videojuegos",
+        "path": "Consolas y Videojuegos > Videojuegos",
+        "rate": 0.15,
+        "note": "Coincidencia directa de categoría.",
+        "sourceRow": 33,
+        "parentCategory": "Consolas y Videojuegos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Botellas deportivas",
+        "path": "Deportes y Fitness > Fitness y Musculación > Botellas Deportivas",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 34,
+        "parentCategory": "Deportes y Fitness",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Contenedores",
+        "path": "Hogar, Muebles y Jardín > Cocina > Contenedores",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 35,
+        "parentCategory": "Hogar, Muebles y Jardín",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Licuadoras",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para cocina > Licuadoras",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 36,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Mouse para PC",
+        "path": "Computación > Periféricos de PC > Mouses",
+        "rate": 0.135,
+        "note": "Agregado para inventario.",
+        "sourceRow": 37,
+        "parentCategory": "Computación",
+        "premiumRate": 0.18
+      },
+      {
+        "category": "Perfumería caballero",
+        "path": "Belleza y Cuidado Personal > Perfumes > Hombre",
+        "rate": 0.13,
+        "note": "Agregado para inventario.",
+        "sourceRow": 38,
+        "parentCategory": "Belleza y Cuidado Personal",
+        "premiumRate": 0.175
+      },
+      {
+        "category": "PERFUMERIA DAMA",
+        "path": "Belleza y Cuidado PersonalPerfumes",
+        "rate": 0.13,
+        "note": null,
+        "sourceRow": 39,
+        "parentCategory": "Belleza y Cuidado Personal",
+        "premiumRate": 0.175
+      },
+      {
+        "category": "Soportes de pantalla",
+        "path": "Electrónica, Audio y Video > Accesorios para TV > Soportes",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 40,
+        "parentCategory": "Electrónica, Audio y Video",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Ventiladores",
+        "path": "Electrodomésticos > Climatización > Ventiladores",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 41,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "Wafleras",
+        "path": "Electrodomésticos > Pequeños electrodomésticos > Para cocina > Wafleras",
+        "rate": 0.15,
+        "note": "Agregado para inventario.",
+        "sourceRow": 42,
+        "parentCategory": "Electrodomésticos",
+        "premiumRate": 0.195
+      },
+      {
+        "category": "DRONES",
+        "path": "Cámaras y AccesoriosDrones y AccesoriosDrones",
+        "rate": 0.1,
+        "note": "Espacio disponible para agregar categoría",
+        "sourceRow": 43,
+        "parentCategory": "Drones",
+        "premiumRate": 0.145
+      },
+      {
+        "category": "CUIDADO PERSONAL Y BELLEZA MASCARAS FACIALES",
+        "path": "Belleza y Cuidado PersonalTratamientos de BellezaEquipos de CosmetologíaMáscaras Led Faciales",
+        "rate": 0.14,
+        "note": "Espacio disponible para agregar categoría",
+        "sourceRow": 44,
+        "parentCategory": "Máscaras Led Faciales",
+        "premiumRate": 0.17
+      },
+      {
+        "category": "CUIDADO PERSONAL Y BELLEZA DEPILADORAS",
+        "path": "Belleza y Cuidado PersonalDepilaciónDepiladorasDefinitivas",
+        "rate": 0.14,
+        "note": "Espacio disponible para agregar categoría",
+        "sourceRow": 45,
+        "parentCategory": "Depiladoras Definitivas",
+        "premiumRate": 0.17
+      },
+      {
+        "category": "General",
+        "path": "Categoría pendiente de clasificar",
+        "rate": 0.15,
+        "note": "Default editable para categorías pendientes",
+        "sourceRow": 46,
+        "parentCategory": "Mercado Libre / categoría por definir",
+        "premiumRate": 0.195
+      }
+    ],
+    "Liverpool": [
+      {
+        "category": "Accesorios",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 4
+      },
+      {
+        "category": "Accesorios/Eléctricos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1755,
+        "note": "Base 14% + MSI fijo 3.55% = 17.55%",
+        "sourceRow": 5
+      },
+      {
+        "category": "Alimentos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 6
+      },
+      {
+        "category": "Automotriz",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1655,
+        "note": "Base 13% + MSI fijo 3.55% = 16.55%",
+        "sourceRow": 7
+      },
+      {
+        "category": "Belleza",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 8
+      },
+      {
+        "category": "Coleccionables",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 9
+      },
+      {
+        "category": "Cómputo",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1455,
+        "note": "Base 11% + MSI fijo 3.55% = 14.55%",
+        "sourceRow": 10
+      },
+      {
+        "category": "Consolas",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1155,
+        "note": "Base 8% + MSI fijo 3.55% = 11.55%",
+        "sourceRow": 11
+      },
+      {
+        "category": "Deportes/Eléctricos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 12
+      },
+      {
+        "category": "Electrodomésticos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 13
+      },
+      {
+        "category": "Electrónicos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1555,
+        "note": "Base 12% + MSI fijo 3.55% = 15.55%",
+        "sourceRow": 14
+      },
+      {
+        "category": "Herramientas/Eléctricos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 15
+      },
+      {
+        "category": "Hogar",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2255,
+        "note": "Base 19% + MSI fijo 3.55% = 22.55%",
+        "sourceRow": 16
+      },
+      {
+        "category": "Instrumentos musicales",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1955,
+        "note": "Base 16% + MSI fijo 3.55% = 19.55%",
+        "sourceRow": 17
+      },
+      {
+        "category": "Joyería",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2155,
+        "note": "Base 18% + MSI fijo 3.55% = 21.55%",
+        "sourceRow": 18
+      },
+      {
+        "category": "Juguetes",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 19
+      },
+      {
+        "category": "Línea Blanca",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2255,
+        "note": "Base 19% + MSI fijo 3.55% = 22.55%",
+        "sourceRow": 20
+      },
+      {
+        "category": "Muebles",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2255,
+        "note": "Base 19% + MSI fijo 3.55% = 22.55%",
+        "sourceRow": 21
+      },
+      {
+        "category": "Relojes",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2155,
+        "note": "Base 18% + MSI fijo 3.55% = 21.55%",
+        "sourceRow": 22
+      },
+      {
+        "category": "Ropa",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 23
+      },
+      {
+        "category": "Salud",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 24
+      },
+      {
+        "category": "Telefonía",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1455,
+        "note": "Base 11% + MSI fijo 3.55% = 14.55%",
+        "sourceRow": 25
+      },
+      {
+        "category": "Temporalidades",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 26
+      },
+      {
+        "category": "Vinos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.1255,
+        "note": "Base 9% + MSI fijo 3.55% = 12.55%",
+        "sourceRow": 27
+      },
+      {
+        "category": "Zapatos",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 28
+      },
+      {
+        "category": "General",
+        "path": "Liverpool Marketplace / comisión base + MSI fijo",
+        "rate": 0.2055,
+        "note": "Base 17% + MSI fijo 3.55% = 20.55%",
+        "sourceRow": 29
+      }
+    ],
+    "Elektra": [
+      {
+        "category": "ALIMENTOS Y BEBIDAS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.08,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 4
+      },
+      {
+        "category": "ALIMENTOS, BEBIDAS Y",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.08,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 5
+      },
+      {
+        "category": "AUTOS Y LLANTAS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.11,
+        "note": "PDF trae tasas distintas: 10% / 11%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 6
+      },
+      {
+        "category": "BEBES",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 7
+      },
+      {
+        "category": "BEBES, JUGUETES Y NI",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 8
+      },
+      {
+        "category": "BELLEZA Y CUIDADO PE",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.12,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 9
+      },
+      {
+        "category": "CALZADO",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 10
+      },
+      {
+        "category": "COLCHONES Y BOXES",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 11
+      },
+      {
+        "category": "COMPUTO",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.09,
+        "note": "PDF trae tasas distintas: 8% / 9%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 12
+      },
+      {
+        "category": "DEPORTES",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.16,
+        "note": "PDF trae tasas distintas: 15% / 16%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 13
+      },
+      {
+        "category": "FERRETERIA",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.14,
+        "note": "PDF trae tasas distintas: 12% / 14%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 14
+      },
+      {
+        "category": "HOGAR",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 15
+      },
+      {
+        "category": "HOGAR Y MUEBLES",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 16
+      },
+      {
+        "category": "JUGUETES Y NINOS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 17
+      },
+      {
+        "category": "LINEA BLANCA",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 18
+      },
+      {
+        "category": "MASCOTAS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.13,
+        "note": "PDF trae tasas distintas: 10% / 13%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 19
+      },
+      {
+        "category": "MODA Y ACCESORIOS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 20
+      },
+      {
+        "category": "MOTOCICLETAS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.13,
+        "note": "PDF trae tasas distintas: 12% / 13%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 21
+      },
+      {
+        "category": "MUEBLES",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 22
+      },
+      {
+        "category": "MUSICA, PELICULAS, L",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Comision tomada del PDF Elektra.",
+        "sourceRow": 23
+      },
+      {
+        "category": "ROPA",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.15,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 24
+      },
+      {
+        "category": "SALUD Y EQUIPAMIENTO",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.12,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 25
+      },
+      {
+        "category": "TELEFONIA",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.09,
+        "note": "PDF trae tasas distintas: 8% / 9%. Se usa tasa mayor para preliminar.",
+        "sourceRow": 26
+      },
+      {
+        "category": "TV, AUDIO Y VIDEO",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.1,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 27
+      },
+      {
+        "category": "VIDEOJUEGOS",
+        "path": "Elektra Marketplace / categoria convenio",
+        "rate": 0.08,
+        "note": "Categoria repetida en PDF con la misma tasa.",
+        "sourceRow": 28
+      }
+    ]
+  },
+  "shipping": [
+    {
+      "type": "Pequeño",
+      "min": 130,
+      "max": 200,
+      "base": 130,
+      "note": "Puedes cambiar la tarifa base si tu costo real cambia."
+    },
+    {
+      "type": "Mediano",
+      "min": 270,
+      "max": 450,
+      "base": 270,
+      "note": "Puedes cambiar la tarifa base si tu costo real cambia."
+    },
+    {
+      "type": "Grande",
+      "min": 560,
+      "max": 700,
+      "base": 560,
+      "note": "Puedes cambiar la tarifa base si tu costo real cambia."
+    }
+  ],
+  "shippingRules": [
+    {
+      "priority": 1,
+      "keyword": "ECHO POP",
+      "type": "Pequeño",
+      "note": "Bocina compacta"
+    },
+    {
+      "priority": 2,
+      "keyword": "MÁSCARA",
+      "type": "Pequeño",
+      "note": "Cuidado personal"
+    },
+    {
+      "priority": 3,
+      "keyword": "DEPILADORA",
+      "type": "Pequeño",
+      "note": "Cuidado personal"
+    },
+    {
+      "priority": 4,
+      "keyword": "KEYBOARD",
+      "type": "Pequeño",
+      "note": "Accesorio"
+    },
+    {
+      "priority": 5,
+      "keyword": "PENCIL",
+      "type": "Pequeño",
+      "note": "Accesorio"
+    },
+    {
+      "priority": 6,
+      "keyword": "CABLE",
+      "type": "Pequeño",
+      "note": "Accesorio"
+    },
+    {
+      "priority": 7,
+      "keyword": "CONTROL",
+      "type": "Pequeño",
+      "note": "Mando o control"
+    },
+    {
+      "priority": 8,
+      "keyword": "IPAD MINI",
+      "type": "Pequeño",
+      "note": "Mini antes del resto de tabletas"
+    },
+    {
+      "priority": 9,
+      "keyword": "TABLET MINI",
+      "type": "Pequeño",
+      "note": "Tableta compacta"
+    },
+    {
+      "priority": 10,
+      "keyword": "AIRWRAP",
+      "type": "Pequeño",
+      "note": "Estilizador compacto; excepción a Dyson"
+    },
+    {
+      "priority": 11,
+      "keyword": "SUPERSONIC",
+      "type": "Pequeño",
+      "note": "Secadora compacta; excepción a Dyson"
+    },
+    {
+      "priority": 12,
+      "keyword": "VENTILADOR",
+      "type": "Grande",
+      "note": "Equipo voluminoso"
+    },
+    {
+      "priority": 13,
+      "keyword": "PURIFICADOR DE AIRE",
+      "type": "Grande",
+      "note": "Equipo voluminoso"
+    },
+    {
+      "priority": 14,
+      "keyword": "ASPIRADORA",
+      "type": "Grande",
+      "note": "Equipo con embalaje voluminoso"
+    },
+    {
+      "priority": 15,
+      "keyword": "SCOOTER",
+      "type": "Grande",
+      "note": "Equipo voluminoso"
+    },
+    {
+      "priority": 16,
+      "keyword": "PC DE ESCRITORIO",
+      "type": "Grande",
+      "note": "Computadora de escritorio"
+    },
+    {
+      "priority": 17,
+      "keyword": "IMAC",
+      "type": "Grande",
+      "note": "Pantalla y computadora"
+    },
+    {
+      "priority": 18,
+      "keyword": "IPHONE",
+      "type": "Pequeño",
+      "note": "Teléfono"
+    },
+    {
+      "priority": 19,
+      "keyword": "SMARTPHONE",
+      "type": "Pequeño",
+      "note": "Teléfono"
+    },
+    {
+      "priority": 20,
+      "keyword": "APPLE WATCH",
+      "type": "Pequeño",
+      "note": "Reloj"
+    },
+    {
+      "priority": 21,
+      "keyword": "SMARTWATCH",
+      "type": "Pequeño",
+      "note": "Reloj"
+    },
+    {
+      "priority": 22,
+      "keyword": "PERFUME",
+      "type": "Pequeño",
+      "note": "Frasco individual"
+    },
+    {
+      "priority": 23,
+      "keyword": "PARFUM",
+      "type": "Pequeño",
+      "note": "Frasco individual"
+    },
+    {
+      "priority": 24,
+      "keyword": "EAU DE",
+      "type": "Pequeño",
+      "note": "Frasco individual"
+    },
+    {
+      "priority": 25,
+      "keyword": "AIRPODS",
+      "type": "Pequeño",
+      "note": "Audífonos"
+    },
+    {
+      "priority": 26,
+      "keyword": "IPAD",
+      "type": "Mediano",
+      "note": "iPad de 11 a 13 o tamaño sin especificar"
+    },
+    {
+      "priority": 27,
+      "keyword": "TABLET",
+      "type": "Mediano",
+      "note": "Tableta sin tamaño especificado"
+    },
+    {
+      "priority": 28,
+      "keyword": "PLAYSTATION",
+      "type": "Mediano",
+      "note": "Consola"
+    },
+    {
+      "priority": 29,
+      "keyword": "XBOX",
+      "type": "Mediano",
+      "note": "Consola"
+    },
+    {
+      "priority": 30,
+      "keyword": "NINTENDO SWITCH",
+      "type": "Mediano",
+      "note": "Consola"
+    },
+    {
+      "priority": 31,
+      "keyword": "CONSOLA",
+      "type": "Mediano",
+      "note": "Consola"
+    },
+    {
+      "priority": 32,
+      "keyword": "MACBOOK",
+      "type": "Mediano",
+      "note": "Portátil"
+    },
+    {
+      "priority": 33,
+      "keyword": "LAPTOP",
+      "type": "Mediano",
+      "note": "Portátil"
+    },
+    {
+      "priority": 34,
+      "keyword": "BARRA DE SONIDO",
+      "type": "Grande",
+      "note": "Embalaje largo"
+    },
+    {
+      "priority": 35,
+      "keyword": "ECHO DOT",
+      "type": "Pequeño",
+      "note": "Bocina compacta"
+    },
+    {
+      "priority": 36,
+      "keyword": "HOMEPOD MINI",
+      "type": "Pequeño",
+      "note": "Bocina compacta"
+    },
+    {
+      "priority": 37,
+      "keyword": "DYSON",
+      "type": "Grande",
+      "note": "Equipo Dyson; revisar accesorios"
+    }
+  ],
+  "categoryMappings": [
+    {
+      "category": "ADAPTADORES DE CARGA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Celulares",
+        "Mercado Libre": "Cables y adaptadores de datos",
+        "Liverpool": "Accesorios/Eléctricos",
+        "Tienda Nube": "General",
+        "Elektra": "TELEFONIA"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "ASPIRADORA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Aspiradoras y limpiadores a vapor",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "AUDIFONOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Audífonos",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "BARRAS DE SONIDO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Home theaters",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "BAÑERAS Y TINAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Deportes y Aire Libre",
+        "Mercado Libre": "Tinas de baño",
+        "Liverpool": "Hogar",
+        "Tienda Nube": "General",
+        "Elektra": "BEBES"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "BOCINAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Bocinas",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "BOCINAS INTELIGENTES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Bocinas inteligentes",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "BOTELLAS DEPORTIVAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Deportes y Aire Libre",
+        "Mercado Libre": "Botellas deportivas",
+        "Liverpool": "Deportes/Eléctricos",
+        "Tienda Nube": "General",
+        "Elektra": "DEPORTES"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "C1",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "General",
+        "Mercado Libre": "General",
+        "Liverpool": "Hogar",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Revisar"
+    },
+    {
+      "category": "CABLES Y CONECTORES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Cables y adaptadores de datos",
+        "Liverpool": "Accesorios/Eléctricos",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "CAFETERAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Cafeteras eléctricas",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "CELULARES SMARTPHONE",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Celulares",
+        "Mercado Libre": "Celulares",
+        "Liverpool": "Telefonía",
+        "Tienda Nube": "General",
+        "Elektra": "TELEFONIA"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "CONSOLA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Consolas y Videojuegos",
+        "Mercado Libre": "Consolas de videojuegos",
+        "Liverpool": "Consolas",
+        "Tienda Nube": "General",
+        "Elektra": "VIDEOJUEGOS"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "CONTENEDORES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Hogar, Cocina y Jardín (Línea Blanca)",
+        "Mercado Libre": "Contenedores",
+        "Liverpool": "Hogar",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "CONTROLES Y JOYSTICKS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Consolas y Videojuegos",
+        "Mercado Libre": "Gamepads y joysticks",
+        "Liverpool": "Consolas",
+        "Tienda Nube": "General",
+        "Elektra": "VIDEOJUEGOS"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "CÁMARAS DE VIDEO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Videocámaras",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "HORNOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Hornos",
+        "Liverpool": "Línea Blanca",
+        "Tienda Nube": "General",
+        "Elektra": "LINEA BLANCA"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "LAPTOPS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Laptops",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "LICUADORA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Licuadoras",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "LOCALIZADORES DE OBJETOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Localizadores de objetos",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TELEFONIA"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "LÁPICES ÓPTICOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Lápices ópticos",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "MOUSE PARA PC",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Mouse para PC",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "PC DE ESCRITORIO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Computadoras all in one",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "PERFUMERIA CABALLERO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "Perfumería caballero",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "General",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "PERFUMERIA DAMA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "PERFUMERIA DAMA",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "Todas las categorías",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": null,
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "PLANCHAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Planchas",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "PLANCHAS PARA CABELLO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "Planchas de cabello",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "General",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "PURIFICADORES DE AIRE",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Purificadores de aire",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "REPRODUCTORES STREAMING",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Dispositivos de streaming",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "SCOOTERS ELECTRICOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Motos y Accesorios",
+        "Mercado Libre": "Scooters eléctricos",
+        "Liverpool": "Automotriz",
+        "Tienda Nube": "General",
+        "Elektra": "MOTOCICLETAS"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "SECADORAS DE CABELLO",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "Secadoras de cabello",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "General",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "SMARTWATCH",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Celulares",
+        "Mercado Libre": "Smartwatches",
+        "Liverpool": "Relojes",
+        "Tienda Nube": "General",
+        "Elektra": "TELEFONIA"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "SOPORTES DE PANTALLA",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "Soportes de pantalla",
+        "Liverpool": "Accesorios/Eléctricos",
+        "Tienda Nube": "General",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "TABLET",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Tablets",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "TECLADOS PARA TABLETS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Cómputo",
+        "Mercado Libre": "Teclados para tablets",
+        "Liverpool": "Cómputo",
+        "Tienda Nube": "General",
+        "Elektra": "COMPUTO"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "VENTILADORES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Ventiladores",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Grande"
+    },
+    {
+      "category": "VIDEOJUEGOS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Consolas y Videojuegos",
+        "Mercado Libre": "Videojuegos",
+        "Liverpool": "Consolas",
+        "Tienda Nube": "General",
+        "Elektra": "VIDEOJUEGOS"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "WAFLERAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrodomésticos",
+        "Mercado Libre": "Wafleras",
+        "Liverpool": "Electrodomésticos",
+        "Tienda Nube": "General",
+        "Elektra": "HOGAR"
+      },
+      "note": "Match revisado: T1 aplica comisión general; Coppel/ML se asignan por similitud directa con inventario. Editable.",
+      "shipping": "Mediano"
+    },
+    {
+      "category": "DRONES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Electrónica",
+        "Mercado Libre": "DRONES",
+        "Liverpool": "Electrónicos",
+        "Tienda Nube": "Todas las categorías",
+        "Elektra": "TV, AUDIO Y VIDEO"
+      },
+      "note": null,
+      "shipping": "Mediano"
+    },
+    {
+      "category": "CUIDADO PERSONAL Y BELLEZA MASCARAS FACIALES",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "Mascaras Led Faciales",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "Todas las categorías",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": null,
+      "shipping": "Pequeño"
+    },
+    {
+      "category": "CUIDADO PERSONAL Y BELLEZA DEPILADORAS",
+      "channels": {
+        "T1 Comercios": "Todas las categorías",
+        "Coppel": "Salud, Belleza y Cuidado Personal",
+        "Mercado Libre": "Depiladoras Definitivas",
+        "Liverpool": "Belleza",
+        "Tienda Nube": "Todas las categorías",
+        "Elektra": "BELLEZA Y CUIDADO PE"
+      },
+      "note": null,
+      "shipping": "Pequeño"
+    }
+  ],
+  "organizations": [
+    {
+      "category": "ADAPTADORES DE CARGA",
+      "general": "Tecnología",
+      "department": "Telefonía y accesorios",
+      "departmentIcon": "Smartphone",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "ASPIRADORA",
+      "general": "Hogar y cocina",
+      "department": "Limpieza y planchado",
+      "departmentIcon": "BrushCleaning",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "AUDIFONOS",
+      "general": "Tecnología",
+      "department": "Audio",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "BARRAS DE SONIDO",
+      "general": "Tecnología",
+      "department": "Audio",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "BAÑERAS Y TINAS",
+      "general": "Hogar y cocina",
+      "department": "Spas y descanso",
+      "departmentIcon": "Bath",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "BOCINAS",
+      "general": "Tecnología",
+      "department": "Audio",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "BOCINAS INTELIGENTES",
+      "general": "Tecnología",
+      "department": "Hogar inteligente",
+      "departmentIcon": "HouseWifi",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "BOTELLAS DEPORTIVAS",
+      "general": "Deportes y movilidad",
+      "department": "Botellas deportivas",
+      "departmentIcon": "BottleWine",
+      "categoryIcon": "Bike",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "C1",
+      "general": "Tecnología",
+      "department": "Hogar inteligente",
+      "departmentIcon": "HouseWifi",
+      "categoryIcon": "Laptop",
+      "note": "Echo Pop de Amazon: clasificado como hogar inteligente sin cambiar la clave C1."
+    },
+    {
+      "category": "CABLES Y CONECTORES",
+      "general": "Tecnología",
+      "department": "Telefonía y accesorios",
+      "departmentIcon": "Smartphone",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CAFETERAS",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CELULARES SMARTPHONE",
+      "general": "Tecnología",
+      "department": "Telefonía y accesorios",
+      "departmentIcon": "Smartphone",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CONSOLA",
+      "general": "Videojuegos",
+      "department": "Consolas",
+      "departmentIcon": "Gamepad2",
+      "categoryIcon": "Gamepad2",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CONTENEDORES",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CONTROLES Y JOYSTICKS",
+      "general": "Videojuegos",
+      "department": "Controles y accesorios",
+      "departmentIcon": "Joystick",
+      "categoryIcon": "Gamepad2",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CÁMARAS DE VIDEO",
+      "general": "Tecnología",
+      "department": "Video y fotografía",
+      "departmentIcon": "Camera",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "HORNOS",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "LAPTOPS",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "LICUADORA",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "LOCALIZADORES DE OBJETOS",
+      "general": "Tecnología",
+      "department": "Telefonía y accesorios",
+      "departmentIcon": "Smartphone",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "LÁPICES ÓPTICOS",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "MOUSE PARA PC",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PC DE ESCRITORIO",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PERFUMERIA CABALLERO",
+      "general": "Belleza y cuidado personal",
+      "department": "Perfumería caballero",
+      "departmentIcon": "SprayCan",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PERFUMERIA DAMA",
+      "general": "Belleza y cuidado personal",
+      "department": "Perfumería dama",
+      "departmentIcon": "Flower2",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PLANCHAS",
+      "general": "Hogar y cocina",
+      "department": "Limpieza y planchado",
+      "departmentIcon": "BrushCleaning",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PLANCHAS PARA CABELLO",
+      "general": "Belleza y cuidado personal",
+      "department": "Cuidado del cabello",
+      "departmentIcon": "Wind",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "PURIFICADORES DE AIRE",
+      "general": "Hogar y cocina",
+      "department": "Climatización",
+      "departmentIcon": "Fan",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "REPRODUCTORES STREAMING",
+      "general": "Tecnología",
+      "department": "Video y fotografía",
+      "departmentIcon": "Camera",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "SCOOTERS ELECTRICOS",
+      "general": "Deportes y movilidad",
+      "department": "Movilidad eléctrica",
+      "departmentIcon": "Bike",
+      "categoryIcon": "Bike",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "SECADORAS DE CABELLO",
+      "general": "Belleza y cuidado personal",
+      "department": "Cuidado del cabello",
+      "departmentIcon": "Wind",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "SMARTWATCH",
+      "general": "Tecnología",
+      "department": "Relojes inteligentes",
+      "departmentIcon": "Watch",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "SOPORTES DE PANTALLA",
+      "general": "Tecnología",
+      "department": "Video y fotografía",
+      "departmentIcon": "Camera",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "TABLET",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "TECLADOS PARA TABLETS",
+      "general": "Tecnología",
+      "department": "Computación y tablets",
+      "departmentIcon": "Laptop",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "VENTILADORES",
+      "general": "Hogar y cocina",
+      "department": "Climatización",
+      "departmentIcon": "Fan",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "VIDEOJUEGOS",
+      "general": "Videojuegos",
+      "department": "Juegos",
+      "departmentIcon": "Disc3",
+      "categoryIcon": "Gamepad2",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "WAFLERAS",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "DRONES",
+      "general": "Tecnología",
+      "department": "Video y fotografía",
+      "departmentIcon": "Camera",
+      "categoryIcon": "Laptop",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CUIDADO PERSONAL Y BELLEZA MASCARAS FACIALES",
+      "general": "Belleza y cuidado personal",
+      "department": "Cuidado personal",
+      "departmentIcon": "Sparkles",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CUIDADO PERSONAL Y BELLEZA DEPILADORAS",
+      "general": "Belleza y cuidado personal",
+      "department": "Cuidado personal",
+      "departmentIcon": "Sparkles",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "CUIDADO PERSONAL Y BELLEZA",
+      "general": "Belleza y cuidado personal",
+      "department": "Cuidado personal",
+      "departmentIcon": "Sparkles",
+      "categoryIcon": "Sparkles",
+      "note": "Clave original conservada; clasificación comercial independiente del match."
+    },
+    {
+      "category": "AMPLIFICADOR",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "CONTROLADOR",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "HERRAJE",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "ILUMINACION",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "LAVAVAJILLA",
+      "general": "Hogar y cocina",
+      "department": "Cocina",
+      "departmentIcon": "CookingPot",
+      "categoryIcon": "House",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "MEZCLADORA",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "MICROFONÍA",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "MONITOREO",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    },
+    {
+      "category": "RACK",
+      "general": "Tecnología",
+      "department": "Audio e iluminación profesional",
+      "departmentIcon": "Headphones",
+      "categoryIcon": "Laptop",
+      "note": "Clasificación comercial SICAR; match de comisión pendiente de revisión."
+    }
+  ],
+  "brands": [
+    {
+      "original": "AG",
+      "name": "AG",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "AMAZON",
+      "name": "Amazon",
+      "graphic": "brand_amazon",
+      "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.15.0/icons/amazon.svg",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "APAA",
+      "name": "APAA",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "APPLE",
+      "name": "Apple",
+      "graphic": "brand_apple",
+      "url": "https://cdn.simpleicons.org/apple",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "Ariana Grande",
+      "name": "Ariana Grande",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "BEATS",
+      "name": "Beats",
+      "graphic": "brand_beats",
+      "url": "https://cdn.simpleicons.org/beats",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "BELKIN",
+      "name": "Belkin",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Billie Elish",
+      "name": "Billie Elish",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "BLACKROCK",
+      "name": "BLACKROCK",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "BOSE",
+      "name": "Bose",
+      "graphic": "brand_bose",
+      "url": "https://cdn.simpleicons.org/bose",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "BREVILLE",
+      "name": "Breville",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "BUGATTI",
+      "name": "BUGATTI",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Calvin Klein",
+      "name": "Calvin Klein",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Carolina Herrera",
+      "name": "Carolina Herrera",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CHI",
+      "name": "CHI",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Conair",
+      "name": "Conair",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "DASH",
+      "name": "DASH",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "DJI",
+      "name": "DJI",
+      "graphic": "brand_dji",
+      "url": "https://cdn.simpleicons.org/dji",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "Dolce & Gabbana",
+      "name": "Dolce & Gabbana",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "DYSON",
+      "name": "Dyson",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "GOPRO",
+      "name": "GoPro",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "HP",
+      "name": "HP",
+      "graphic": "brand_hp",
+      "url": "https://cdn.simpleicons.org/hp",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "JBL",
+      "name": "JBL",
+      "graphic": "brand_jbl",
+      "url": "https://cdn.simpleicons.org/jbl",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "Jean Paul Gaultier",
+      "name": "Jean Paul Gaultier",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Loewe",
+      "name": "Loewe",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "MOSCHINO",
+      "name": "MOSCHINO",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Nautica",
+      "name": "Nautica",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "NINTENDO",
+      "name": "Nintendo",
+      "graphic": "brand_nintendo",
+      "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.15.0/icons/nintendo.svg",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "Philips",
+      "name": "Philips",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "PLAYSTATION",
+      "name": "PlayStation",
+      "graphic": "brand_playstation",
+      "url": "https://cdn.simpleicons.org/playstation",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "SALUSPA",
+      "name": "SALUSPA",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "SAMSUNG",
+      "name": "Samsung",
+      "graphic": "brand_samsung",
+      "url": "https://cdn.simpleicons.org/samsung",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "SENNHEISER",
+      "name": "Sennheiser",
+      "graphic": "brand_sennheiser",
+      "url": "https://cdn.simpleicons.org/sennheiser",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "SMEG",
+      "name": "SMEG",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "SONOS",
+      "name": "Sonos",
+      "graphic": "brand_sonos",
+      "url": "https://cdn.simpleicons.org/sonos",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "Tommy Hilfiger",
+      "name": "Tommy Hilfiger",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "Versace",
+      "name": "Versace",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "WOOZOO",
+      "name": "WOOZOO",
+      "graphic": "icon_Tag",
+      "url": null,
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "XBOX",
+      "name": "Xbox",
+      "graphic": "brand_xbox",
+      "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.15.0/icons/xbox.svg",
+      "availability": "Logo descargado"
+    },
+    {
+      "original": "ADJ",
+      "name": "ADJ",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "AKG",
+      "name": "AKG",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "ARIANA GRANDE",
+      "name": "ARIANA GRANDE",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "AUDIX",
+      "name": "AUDIX",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "BILLIE EILISH",
+      "name": "BILLIE EILISH",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CALVIN KLEIN",
+      "name": "CALVIN KLEIN",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CAROLINA HERRERA",
+      "name": "CAROLINA HERRERA",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CHAUVET",
+      "name": "CHAUVET",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CONAIR",
+      "name": "CONAIR",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "CROWN",
+      "name": "CROWN",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "DOLCE GABBANA",
+      "name": "DOLCE GABBANA",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "ENTTEC",
+      "name": "ENTTEC",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "JEAN PAUL",
+      "name": "JEAN PAUL",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "LG",
+      "name": "LG",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "LOEWE",
+      "name": "LOEWE",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "PHILIPS",
+      "name": "PHILIPS",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "PIONEER",
+      "name": "PIONEER",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "SHURE",
+      "name": "SHURE",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "TOMMY HILFIGER",
+      "name": "TOMMY HILFIGER",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "VERSACE",
+      "name": "VERSACE",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    },
+    {
+      "original": "YAMAHA",
+      "name": "YAMAHA",
+      "graphic": "icon_Tag",
+      "url": "",
+      "availability": "Nombre e icono genérico"
+    }
+  ],
+  "elektraMsi": [
+    {
+      "label": "Sin MSI",
+      "rate": 0
+    },
+    {
+      "label": "3MSI",
+      "rate": 0.01
+    },
+    {
+      "label": "6MSI",
+      "rate": 0.03
+    },
+    {
+      "label": "9MSI",
+      "rate": 0.04
+    },
+    {
+      "label": "12MSI",
+      "rate": 0.06
+    },
+    {
+      "label": "24MSI",
+      "rate": 0.08
+    }
+  ],
+  "tnGateways": [
+    {
+      "gateway": "Pago Nube",
+      "mode": "Tarjeta sin MSI",
+      "months": 0,
+      "min": 0,
+      "max": 9999999,
+      "effectiveRate": 0.0351666844456297,
+      "weight": 0.1,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0,
+      "msiVat": "NO",
+      "extraRate": 0,
+      "note": "Base 3.49% + $4"
+    },
+    {
+      "gateway": "Pago Nube",
+      "mode": "Hasta 3 MSI",
+      "months": 3,
+      "min": 2499,
+      "max": 9999999,
+      "effectiveRate": 0.0820666844456297,
+      "weight": 1,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.0469,
+      "msiVat": "NO",
+      "extraRate": 0,
+      "note": "Desde $2,499"
+    },
+    {
+      "gateway": "Pago Nube",
+      "mode": "Hasta 6 MSI",
+      "months": 6,
+      "min": 5999,
+      "max": 9999999,
+      "effectiveRate": 0.11206668444563,
+      "weight": 1.7,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.0769,
+      "msiVat": "NO",
+      "extraRate": 0,
+      "note": "Desde $5,999"
+    },
+    {
+      "gateway": "Pago Nube",
+      "mode": "Hasta 9 MSI",
+      "months": 9,
+      "min": 9999,
+      "max": 9999999,
+      "effectiveRate": 0.14706668444563,
+      "weight": 2.5,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.1119,
+      "msiVat": "NO",
+      "extraRate": 0,
+      "note": "Desde $9,999"
+    },
+    {
+      "gateway": "Pago Nube",
+      "mode": "Hasta 12 MSI",
+      "months": 12,
+      "min": 14999,
+      "max": 9999999,
+      "effectiveRate": 0.16406668444563,
+      "weight": 5,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.1289,
+      "msiVat": "NO",
+      "extraRate": 0,
+      "note": "Desde $14,999"
+    },
+    {
+      "gateway": "Mercado Pago",
+      "mode": "Hasta 3 MSI",
+      "months": 3,
+      "min": 2500,
+      "max": 9999999,
+      "effectiveRate": 0.0907386844456297,
+      "weight": 1,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.0459,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Base + MSI + IVA + 0.6% externo"
+    },
+    {
+      "gateway": "Mercado Pago",
+      "mode": "Hasta 6 MSI",
+      "months": 6,
+      "min": 5999,
+      "max": 9999999,
+      "effectiveRate": 0.12313868444563,
+      "weight": 1.8,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.0759,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Base + MSI + IVA + 0.6% externo"
+    },
+    {
+      "gateway": "Mercado Pago",
+      "mode": "Hasta 9 MSI",
+      "months": 9,
+      "min": 9999,
+      "max": 9999999,
+      "effectiveRate": 0.16093868444563,
+      "weight": 3,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.1109,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Base + MSI + IVA + 0.6% externo"
+    },
+    {
+      "gateway": "Mercado Pago",
+      "mode": "Hasta 12 MSI",
+      "months": 12,
+      "min": 14999,
+      "max": 9999999,
+      "effectiveRate": 0.17929868444563,
+      "weight": 6,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.1279,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Base + MSI + IVA + 0.6% externo"
+    },
+    {
+      "gateway": "PayPal",
+      "mode": "Hasta 3 MSI",
+      "months": 3,
+      "min": 2500,
+      "max": 9999999,
+      "effectiveRate": 0.0843666844456297,
+      "weight": 0.8,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.04,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Solo 3 y 6 MSI"
+    },
+    {
+      "gateway": "PayPal",
+      "mode": "Hasta 6 MSI",
+      "months": 6,
+      "min": 5999,
+      "max": 9999999,
+      "effectiveRate": 0.11676668444563,
+      "weight": 1.3,
+      "included": "SI",
+      "baseOperation": "3.49% + $4",
+      "msiRate": 0.07,
+      "msiVat": "SI",
+      "extraRate": 0.006,
+      "note": "Solo 3 y 6 MSI"
+    },
+    {
+      "gateway": "Kueski Pay",
+      "mode": "Préstamo",
+      "months": 0,
+      "min": 0,
+      "max": 26000,
+      "effectiveRate": 0.0698,
+      "weight": 0.6,
+      "included": "SI",
+      "baseOperation": "N/A",
+      "msiRate": 0.0638,
+      "msiVat": "NO",
+      "extraRate": 0.006,
+      "note": "Aplica desde cualquier monto hasta $26,000"
+    }
+  ],
+  "tnBands": [
+    {
+      "label": "$0 a $2,498",
+      "min": 0,
+      "max": 2498,
+      "simpleMean": 0.0531506405124099,
+      "weightedMean": 0.0650430401464028,
+      "maxRate": 0.0698,
+      "usedRate": 0.0669458240878417,
+      "methodCount": 2,
+      "criterion": "Sin MSI bancario; Kueski aplica si no supera $26,000.",
+      "note": "Tasa conservadora sobre métodos posibles."
+    },
+    {
+      "label": "$2,499 a $5,998",
+      "min": 2499,
+      "max": 5998,
+      "simpleMean": 0.063233760170735,
+      "weightedMean": 0.0758415907539486,
+      "maxRate": 0.0834006402561024,
+      "usedRate": 0.0788652105548102,
+      "methodCount": 3,
+      "criterion": "Entra 3 MSI; externos desde $2,500.",
+      "note": "Se pondera más hacia opciones caras."
+    },
+    {
+      "label": "$5,999 a $9,998",
+      "min": 5999,
+      "max": 9998,
+      "simpleMean": 0.089613930571762,
+      "weightedMean": 0.102739251690543,
+      "maxRate": 0.123538777796299,
+      "usedRate": 0.111059062132845,
+      "methodCount": 8,
+      "criterion": "Entran 3 y 6 MSI. PayPal solo hasta 6 MSI.",
+      "note": "Mayor probabilidad de MSI intermedios."
+    },
+    {
+      "label": "$9,999 a $14,998",
+      "min": 9999,
+      "max": 14998,
+      "simpleMean": 0.1023316360036,
+      "weightedMean": 0.123325951308174,
+      "maxRate": 0.161072040004,
+      "usedRate": 0.138424386786505,
+      "methodCount": 10,
+      "criterion": "Entran 3, 6 y 9 MSI.",
+      "note": "Ponderación conservadora por MSI altos."
+    },
+    {
+      "label": "$14,999 a $26,000",
+      "min": 14999,
+      "max": 26000,
+      "simpleMean": 0.113790127408494,
+      "weightedMean": 0.145010619499364,
+      "maxRate": 0.17929868444563,
+      "usedRate": 0.158725845477871,
+      "methodCount": 12,
+      "criterion": "Entran 3, 6, 9, 12 MSI y Kueski Pay.",
+      "note": "Tasa usada cercana al escenario alto."
+    },
+    {
+      "label": "Más de $26,000",
+      "min": 26001,
+      "max": 9999999,
+      "simpleMean": 0.117676385691459,
+      "weightedMean": 0.146762501393939,
+      "maxRate": 0.179185840236914,
+      "usedRate": 0.159731836931129,
+      "methodCount": 11,
+      "criterion": "Kueski Pay no califica arriba de $26,000.",
+      "note": "Se excluye Kueski, se mantienen MSI altos."
+    }
+  ],
+  "settlement": {
+    "shippingTreatment": {
+      "Sears": "Externo",
+      "Sanborns": "Externo",
+      "Liverpool": "Por confirmar",
+      "Coppel": "Por confirmar",
+      "Elektra": "Descontado",
+      "Tienda Nube": "Descontado",
+      "Mercado Libre": "Descontado"
+    },
+    "liverpoolIncludedMsi": 0.0355,
+    "liverpoolMsi": [
+      {
+        "months": 0,
+        "rate": 0
+      },
+      {
+        "months": 3,
+        "rate": 0.0295
+      },
+      {
+        "months": 6,
+        "rate": 0.0355
+      }
+    ]
+  }
+}

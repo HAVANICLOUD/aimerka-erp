@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const D = require('./dist/domain.js');
+const D = require('./lib/legacy-domain.cjs');
 let tested = 0;
 function test(name, run) { run(); tested++; console.log('OK ' + name); }
 function product(state, order) { return state.products.find(p => p.sku === order.sku); }
