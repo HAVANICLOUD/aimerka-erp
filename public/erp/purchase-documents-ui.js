@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-reference-v2').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-reference-v2').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-context-v3').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-context-v3').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -16,6 +16,13 @@
  const related=(line,p)=>line.sku===p.sku||line.skuOrUpc===p.sku||p.upc&&line.skuOrUpc===p.upc;
  const blockers=d=>[...new Set((d.validation?.issues||[]).filter(issue=>issue.severity==='error').map(issue=>issue.message))];
  const hasChanges=d=>Boolean(d.documents.length||d.editedDocumentIds?.length);
+ function referenceNeedsReview(parsed){
+   if(!parsed)return false;
+   const normalize=parserModule?.normalizeSupplierOrder||(value=>String(value??'').trim().toUpperCase());
+   return Boolean((!parsed.supplierOrderReviewed||!parsed.supplierOrder)&&(parsed.supplierOrderNeedsReview||parsed.supplierOrderConflict)||
+     parsed.supplierOrder&&(parserModule?.isTemporalSupplierOrder(parsed.supplierOrder,{context:parsed.evidence?.supplierOrder})||
+       (parsed.supplierOrderRejectedCandidates||[]).some(candidate=>normalize(candidate.value)===normalize(parsed.supplierOrder)&&(candidate.reason!=='ambiguous_columns'||!parsed.supplierOrderReviewed))));
+ }
  function validationFor(d){return validationEngine?.validatePurchaseDocuments(allDocs(d),{purchase:d.purchase,lines:d.lines,products:state.products||[],purchases:state.purchases||[],purchaseId:d.purchaseId||undefined});}
  function refreshDerivedOrder(d){
    if(!parserModule)return;
@@ -25,10 +32,11 @@
    if(prior?.supplierOrder){d.orderReferenceMode='existing';return;}
    const current=String(d.purchase.supplierOrder||''),temporal=parserModule.isTemporalSupplierOrder(current);
    if(d.orderReferenceMode!=='auto'&&!temporal)return;
-   const references=documents=>[...new Set(documents.map(doc=>doc.parsed?.supplierOrder)
+   const references=documents=>[...new Set(documents.filter(doc=>!referenceNeedsReview(doc.parsed)).map(doc=>doc.parsed?.supplierOrder)
      .filter(value=>value&&!parserModule.isTemporalSupplierOrder(value)).map(value=>parserModule.normalizeSupplierOrder(value)).filter(Boolean))];
-   const orderReferences=references(allDocs(d).filter(doc=>doc.parsed?.kind==='order'));
-   const candidates=orderReferences.length?orderReferences:references(allDocs(d));
+   const orderDocuments=allDocs(d).filter(doc=>doc.parsed?.kind==='order'),orderReferences=references(orderDocuments);
+   // An unreadable order must be reviewed, rather than inferred from its invoices.
+   const candidates=orderDocuments.length?orderReferences:references(allDocs(d));
    const next=candidates.length===1?candidates[0]:'';
    d.purchase.supplierOrder=next;d.orderReferenceMode='auto';
    const input=get('docs-order');if(input&&input.value!==next)input.value=next;
@@ -38,12 +46,21 @@
    if(d!==draft)return;refreshDerivedOrder(d);d.validation=validationFor(d);
    if(!paint)return;
    const panel=get('docs-validation');if(panel)panel.innerHTML=validationPanel(d);
-   for(const row of document.querySelectorAll('#document-import-form [data-doc-match]')){const check=d.validation?.documentChecks?.find(check=>check.id===row.dataset.docMatch);row.innerHTML=matchBadge(check);}
+   for(const row of document.querySelectorAll('#document-import-form [data-doc-match]')){const check=d.validation?.documentChecks?.find(check=>check.id===row.dataset.docMatch),doc=allDocs(d).find(doc=>doc.id===row.dataset.docMatch);row.innerHTML=matchBadge(check,doc?.parsed);}
+   for(const row of document.querySelectorAll('#document-import-form [data-doc-reference-notice]')){const doc=allDocs(d).find(doc=>doc.id===row.dataset.docReferenceNotice);row.innerHTML=referenceNotice(doc?.parsed);}
    const saveButton=get('docs-save');if(saveButton)saveButton.disabled=Boolean(d.busy||!hasChanges(d)||!d.lines.length||blockers(d).length||!d.validation);
    const warning=get('docs-blockers');if(warning){warning.hidden=!blockers(d).length;warning.innerHTML=blockerPanel(d);}
  }
  const checkColor=check=>({matched:'green',mismatch:'red',missing:'amber',duplicate:'amber',unverified:'slate'})[check?.status]||'slate';
- const matchBadge=check=>{const label=({matched:'Orden coincidente',mismatch:'No coincide',missing:'Sin referencia',duplicate:'Duplicado',unverified:'Por verificar'})[check?.status]||'Por verificar';return '<span title="'+esc(check?.label||label)+'">'+badge(label,checkColor(check))+'</span>';};
+ const matchBadge=(check,parsed)=>{if(referenceNeedsReview(parsed))return '<span>'+badge('Referencia por revisar','amber')+'</span>';const label=({matched:'Orden coincidente',mismatch:'No coincide',missing:'Sin referencia',duplicate:'Duplicado',unverified:'Por verificar'})[check?.status]||'Por verificar';return '<span title="'+esc(check?.label||label)+'">'+badge(label,checkColor(check))+'</span>';};
+ function referenceNotice(parsed){
+   const rejected=parsed?.supplierOrderRejectedCandidates||[],pending=referenceNeedsReview(parsed);
+   if(!rejected.length&&!pending)return '';
+   const reasons={date_time_context:'parece una hora sin separadores junto a la fecha de compra',ambiguous_columns:'no pudo distinguirse de otros números de las columnas'};
+   return '<div class="document-warnings small-note" role="status"><strong>'+ (pending?'Confirma el número en el documento original':'Se revisó el contexto de la referencia')+'</strong>'+
+     (rejected.length?'<ul>'+rejected.map(candidate=>'<li>Se descartó <strong>'+esc(candidate.value)+'</strong> en la lectura inicial: '+esc(reasons[candidate.reason]||'el contexto no permite identificarlo como una orden del proveedor')+'.'+(candidate.evidence?'<br><span>Contexto: '+esc(candidate.evidence)+'</span>':'')+'</li>').join('')+'</ul>':'')+
+     (pending?'<p>La lectura no identifica una referencia segura. Revisa el original y corrige el número de orden de este documento antes de guardar.</p>':'')+'</div>';
+ }
  function validationPanel(d){
    const report=d.validation;if(!allDocs(d).length)return '';
    if(!report)return '<div class="doc-match-panel" role="status">Comprobando la orden y todas sus facturas…</div>';
@@ -55,7 +72,7 @@
  function blockerPanel(d){return '<strong>Resuelve las diferencias antes de guardar</strong><p>'+blockers(d).map(esc).join(' ')+'</p><p>Quita el documento incorrecto o revisa su lectura y la referencia original.</p>';}
  function setDocumentReference(d,doc,reference){
    const value=String(reference??'').trim();if(value===String(doc.parsed?.supplierOrder||''))return;
-   const parsed=doc.parsed;parsed.supplierOrderOriginal??=parsed.supplierOrder||'';parsed.supplierOrder=value||null;parsed.supplierOrderReviewed=true;doc.extraction='manual';
+   const parsed=doc.parsed;parsed.supplierOrderOriginal??=parsed.supplierOrder||'';parsed.supplierOrder=value||null;parsed.supplierOrderReviewed=true;parsed.supplierOrderNeedsReview=!value;parsed.supplierOrderConflict=false;doc.extraction='manual';
    if(existingDocs(d).some(row=>row.id===doc.id)&&!d.editedDocumentIds.includes(doc.id))d.editedDocumentIds.push(doc.id);
    d.reviewed=false;const checkbox=get('docs-reviewed');if(checkbox)checkbox.checked=false;
  }
@@ -142,8 +159,9 @@
      '<div class="document-card-meta">'+badge(kindName(p.kind),p.kind==='invoice'?'green':'blue')+'<span>'+esc(p.invoiceNumber||p.supplierOrder||'Sin referencia')+'</span><span>'+esc(doc.extraction==='ocr'?'OCR de imagen':doc.extraction==='manual'?'Revisión manual':'Lectura PDF')+'</span></div>'+
      '<div class="document-order-reference"><span>Número de orden en este documento</span>'+
      (editable?'<input data-doc-order-reference="'+esc(doc.id)+'" aria-label="Número de orden en '+esc(doc.name)+'" value="'+esc(p.supplierOrder||'')+'" maxlength="120" autocomplete="off" placeholder="Revisa el número en el original">':'<strong>'+esc(p.supplierOrder||'No identificado')+'</strong>')+
-     '<div data-doc-match="'+esc(doc.id)+'">'+matchBadge(check)+'</div>'+
-     (p.supplierOrderReviewed?'<small>Referencia revisada manualmente. Lectura inicial: '+esc(p.supplierOrderOriginal||'sin número')+'.</small>':p.evidence?.supplierOrder?'<small>Lectura: '+esc(p.evidence.supplierOrder)+'</small>':editable?'<small>Si la lectura falta o es incorrecta, escribe el número que aparece en este documento.</small>':'')+'</div>'+
+     '<div data-doc-match="'+esc(doc.id)+'">'+matchBadge(check,p)+'</div>'+
+     (p.supplierOrderReviewed?'<small>Referencia revisada manualmente. Lectura inicial: '+esc(p.supplierOrderOriginal||'sin número')+'.</small>':p.evidence?.supplierOrder?'<small>Lectura: '+esc(p.evidence.supplierOrder)+'</small>':editable?'<small>Si la lectura falta o es incorrecta, escribe el número que aparece en este documento.</small>':'')+
+     '<div data-doc-reference-notice="'+esc(doc.id)+'">'+referenceNotice(p)+'</div></div>'+
      (p.totalCents!=null?'<div class="document-card-total">'+money(p.totalCents)+'</div>':'<div class="small-note">Importe por confirmar</div>')+
      (p.uuid?'<div class="document-uuid">UUID '+esc(p.uuid)+'</div>':'')+
      '<div class="document-card-actions">'+(url?'<a class="btn small" target="_blank" rel="noopener" href="'+esc(url)+'">Ver original ↗</a>':'')+

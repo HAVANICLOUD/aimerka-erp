@@ -14,6 +14,12 @@ const product={sku:'DYSV12M03L',upc:'885609037998',name:'Dyson V12',brand:'Dyson
 const line={sku:product.sku,name:product.name,supplierItem:'701577',qty:2,unitCostCents:null,totalCents:null,documentIds:[]};
 const order=(id='order')=>({id,name:'orden.pdf',parsed:{kind:'order',supplier:'Costco',supplierOrder:'599633002',currency:'MXN',date:'2026-10-19',totalCents:null,lines:[{supplierItem:'701577',name:'Dyson V12',qty:2}]}});
 const invoice=(id,n=1,ref='599633002')=>({id,name:'factura-'+id+'.pdf',parsed:{kind:'invoice',supplier:'Costco',supplierOrder:ref,currency:'MXN',invoiceNumber:'BMG'+n,uuid:String(n).padStart(8,'0')+'-1111-4111-8111-111111111111',totalCents:409900,lines:[{supplierItem:'701577',name:'Dyson V12',qty:1,totalCents:409900,unitCostCents:409900}]}});
+const ocrHeader='Costco\nFecha de creación\nNúmero de orden\nForma de pago\nD Mis métodos de\n19/10/2026 021718\n';
+const ocrOrder=text=>{
+  const doc=order();doc.name='ORDEN COSTCO 599633002.pdf';doc.text=text;doc.extraction='ocr';
+  doc.parsed={...doc.parsed,...parserEngine.parsePurchaseDocument(text,{fileName:doc.name}),lines:doc.parsed.lines,currency:'MXN'};
+  return doc;
+};
 function setup(state={products:[structuredClone(product)],purchases:[],documents:[],catalogs:{suppliers:['Costco']}}){
   const nodes=new Map(),events=new Map(),toasts=[];let html='',uploads=0,commands=0;
   nodes.set('modal',{classList:{add(){},remove(){}},addEventListener(){},close(){}});
@@ -130,4 +136,87 @@ test('an unrelated invoice cannot displace the automatic reference from the actu
   await ui.helpers.recompute(draft);
   assert.equal(draft.purchase.supplierOrder,'599633002');assert.equal(draft.validation.valid,false);
   assert.ok(draft.validation.issues.some(issue=>issue.code==='ORDER_NUMBER_MISMATCH'&&issue.actual==='999999999'));
+});
+
+test('the screenshot OCR clock is blocked from an old parsed result using its retained evidence',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=order();
+  doc.extraction='ocr';doc.parsed.supplierOrder='021718';
+  doc.parsed.evidence={supplierOrder:'Número de orden Forma de pago D Mis métodos de 19/10/2026 021718'};
+  draft.documents.push(doc);draft.purchase.supplierOrder='021718';draft.orderReferenceMode='auto';
+  await ui.helpers.recompute(draft);
+  assert.equal(draft.purchase.supplierOrder,'');assert.equal(draft.validation.valid,false);
+  assert.match(ui.html,/Referencia por revisar/);assert.doesNotMatch(ui.html,/Orden coincidente/);
+  assert.match(ui.html,/docs-save[^>]*disabled/);
+  ui.nodes.set('docs-reviewed',{checked:true});await ui.helpers.save(draft);
+  assert.equal(ui.uploads,0);assert.equal(ui.commands,0);
+});
+
+test('a fresh OCR reading rejects the compact clock and does not infer an order from the file name',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=ocrOrder(ocrHeader+'Visa\nPM');
+  draft.documents.push(doc);await ui.helpers.recompute(draft);
+  assert.equal(doc.parsed.supplierOrder,null);assert.equal(doc.parsed.supplierOrderNeedsReview,true);
+  assert.equal(draft.purchase.supplierOrder,'');assert.equal(draft.validation.valid,false);
+  assert.match(ui.html,/Se descartó <strong>021718<\/strong>/);
+  assert.match(ui.html,/parece una hora sin separadores junto a la fecha de compra/);
+  assert.doesNotMatch(ui.html,/date_time_context/);assert.match(ui.html,/docs-save[^>]*disabled/);
+  ui.nodes.set('docs-reviewed',{checked:true});await ui.helpers.save(draft);
+  assert.equal(ui.uploads,0);assert.equal(ui.commands,0);
+});
+
+test('the re-interpret button replaces an automatic OCR clock with the contextual order and explains the discard',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=order();
+  doc.parsed.supplierOrder='021718';draft.documents.push(doc);await ui.helpers.recompute(draft);
+  assert.equal(draft.purchase.supplierOrder,'021718');
+  // Keep this regression focused on the reference; real line parsing is covered separately.
+  const text=ocrHeader+'599633002\nVisa\nPM\nArtículo 701577\nDyson V12\nCantidad: 2';
+  ui.context.document.querySelector=selector=>selector.includes('data-doc-text')?{value:text}:selector.includes('data-doc-kind')?{value:'order'}:null;
+  const button={dataset:{docReparse:doc.id},hasAttribute:name=>name==='data-doc-reparse'};
+  for(const handler of ui.events.get('click'))await handler({target:{closest:()=>button}});
+  assert.equal(doc.parsed.supplierOrder,'599633002');assert.equal(draft.purchase.supplierOrder,'599633002');
+  assert.equal(doc.parsed.supplierOrderNeedsReview,false);assert.equal(draft.validation.valid,true);
+  assert.match(ui.html,/Se descartó <strong>021718<\/strong>/);assert.match(ui.html,/Orden coincidente/);
+});
+
+test('an ambiguous re-read clears an automatic header even when an invoice has a reference',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=order();
+  doc.parsed.supplierOrder='021718';draft.documents.push(doc);await ui.helpers.recompute(draft);
+  doc.parsed=ocrOrder(ocrHeader+'Visa\nPM').parsed;draft.documents.push(invoice('one'));
+  await ui.helpers.recompute(draft);
+  assert.equal(draft.purchase.supplierOrder,'');assert.equal(draft.validation.valid,false);
+  assert.match(ui.html,/docs-save[^>]*disabled/);
+});
+
+test('an ambiguous OCR result preserves a deliberately entered supplier order for review',async()=>{
+  const ui=setup();await ui.api.open({purchaseDraft:{supplier:'Costco',supplierOrder:'MANUAL0001'}});
+  const draft=ui.helpers.getDraft();draft.documents.push(ocrOrder(ocrHeader+'Visa\nPM'));await ui.helpers.recompute(draft);
+  assert.equal(draft.purchase.supplierOrder,'MANUAL0001');assert.equal(draft.orderReferenceMode,'manual');
+  assert.equal(draft.validation.valid,false);assert.match(ui.html,/docs-save[^>]*disabled/);
+});
+
+test('manual correction preserves rejected OCR evidence and cannot confirm a clock or a blank reference',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=ocrOrder(ocrHeader+'Visa\nPM');
+  const rejected=JSON.stringify(doc.parsed.supplierOrderRejectedCandidates),evidence=JSON.stringify(doc.parsed.evidence);
+  draft.documents.push(doc);await ui.helpers.recompute(draft);
+  ui.helpers.setDocumentReference(draft,doc,'599633002');ui.helpers.refreshValidation(draft,false);
+  assert.equal(draft.purchase.supplierOrder,'599633002');assert.equal(draft.validation.valid,true);
+  assert.equal(doc.parsed.supplierOrderNeedsReview,false);assert.equal(doc.parsed.supplierOrderReviewed,true);
+  assert.equal(JSON.stringify(doc.parsed.supplierOrderRejectedCandidates),rejected);assert.equal(JSON.stringify(doc.parsed.evidence),evidence);
+  ui.helpers.setDocumentReference(draft,doc,'');ui.helpers.refreshValidation(draft,false);
+  assert.equal(doc.parsed.supplierOrderNeedsReview,true);assert.equal(draft.validation.valid,false);
+  ui.helpers.setDocumentReference(draft,doc,'021718');ui.helpers.refreshValidation(draft,false);
+  assert.equal(draft.validation.valid,false);assert.equal(draft.purchase.supplierOrder,'');
+  assert.ok(draft.validation.issues.some(issue=>issue.code==='REJECTED_ORDER_REFERENCE'));
+});
+
+test('a plausible value in ambiguous columns can be confirmed manually while a rejected clock cannot',async()=>{
+  const ui=setup();await ui.api.open();const draft=ui.helpers.getDraft(),doc=ocrOrder(ocrHeader+'599633002\n600000001\nVisa\nPM');
+  const rejected=JSON.stringify(doc.parsed.supplierOrderRejectedCandidates);
+  draft.documents.push(doc);await ui.helpers.recompute(draft);
+  assert.equal(draft.validation.valid,false);assert.equal(draft.purchase.supplierOrder,'');
+  ui.helpers.setDocumentReference(draft,doc,'599633002');await ui.helpers.recompute(draft);
+  assert.equal(draft.validation.valid,true);assert.equal(draft.purchase.supplierOrder,'599633002');
+  assert.match(ui.html,/Orden coincidente/);assert.equal(JSON.stringify(doc.parsed.supplierOrderRejectedCandidates),rejected);
+  ui.helpers.setDocumentReference(draft,doc,'021718');await ui.helpers.recompute(draft);
+  assert.equal(draft.validation.valid,false);assert.equal(draft.purchase.supplierOrder,'');
+  assert.match(ui.html,/Referencia por revisar/);assert.match(ui.html,/docs-save[^>]*disabled/);
 });

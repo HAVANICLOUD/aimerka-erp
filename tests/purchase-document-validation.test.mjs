@@ -98,3 +98,46 @@ test('numeric supplier folios retain their leading zeros and are not rejected as
   assert.equal(report.valid,true,reference);assert.equal(report.supplierOrder,reference);assert.equal(has(report,'TEMPORAL_ORDER_REFERENCE'),false);
  }
 });
+
+test('an old OCR payload with the captured contextual clock never becomes a valid order reference',()=>{
+ const evidence='Número de orden Forma de pago D Mis métodos de 19/10/2026 021718';
+ for(const reviewed of [false,true]){
+  const document=doc('order','order',{supplierOrder:'021718',evidence:{supplierOrder:evidence},supplierOrderReviewed:reviewed});
+  const report=validate([document],{purchase:{supplier:'Costco',supplierOrder:'021718'}});
+  assert.equal(report.valid,false);assert.ok(has(report,'TEMPORAL_ORDER_REFERENCE'));
+  assert.equal(report.supplierOrder,null);assert.notEqual(report.documentChecks[0].status,'matched');
+ }
+});
+
+test('contextual rejected candidates and unresolved review flags block false matches but allow the corrected order',()=>{
+ const rejected={value:'021718',reason:'possible_clock',evidence:'Número de orden Forma de pago 19/10/2026 021718'};
+ const unresolved=doc('order','order',{supplierOrder:null,supplierOrderNeedsReview:true,supplierOrderRejectedCandidates:[rejected]});
+ let report=validate([unresolved],{purchase:{supplier:'Costco',supplierOrder:''}});
+ assert.equal(report.valid,false);assert.ok(has(report,'ORDER_REFERENCE_NEEDS_REVIEW'));
+ const wrong=doc('order','order',{supplierOrder:'021718',supplierOrderReviewed:true,supplierOrderRejectedCandidates:[rejected]});
+ report=validate([wrong],{purchase:{supplier:'Costco',supplierOrder:'021718'}});
+ assert.equal(report.valid,false);assert.ok(has(report,'REJECTED_ORDER_REFERENCE'));assert.equal(report.supplierOrder,null);
+ const corrected=doc('order','order',{supplierOrder:'599633002',supplierOrderReviewed:true,supplierOrderNeedsReview:true,supplierOrderRejectedCandidates:[rejected]});
+ report=validate([corrected]);assert.equal(report.valid,true);assert.equal(report.supplierOrder,'599633002');
+ for(const reference of ['021718','000021718']){
+  report=validate([doc('order','order',{supplierOrder:reference,evidence:{supplierOrder:'Número de orden: '+reference}})],{purchase:{supplier:'Costco',supplierOrder:reference}});
+  assert.equal(report.valid,true);assert.equal(report.supplierOrder,reference);
+ }
+});
+
+test('a manually selected plausible column candidate is accepted without approving the rejected clock',()=>{
+ const candidates=[
+  {value:'021718',reason:'date_time_context',evidence:'Número de orden Forma de pago 19/10/2026 021718'},
+  {value:'599633002',reason:'ambiguous_columns',evidence:'Número de orden Forma de pago 599633002 600000001'},
+  {value:'600000001',reason:'ambiguous_columns',evidence:'Número de orden Forma de pago 599633002 600000001'}
+ ];
+ const original=structuredClone(candidates);
+ const selected=doc('order','order',{supplierOrder:'599633002',supplierOrderNeedsReview:true,supplierOrderReviewed:true,supplierOrderRejectedCandidates:candidates});
+ const report=validate([selected]);
+ assert.equal(report.valid,true);assert.equal(report.supplierOrder,'599633002');assert.deepEqual(candidates,original);
+ const wrongHeader=validate([selected],{purchase:{supplier:'Costco',supplierOrder:'600000001'}});
+ assert.equal(wrongHeader.valid,false);assert.ok(has(wrongHeader,'REJECTED_ORDER_REFERENCE'));
+ selected.parsed.supplierOrder='021718';
+ const clock=validate([selected],{purchase:{supplier:'Costco',supplierOrder:'021718'}});
+ assert.equal(clock.valid,false);assert.ok(has(clock,'REJECTED_ORDER_REFERENCE'));
+});

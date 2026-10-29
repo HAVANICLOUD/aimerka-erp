@@ -16,6 +16,20 @@ const metadata=docs=>docs.map(d=>({id:d.id,sha256:d.id,name:d.id+'.pdf',mime:'ap
 const importDocs=(s,documents,lines,purchase={},purchaseId,commandId)=>applyDocumentImport(s,{id:commandId||'import-'+(++sequence),type:'purchase.importDocuments',payload:{purchaseId,purchase:{supplier:'Costco',date:'2026-10-19',shippingStatus:'En tránsito',...purchase},lines,documents}},{...clock,verifiedDocuments:metadata(documents)});
 const line=(sku,documents,patch={})=>({sku,name:'Dyson V12 Digital Slim',supplierItem:'701577',qty:2,unitCostCents:null,documentIds:documents.map(d=>d.id),...patch});
 
+test('legacy OCR payload using the compact time from the user screenshot is rejected atomically',()=>{
+  const s=state(),sku=createProduct(s),order=doc(170);
+  order.extraction='ocr';order.parsed.supplierOrder='021718';
+  order.parsed.evidence={supplierOrder:'Número de orden Forma de pago D Mis métodos de 19/10/2026 021718'};
+  const before=structuredClone(s);
+  assert.throws(()=>importDocs(s,[order],[line(sku,[order])],{supplierOrder:'021718'}),/hora|fecha|referencia/i);
+  assert.deepEqual(s,before);
+  order.parsed.supplierOrder='599633002';order.parsed.supplierOrderOriginal='021718';order.parsed.supplierOrderReviewed=true;
+  const saved=importDocs(s,[order],[line(sku,[order])],{supplierOrder:'599633002'});
+  assert.equal(s.purchases.find(p=>p.id===saved.id).supplierOrder,'599633002');
+  assert.equal(s.documents[0].parsed.supplierOrderOriginal,'021718');
+  assert.equal(s.products[0].good,0);
+});
+
 test('one order and two invoices keep two ordered units, link each invoice quantity, and do not create receipts or payments',()=>{
   const s=state(),sku=createProduct(s),docs=[doc(1),doc(2,'invoice',1),doc(3,'invoice',1)];
   const result=importDocs(s,docs,[line(sku,docs,{unitCostCents:409900})],{amountCents:819800});

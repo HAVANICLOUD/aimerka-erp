@@ -188,6 +188,50 @@ test('a temporal value under the order label is left unreadable instead of reuse
   }
 });
 
+test('legacy extracted six-digit values are temporal only with the ambiguous header evidence',()=>{
+  const context='Número de orden Forma de pago D Mis métodos de 19/10/2026 021718';
+  assert.equal(isTemporalSupplierOrder('021718',{context}),true);
+  assert.equal(isTemporalSupplierOrder('021718'),false);
+  assert.equal(isTemporalSupplierOrder('021718',{context:'Número de orden:021718'}),false);
+  assert.equal(isTemporalSupplierOrder('000021718',{context}),false);
+  assert.equal(isTemporalSupplierOrder('590001',{context:context.replace('021718','590001')}),false);
+  assert.equal(isTemporalSupplierOrder('021718',{context:'Número de orden:021718 Fecha de creación 19/10/2026 021718'}),false);
+});
+
+test('OCR date and compact hour without adjacent PM do not replace the actual supplier order',()=>{
+  // The observed OCR header had no colons in 021718, and PM was elsewhere.
+  // Before the fix it selected 021718 as the first six-digit match.
+  for(const reference of ['600000001','000600001','123456789012']){
+    const source='Orden de compra\nFecha de creación Número de orden Forma de pago D\nMis métodos de 19/10/2026 021718 '+reference+' Visa\nPM\nCantidad\n2';
+    const parsed=parsePurchaseDocument(source,{fileName:'neutral.pdf'});
+    assert.equal(parsed.supplierOrder,reference);assert.deepEqual(parsed.supplierOrderCandidates,[reference]);
+    assert.equal(parsed.supplierOrderNeedsReview,false);assert.equal(parsed.supplierOrderConflict,false);
+    assert.deepEqual(parsed.supplierOrderRejectedCandidates,[{value:'021718',reason:'date_time_context',evidence:'19/10/2026 021718'}]);
+    assert.match(parsed.warnings.join(' '),/hora sin separadores/);
+  }
+});
+
+test('an OCR excerpt ending at a date and compact hour remains unresolved',()=>{
+  const parsed=parsePurchaseDocument('Orden de compra\nNúmero de orden Forma de pago D Mis métodos de 19/10/2026 021718');
+  assert.equal(parsed.supplierOrder,null);assert.equal(parsed.supplierOrderNeedsReview,true);
+  assert.deepEqual(parsed.supplierOrderCandidates,[]);
+  assert.equal(parsed.supplierOrderRejectedCandidates[0].value,'021718');
+  parsed.lines=[{name:NAME,qty:2}];
+  assert.equal(combinePurchaseDocuments([parsed]).canImport,false);
+});
+
+test('ambiguous numeric columns do not choose the first value; explicit corroboration can resolve them',()=>{
+  const source='Orden de compra\nNúmero de orden Forma de pago\n600000001 600000002 Visa';
+  const ambiguous=parsePurchaseDocument(source);
+  assert.equal(ambiguous.supplierOrder,null);assert.equal(ambiguous.supplierOrderNeedsReview,true);
+  assert.deepEqual(ambiguous.supplierOrderCandidates,['600000001','600000002']);
+  ambiguous.lines=[{name:NAME,qty:2}];assert.equal(combinePurchaseDocuments([ambiguous]).canImport,false);
+  const corroborated=parsePurchaseDocument(source+'\nhttps://www.costco.com.mx/my-account/order/600000002');
+  assert.equal(corroborated.supplierOrder,'600000002');assert.equal(corroborated.supplierOrderNeedsReview,false);
+  const conflicting=parsePurchaseDocument(source+'\nhttps://www.costco.com.mx/my-account/order/600000009');
+  assert.equal(conflicting.supplierOrder,null);assert.equal(conflicting.supplierOrderNeedsReview,true);
+});
+
 test('CFDI amounts include the documented discount and IVA; PUE remains informational',()=>{
   const result=invoice1(),line=result.lines[0];
   assert.equal(result.parser,'costco_invoice');

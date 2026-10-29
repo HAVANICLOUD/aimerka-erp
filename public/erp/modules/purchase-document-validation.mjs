@@ -10,6 +10,12 @@ const qty=value=>Number.isSafeInteger(value)&&value>0;
 const barcode=value=>/^\d{8}$|^\d{12,14}$/.test(text(value))?text(value).padStart(14,'0'):'';
 const invoiceKey=value=>text(value).toUpperCase().replace(/\s+/g,'');
 const orderReference=value=>isTemporalSupplierOrder(value)?'':normalizeSupplierOrder(value);
+const contextualTemporalReference=(value,parsed)=>isTemporalSupplierOrder(value,{context:text(parsed?.evidence?.supplierOrder)});
+const rejectedReference=(value,parsed)=>Boolean(normalizeSupplierOrder(value)&&(Array.isArray(parsed?.supplierOrderRejectedCandidates)?parsed.supplierOrderRejectedCandidates:[]).some(candidate=>
+  candidate&&typeof candidate==='object'&&normalizeSupplierOrder(candidate.value)===normalizeSupplierOrder(value)&&(text(candidate.reason)||text(candidate.evidence))
+  &&!(candidate.reason==='ambiguous_columns'&&parsed.supplierOrderReviewed===true&&normalizeSupplierOrder(value)===normalizeSupplierOrder(parsed.supplierOrder))));
+const unresolvedReference=parsed=>Boolean(parsed?.supplierOrderNeedsReview&&!(parsed.supplierOrderReviewed&&text(parsed.supplierOrder)));
+const documentOrderReference=parsed=>unresolvedReference(parsed)||contextualTemporalReference(parsed.supplierOrder,parsed)||rejectedReference(parsed.supplierOrder,parsed)?'':orderReference(parsed.supplierOrder);
 
 /** A folio may be used as a duplicate identity only within its explicit supplier. */
 export function purchaseDocumentIdentityKeys(doc){
@@ -42,7 +48,9 @@ export function validatePurchaseDocuments(documents=[],options={}){
     const parsed=container.parsed||container,id=text(container.id)||'document-'+(index+1),doc={...container,id,parsed};
     const check={id,status:'unverified',label:'Pendiente de validar',supplierOrder:normalizeSupplierOrder(parsed.supplierOrder)||null,expectedSupplierOrder:null};
     documentChecks.push(check);
-    if(isTemporalSupplierOrder(parsed.supplierOrder))issue('TEMPORAL_ORDER_REFERENCE','error','Se detectó una hora/fecha («'+text(parsed.supplierOrder)+'») como número de orden en '+(parsed.invoiceNumber||container.name||id)+'. Revisa el original y captura el número de orden del proveedor.',[id],{source:'document',actual:text(parsed.supplierOrder)});
+    if(contextualTemporalReference(parsed.supplierOrder,parsed))issue('TEMPORAL_ORDER_REFERENCE','error','Se detectó una hora/fecha («'+text(parsed.supplierOrder)+'») como número de orden en '+(parsed.invoiceNumber||container.name||id)+'. Revisa el original y captura el número de orden del proveedor.',[id],{source:'document',actual:text(parsed.supplierOrder)});
+    if(rejectedReference(parsed.supplierOrder,parsed))issue('REJECTED_ORDER_REFERENCE','error','El valor «'+text(parsed.supplierOrder)+'» fue descartado por su contexto en '+(parsed.invoiceNumber||container.name||id)+'. Revisa el número de orden del proveedor; no se puede confirmar ese candidato automáticamente.',[id],{source:'document',actual:text(parsed.supplierOrder)});
+    if(unresolvedReference(parsed))issue('ORDER_REFERENCE_NEEDS_REVIEW','error','La lectura del número de orden de '+(parsed.invoiceNumber||container.name||id)+' es ambigua o no ofrece suficiente certeza. Revisa el original y confirma una referencia válida antes de guardar.',[id],{source:'document'});
     const keys=purchaseDocumentIdentityKeys(doc),duplicate=keys.map(key=>seen.get(key)).find(Boolean);
     if(duplicate){
       check.status='duplicate';check.label='Documento duplicado; no se vuelve a sumar';
@@ -54,10 +62,12 @@ export function validatePurchaseDocuments(documents=[],options={}){
     docs.push(doc);for(const key of keys)seen.set(key,doc);
   }
   const orders=docs.filter(doc=>doc.parsed.kind==='order'),invoices=docs.filter(doc=>doc.parsed.kind==='invoice');
-  const references=unique(docs.map(doc=>orderReference(doc.parsed.supplierOrder)));
-  const requested=orderReference(purchase.supplierOrder),priorRef=orderReference(original?.supplierOrder);
+  const references=unique(docs.map(doc=>documentOrderReference(doc.parsed)));
+  const rejectedByEvidence=value=>docs.some(doc=>contextualTemporalReference(value,doc.parsed)||rejectedReference(value,doc.parsed));
+  const requested=rejectedByEvidence(purchase.supplierOrder)?'':orderReference(purchase.supplierOrder),priorRef=rejectedByEvidence(original?.supplierOrder)?'':orderReference(original?.supplierOrder);
   if(isTemporalSupplierOrder(purchase.supplierOrder))issue('TEMPORAL_ORDER_REFERENCE','error','Se detectó una hora/fecha («'+text(purchase.supplierOrder)+'») en el campo número de orden de la compra. Captura el número de orden del proveedor.',docs.map(doc=>doc.id),{source:'purchase',actual:text(purchase.supplierOrder)});
   if(isTemporalSupplierOrder(original?.supplierOrder))issue('TEMPORAL_ORDER_REFERENCE','error','Se detectó una hora/fecha («'+text(original.supplierOrder)+'») como número de orden en la compra registrada. Corrige su referencia antes de adjuntar documentos.',docs.map(doc=>doc.id),{source:'original',actual:text(original.supplierOrder)});
+  for(const [source,value] of [['purchase',purchase.supplierOrder],['original',original?.supplierOrder]])if(!isTemporalSupplierOrder(value)&&rejectedByEvidence(value))issue('REJECTED_ORDER_REFERENCE','error','El valor «'+text(value)+'» no es una referencia de orden confiable según el contexto del documento. Corrige el número de orden antes de guardar.',docs.map(doc=>doc.id),{source,actual:text(value)});
   const expected=priorRef||requested||(references.length===1?references[0]:'');
   const supplier=normalizeSupplier(purchase.supplier||original?.supplier)||normalizeSupplier(orders[0]?.parsed.supplier||invoices[0]?.parsed.supplier);
   const suppliedCurrencies=unique(docs.map(doc=>text(doc.parsed.currency).toUpperCase()));
@@ -69,7 +79,7 @@ export function validatePurchaseDocuments(documents=[],options={}){
   if(invoices.length&&!expected)issue('ORDER_REFERENCE_REQUIRED','error','No se pudo confirmar el número de orden de estas facturas. Revisa la referencia en cada documento antes de guardar.',invoices.map(doc=>doc.id));
   if(suppliedCurrencies.length>1)issue('CURRENCY_MISMATCH','error','Los documentos usan monedas distintas; no se suman como una sola compra.',docs.map(doc=>doc.id));
   for(const doc of docs){
-    const p=doc.parsed,ref=orderReference(p.supplierOrder),check=documentChecks.find(row=>row.id===doc.id),ids=[doc.id];
+    const p=doc.parsed,ref=documentOrderReference(p),check=documentChecks.find(row=>row.id===doc.id),ids=[doc.id];
     if(!['order','invoice'].includes(p.kind)){issue('DOCUMENT_KIND_UNKNOWN','error','Clasifica el documento '+(doc.name||doc.id)+' como orden de compra o factura.',ids);continue;}
     if(p.supplierOrderConflict&&!p.supplierOrderReviewed)issue('AMBIGUOUS_ORDER_REFERENCE','error','El documento '+(doc.name||p.invoiceNumber||doc.id)+' contiene referencias de orden contradictorias. Revisa y confirma la referencia correcta.',ids);
     if(p.supplierOrderReviewed)issue('ORDER_REFERENCE_REVIEWED','warning','Referencia revisada manualmente en '+(p.invoiceNumber||doc.name||doc.id)+'.',ids);
