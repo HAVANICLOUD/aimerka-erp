@@ -1,5 +1,6 @@
 import {readState,workspaceId,priorAction,hashInput,commitState,createSeed} from '../../../lib/store';
 import {applyCommand} from '../../../lib/commands.mjs';
+import {verifyDocuments} from '../../../lib/documents';
 export const dynamic='force-dynamic';
 export async function POST(request:Request){
   try{
@@ -14,7 +15,8 @@ export async function POST(request:Request){
     const current=await readState(id);
     if(command.revision!==current.revision)return Response.json({error:'Hay cambios guardados desde otra ventana. Se cargó la versión actual; revisa y vuelve a guardar.',...current},{status:409});
     const next=structuredClone(current.state),actor=request.headers.get('oai-authenticated-user-email')||'Acceso privado AIMERKA';
-    const result=applyCommand(next,command,{workspace:id,now:new Date().toISOString(),actor,createPractice:()=>createSeed('practice')});
+    const verifiedDocuments=command.type==='purchase.importDocuments'?await verifyDocuments(id,command.payload?.documents):undefined;
+    const result=applyCommand(next,command,{workspace:id,now:new Date().toISOString(),actor,verifiedDocuments,createPractice:()=>createSeed('practice')});
     if(result?.ok===false)return Response.json({error:result.message,result},{status:422});
     const saved=await commitState(id,current.revision,current.state,next,command,result,actor,inputHash);
     if(!saved)return Response.json({error:'La operación coincidió con otro guardado. Revisa la versión actual y vuelve a intentar.',...await readState(id)},{status:409});

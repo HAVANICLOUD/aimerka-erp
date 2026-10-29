@@ -4,19 +4,65 @@ const amount=(value,label='Importe')=>{const n=Number(value);if(!Number.isSafeIn
 const quantity=(value,label='Cantidad')=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<=0)fail(label+' debe ser un entero mayor que cero.');return n;};
 const text=(v,max=1000)=>String(v??'').trim().slice(0,max);
 const normalized=v=>text(v).replace(/^\*+|\*+$/g,'').trim().toLocaleUpperCase('es-MX');
+const skuWords=value=>text(value,500).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().split(/\s+/).filter(Boolean);
+const skuStopWords=new Set(['DE','DEL','LA','EL','LOS','LAS','CON','PARA','Y','EN','COLOR','CAPACIDAD','UN','UNA']);
+/** A stable internal identifier can exist before the supplier's UPC is known. */
+export function generateProductSku(input={},products=[]) {
+ const brand=skuWords(input.brand).join('').slice(0,10);
+ const model=skuWords(input.model).join('').slice(0,16);
+ const color=skuWords(input.color).filter(x=>!skuStopWords.has(x)).join('-').slice(0,16);
+ const capacity=skuWords(input.capacity).join('').slice(0,12);
+ const excluded=new Set([...skuWords(input.brand),...skuWords(input.model),...skuWords(input.color),...skuWords(input.capacity)]);
+ const attributes=[brand,model,color,capacity].filter(Boolean),titleBudget=Math.max(0,70-attributes.join('-').length-(attributes.length?1:0));
+ const title=skuWords(input.name||input.title).filter(x=>!skuStopWords.has(x)&&!excluded.has(x)).slice(0,5).join('-').slice(0,titleBudget).replace(/-+$/,'');
+ const parts=[brand,title,model,color,capacity].filter(Boolean);
+ const base=(parts.join('-')||'ARTICULO').slice(0,70).replace(/-+$/,'');
+ const used=new Set((products||[]).flatMap(p=>[p.sku,p.sellerSku,p.upc]).filter(Boolean).map(normalized));
+ if(!used.has(base))return base;
+ let n=2;while(used.has(base+'-'+String(n).padStart(3,'0')))n++;
+ return base+'-'+String(n).padStart(3,'0');
+}
+/** New barcode assignments require a real GTIN; legacy values remain untouched. */
+export function validateProductUpc(value) {
+ const code=text(value,80).replace(/[\s-]/g,'');
+ if(!/^\d{8}$|^\d{12,14}$/.test(code))fail('El UPC/EAN debe contener 8, 12, 13 o 14 dígitos.');
+ let sum=0;for(let i=code.length-2,weight=3;i>=0;i--,weight=weight===3?1:3)sum+=Number(code[i])*weight;
+ if((10-sum%10)%10!==Number(code.at(-1)))fail('El dígito de control del UPC/EAN no es válido. Revisa el escaneo.');
+ return code;
+}
+const barcodeKey=value=>{const code=normalized(value);return /^\d{8}$|^\d{12,14}$/.test(code)?code.padStart(14,'0'):code;};
+function verifyUpcAssignment(state,product,value,planned=new Map()) {
+ const upc=validateProductUpc(value),key=barcodeKey(upc);
+ if(product.upc&&barcodeKey(product.upc)!==key)fail('El producto ya tiene otro UPC. Conserva su identificador original.');
+ if(state.products.some(p=>p!==product&&p.upc&&barcodeKey(p.upc)===key))fail('Ese UPC ya pertenece a otro producto.');
+ if(planned.has(product.sku)&&barcodeKey(planned.get(product.sku))!==key)fail('Se escanearon UPC distintos para el mismo producto.');
+ if([...planned].some(([sku,code])=>sku!==product.sku&&barcodeKey(code)===key))fail('El mismo UPC no puede asignarse a productos distintos.');
+ planned.set(product.sku,product.upc||upc);return upc;
+}
+function documentIds(value) {
+ if(value==null)return [];
+ if(!Array.isArray(value)||value.length>100)fail('Las referencias documentales no son válidas.');
+ return [...new Set(value.map(v=>text(v,160)).filter(Boolean))];
+}
+function queueStock(state,product,ctx,reference) {
+ const queue=state.stockSyncQueue??=[],existing=queue.find(row=>row.sku===product.sku);
+ const row={id:'stock-'+product.sku,sku:product.sku,upc:product.upc||'',availableQty:available(product),status:'awaiting_connection',updatedAt:ctx.now,reference:text(reference,160)};
+ if(existing)Object.assign(existing,row);else queue.push(row);
+}
 export function available(p){return p.status==='INACTIVO'?0:Math.max(0,Number(p.good||0)-Number(p.reserved||0)-Number(p.safety||0));}
 export function orderTotal(o){return Number.isSafeInteger(o.totalCents)?o.totalCents:(o.items?.length?o.items.reduce((s,l)=>s+l.totalCents,0)+(o.shippingChargedCents||0):(o.qty||0)*(o.unitPriceCents||0));}
 export function orderItems(o){return o.items?.length?o.items:(o.sku?[{id:o.id+'-1',sku:o.sku,qty:o.qty,unitPriceCents:o.unitPriceCents,totalCents:o.qty*o.unitPriceCents}]:[]);}
 export function expectedNet(o){if(o.reconciliation?.estimate?.netCents!=null)return o.reconciliation.estimate.netCents;if(o.stockMode==='historical')return null;const gross=orderTotal(o);return gross-Math.round(gross*(o.commissionBps||0)/10000)-Math.round(gross*(o.msiBps||0)/10000)-(o.shippingCents||0)-(o.withholdingCents||0);}
-function findProduct(state,code){const n=normalized(code),found=state.products.filter(p=>normalized(p.sku)===n||normalized(p.upc)===n||normalized(p.sellerSku)===n);if(found.length!==1)fail(found.length?'El código coincide con más de un producto.':'No se encontró el producto '+code+'.');return found[0];}
+function findProduct(state,code){const n=normalized(code),found=n?state.products.filter(p=>normalized(p.sku)===n||p.upc&&barcodeKey(p.upc)===barcodeKey(n)||normalized(p.sellerSku)===n):[];if(found.length!==1)fail(found.length?'El código coincide con más de un producto.':'No se encontró el producto '+code+'.');return found[0];}
 function findOrder(state,id){const o=state.orders.find(o=>o.id===id);if(!o)fail('No se encontró el pedido.');return o;}
 function log(state,order,label,ctx,changes){const event={id:ctx.requestId||crypto.randomUUID(),type:ctx.type||'operation',orderId:order?.id||null,message:label,date:ctx.now||new Date().toISOString(),result:'ok',actor:ctx.actor||'Operador',changes};(state.events??=[]).unshift(event);if(order)(order.history??=[]).push({label,date:event.date,actor:event.actor});return {ok:true,message:label,id:order?.id,orderId:order?.id};}
-function move(state,product,pool,delta,reference,ctx){const before=Number(product[pool]||0);product[pool]=before+delta;(state.movements??=[]).unshift({id:(ctx.requestId||crypto.randomUUID())+'-'+state.movements.length,date:ctx.now,sku:product.sku,upc:product.upc,pool,delta,before,after:product[pool],reference,actor:ctx.actor,type:ctx.type});}
+function move(state,product,pool,delta,reference,ctx,trace={}){const before=Number(product[pool]||0);product[pool]=before+delta;(state.movements??=[]).unshift({id:(ctx.requestId||crypto.randomUUID())+'-'+state.movements.length,date:ctx.now,sku:product.sku,upc:product.upc,pool,delta,before,after:product[pool],reference,actor:ctx.actor,type:ctx.type,...trace});queueStock(state,product,ctx,reference);}
 function recon(){return {conditions:{publication:'CLASICA',msi:'Sin MSI',shippingCents:null},estimate:null,depositCents:null,depositDate:null,status:'Sin revisar',notes:'',selected:false,draft:null,history:[]};}
 function newId(state,prefix,collection){let n=Number(state.nextOrder||1);while(collection.some(x=>x.id===prefix+String(n).padStart(6,'0')))n++;state.nextOrder=n+1;return prefix+String(n).padStart(6,'0');}
 export function applyInventory(state,action,context={}){
  const payload=action.payload||{},ctx={now:new Date().toISOString(),...context,type:action.type,requestId:action.id||context.requestId};
- const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(ctx.now));
+ const dateParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ctx.now));
+ const today=['year','month','day'].map(type=>dateParts.find(part=>part.type===type).value).join('-');
  if(action.type==='sale.create'){
    const market=text(payload.market,60),number=text(payload.number,120),sicar=text(payload.sicar,100),account=text(payload.account||'HAVANI Technologies México',120);
    if(!market||!number)fail('Marketplace y número original son obligatorios.');
@@ -41,33 +87,53 @@ export function applyInventory(state,action,context={}){
  }
  if(action.type==='inventory.receivePurchase'){
    const purchase=state.purchases.find(p=>p.id===payload.purchaseId);if(!purchase)fail('Compra no encontrada.');if(purchase.status==='Cancelada')fail('La compra está cancelada.');
-   const requested=payload.items||[];if(!requested.length)fail('Selecciona mercancía para recibir.');const seen=new Set();
-   const resolved=requested.map(input=>{const line=purchase.items.find(l=>l.id===input.lineId);if(!line)fail('Partida de compra no encontrada.');if(seen.has(line.id))fail('Partida de recepción repetida.');seen.add(line.id);const qty=quantity(input.qty),p=findProduct(state,input.sku||line.sku||line.skuOrUpc);if(qty>line.qty-(line.receivedQty||0))fail('La recepción supera las unidades pendientes.');if(line.receivedQty>0&&line.sku!==p.sku)fail('Esta partida ya tiene recepciones para otro SKU. Conserva el producto asignado.');return {line,p,qty};});
-   for(const {line,p,qty} of resolved){move(state,p,'good',qty,purchase.id,ctx);line.receivedQty=(line.receivedQty||0)+qty;line.sku=p.sku;}
-   purchase.receiptStatus=purchase.items.every(l=>(l.receivedQty||0)>=l.qty)?'Recibida completa':'Recibida parcialmente';return log(state,null,'Recepción física registrada para '+purchase.id+'.',ctx);
+   const receiptId=ctx.requestId||crypto.randomUUID(),priorReceipt=(state.purchaseReceipts||[]).find(r=>r.id===receiptId);
+   if(priorReceipt){if(priorReceipt.purchaseId!==purchase.id)fail('Ese identificador de recepción corresponde a otra compra.');return {ok:true,duplicate:true,id:purchase.id,receiptId,message:'Esta recepción ya se registró; no se repitieron existencias.'};}
+   const requested=payload.items||[];if(!Array.isArray(requested)||!requested.length)fail('Selecciona mercancía para recibir.');const seen=new Set(),upcs=new Map();
+   const resolved=requested.map(input=>{const line=purchase.items.find(l=>l.id===input.lineId);if(!line)fail('Partida de compra no encontrada.');if(seen.has(line.id))fail('Partida de recepción repetida.');seen.add(line.id);const qty=quantity(input.qty),p=findProduct(state,input.sku||line.sku||line.skuOrUpc);if(qty>line.qty-(line.receivedQty||0))fail('La recepción supera las unidades pendientes.');if(line.receivedQty>0&&line.sku!==p.sku)fail('Esta partida ya tiene recepciones para otro SKU. Conserva el producto asignado.');if(input.upc)verifyUpcAssignment(state,p,input.upc,upcs);return {line,p,qty,documents:documentIds(line.documentIds)};});
+   // Validate the entire batch before assigning any barcode or stock movement.
+   for(const [sku,upc] of upcs){const p=state.products.find(p=>p.sku===sku);p.upc=upc;p.barcodeStatus='Registrado';p.updatedAt=ctx.now;}
+   for(const {line,p,qty,documents} of resolved){move(state,p,'good',qty,purchase.id,ctx,{purchaseId:purchase.id,lineId:line.id,receiptId,documentIds:documents});line.receivedQty=(line.receivedQty||0)+qty;line.sku=p.sku;line.upc=p.upc||'';p.stockStatus='Verificado en AIMERKA';p.updatedAt=ctx.now;}
+   purchase.receiptMode='physical';purchase.receiptStatus=purchase.items.every(l=>(l.receivedQty||0)>=l.qty)?'Recibida completa':'Recibida parcialmente';purchase.updatedAt=ctx.now;
+   const receipts=state.purchaseReceipts??=[],receipt={id:receiptId,purchaseId:purchase.id,number:'REC-'+String(receipts.length+1).padStart(6,'0'),date:ctx.now,actor:ctx.actor||'Operador',reason:text(payload.reason,2000),items:resolved.map(({line,p,qty,documents})=>({lineId:line.id,sku:p.sku,upc:p.upc||'',name:p.name,qty,unitCostCents:line.unitCostCents??null,documentIds:documents})),receiptStatus:purchase.receiptStatus,source:'AIMERKA'};receipts.unshift(receipt);
+   return {...log(state,null,'Recepción física registrada para '+(purchase.number||purchase.id)+'. '+purchase.receiptStatus+'.',ctx),id:purchase.id,receiptId,receiptStatus:purchase.receiptStatus,receivedUnits:resolved.reduce((sum,row)=>sum+row.qty,0)};
+ }
+ if(action.type==='product.assignUpc'){
+   const product=findProduct(state,payload.sku),upc=verifyUpcAssignment(state,product,payload.upc);
+   if(product.upc)return {ok:true,duplicate:true,sku:product.sku,upc:product.upc,message:'El producto ya conserva ese UPC.'};
+   product.upc=upc;product.barcodeStatus='Registrado';product.updatedAt=ctx.now;queueStock(state,product,ctx,product.sku);
+   return {...log(state,null,'UPC registrado para '+product.sku+'.',ctx,{sku:product.sku,upc}),sku:product.sku,upc};
  }
  if(action.type==='product.save'){
    const p=payload.product||payload,existing=payload.originalSku?findProduct(state,payload.originalSku):null;
-   const sku=text(p.sku,80),upc=text(p.upc,80),name=text(p.name,250),brand=text(p.brand,100),costCents=amount(p.costCents,'Costo'),priceCents=amount(p.priceCents||0,'Precio');
-   if(!sku||!upc||!name||!brand)fail('SKU, UPC, descripción y marca son obligatorios.');
-   if(state.products.some(q=>q!==existing&&(normalized(q.sku)===normalized(sku)||normalized(q.upc)===normalized(upc))))fail('Ese SKU o UPC ya está registrado.');
+   const name=text(p.name,250),brand=text(p.brand,100),sku=text(p.sku||existing?.sku||generateProductSku({...p,name,brand},state.products),80),rawUpc=text(p.upc??existing?.upc,80),costCents=amount(p.costCents,'Costo'),priceCents=amount(p.priceCents||0,'Precio');
+   if(!sku||!name||!brand)fail('Descripción y marca son obligatorias; el SKU puede generarse automáticamente.');
+   const upc=rawUpc&&(existing?.upc!==rawUpc)?validateProductUpc(rawUpc):rawUpc;
+   if(state.products.some(q=>q!==existing&&(normalized(q.sku)===normalized(sku)||upc&&q.upc&&barcodeKey(q.upc)===barcodeKey(upc))))fail('Ese SKU o UPC ya está registrado.');
    if(existing&&sku!==existing.sku)fail('El SKU de un producto registrado es estable; conserva su identificador.');
-   if(existing&&upc!==existing.upc)fail('La actualización conserva el UPC original.');
+   if(existing?.upc&&upc!==existing.upc)fail('La actualización conserva el UPC original.');
    if(!['OK','INACTIVO'].includes(p.status||'OK'))fail('El estado del producto debe ser OK o INACTIVO.');
+   if(p.costStatus&&!['Por confirmar','Confirmado'].includes(p.costStatus))fail('El estado del costo no es válido.');
    let exactCost=p.averageCostMxn;
    if(existing&&existing.costCents!==costCents&&exactCost===existing.averageCostMxn)exactCost=costCents/100;
    if(exactCost!=null&&(!Number.isFinite(exactCost)||exactCost<0||Math.round(exactCost*100)!==costCents))fail('El costo promedio exacto no coincide con el importe en centavos.');
-   const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review'];
+   const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity'];
+   let imageUrl=existing?.imageUrl||'';if('imageUrl' in p){imageUrl=text(p.imageUrl,2000);if(imageUrl){let valid=imageUrl.startsWith('/')&&!imageUrl.startsWith('//');try{const u=new URL(imageUrl);valid=u.protocol==='https:'&&!u.username&&!u.password;}catch{}if(!valid)fail('La imagen debe usar una ruta del sitio o una URL HTTPS.');}}
+   let supplierCodes=existing?.supplierCodes||[];
+   if('supplierCodes' in p){if(!Array.isArray(p.supplierCodes)||p.supplierCodes.length>100)fail('Las equivalencias de proveedor no son válidas.');supplierCodes=p.supplierCodes.map(row=>({supplier:text(row.supplier,250),item:text(row.item,100),name:text(row.name,250)}));if(supplierCodes.some(row=>!row.supplier||!row.item))fail('Cada equivalencia necesita proveedor y número de artículo.');if(supplierCodes.some(row=>state.products.some(q=>q!==existing&&(q.supplierCodes||[]).some(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item)))))fail('Ese artículo del proveedor ya está asociado a otro producto.');supplierCodes=supplierCodes.filter((row,i,rows)=>rows.findIndex(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item))===i);}
    const base=existing?clone(existing):{sku,upc,good:0,reserved:0,quarantine:0,damaged:0,safety:0,minStock:3,icon:'box',source:'AIMERKA',sourceStock:null,categories:{},categoryOverrides:{}};
-   Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK'});for(const f of fields)if(f in p)base[f]=text(p[f],300);
+   Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??!text(p.sku)});for(const f of fields)if(f in p)base[f]=text(p[f],300);
    if(p.categoryOverrides)base.categoryOverrides=Object.fromEntries(Object.entries(p.categoryOverrides).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.categories)base.categories=Object.fromEntries(Object.entries(p.categories).map(([k,v])=>[text(k,60),text(v,150)]));
    for(const f of ['safety','minStock'])if(f in p){base[f]=amount(p[f],f);}
    if(exactCost!=null){base.averageCostMxn=exactCost;base.sourceCost=exactCost;}
    else if(!existing||existing.costCents!==costCents){base.averageCostMxn=costCents/100;base.sourceCost=costCents/100;}
+   if(p.costStatus)base.costStatus=p.costStatus;
+   else if(base.costStatus==='Por confirmar'&&costCents>0)base.costStatus='Confirmado';
    const before=existing?{costCents:existing.costCents,averageCostMxn:existing.averageCostMxn,name:existing.name,category:existing.category}:null;
    if(existing)Object.assign(existing,base);else state.products.unshift(base);
-   return log(state,null,(existing?'Producto actualizado: ':'Producto registrado: ')+name+'.',ctx,{sku,before,after:{costCents,averageCostMxn:base.averageCostMxn,name,category:base.category}});
+   queueStock(state,existing||base,ctx,sku);
+   return {...log(state,null,(existing?'Producto actualizado: ':'Producto registrado: ')+name+'.',ctx,{sku,before,after:{costCents,averageCostMxn:base.averageCostMxn,name,category:base.category}}),sku,upc};
  }
  const order=findOrder(state,payload.orderId),items=orderItems(order),managed=order.stockMode!=='historical';
  const resolved=()=>items.map(item=>({item,p:findProduct(state,item.sku||item.upc)}));

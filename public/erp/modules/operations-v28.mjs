@@ -154,7 +154,7 @@ export function installmentSchedule(entity, payments = [], creditRules = [], tod
 
 export function buildCalendar(state,today = mexicoToday()) {
   return [
-    ...(state.purchases||[]).flatMap(e => installmentSchedule(e,state.purchasePayments,state.creditRules,today).map(row => ({...row,kind:'purchase',reference:e.sicar,description:e.supplier}))),
+    ...(state.purchases||[]).flatMap(e => installmentSchedule(e,state.purchasePayments,state.creditRules,today).map(row => ({...row,kind:'purchase',reference:e.number||e.sicar||e.id,description:e.supplier}))),
     ...(state.expenses||[]).flatMap(e => installmentSchedule(e,state.expensePayments,state.creditRules,today).map(row => ({...row,kind:'expense',reference:e.id,description:e.description})))
   ].sort((a,b) => (a.dueDate||'9999').localeCompare(b.dueDate||'9999') || a.entityId.localeCompare(b.entityId) || a.number-b.number);
 }
@@ -205,18 +205,32 @@ function nextId(items,prefix) {
   return prefix+String(max+1).padStart(6,'0');
 }
 
+function documentReferences(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 100) fail('Las referencias documentales no son válidas.');
+  return [...new Set(value.map(v=>text(v).slice(0,160)).filter(Boolean))];
+}
+
+export function purchaseReceiptStatus(items=[]) {
+  if (items.length && items.every(item=>(item.receivedQty||0)>=item.qty)) return 'Recibida completa';
+  return items.some(item=>(item.receivedQty||0)>0) ? 'Recibida parcialmente' : 'Pendiente';
+}
+
 function purchaseInput(state,payload,today,prior) {
   const base = {...prior,...payload};
-  const sicar = required(base.sicar,'el consecutivo SICAR');
-  if ((state.purchases||[]).some(p => p.id !== prior?.id && normal(p.sicar) === normal(sicar))) fail('Ese consecutivo SICAR ya está registrado.');
+  const sicar = text(base.sicar);
+  if (sicar && (state.purchases||[]).some(p => p.id !== prior?.id && normal(p.sicar) === normal(sicar))) fail('Ese consecutivo SICAR ya está registrado.');
   const date = requiredDate(base.date,'La fecha de compra',today);
-  const lender = chooseCatalog(state,'lenders',base.lender,'el dador de crédito');
-  const instrument = chooseCatalog(state,'instruments',base.instrument,'el instrumento de pago');
+  const lender = text(base.lender) ? chooseCatalog(state,'lenders',base.lender,'el dador de crédito') : '';
+  const instrument = text(base.instrument) ? chooseCatalog(state,'instruments',base.instrument,'el instrumento de pago') : '';
   const supplier = chooseCatalog(state,'suppliers',base.supplier,'el proveedor');
-  const term = safeTerm(base.term);
+  const term = safeTerm(base.term??1);
   const firstPaymentDate = requiredDate(base.firstPaymentDate,'El primer pago',today,{past:false,optional:true});
-  const receiptStatus = base.receiptStatus || 'Pendiente';
+  let receiptStatus = base.receiptStatus || 'Pendiente';
   if (!RECEIPT_STATES.includes(receiptStatus)) fail('Selecciona un estado válido de recepción de mercancía.');
+  const receiptMode = prior?.receiptMode || (prior ? 'legacy-documental' : 'physical');
+  const shippingStatus = base.shippingStatus || 'Pendiente';
+  if (!['Pendiente','En tránsito'].includes(shippingStatus)) fail('El tránsito debe ser Pendiente o En tránsito.');
   const satReviewed = base.satReviewed || 'No';
   if (!['Sí','No'].includes(satReviewed)) fail('La revisión en SAT debe ser Sí o No.');
   if (base.items != null && !Array.isArray(base.items)) fail('Las partidas de la compra no son válidas.');
@@ -229,26 +243,35 @@ function purchaseInput(state,payload,today,prior) {
     if (item.id) itemIds.add(item.id);
     const name = required(item.name,'la descripción de la mercancía');
     if (typeof item.qty !== 'number' || !Number.isFinite(item.qty) || item.qty <= 0) fail('La cantidad de mercancía debe ser positiva.');
-    if (!validMoney(item.unitCostCents)) fail('El costo unitario no puede ser negativo ni contener fracciones de centavo.');
-    const totalCents = Math.round(item.qty*item.unitCostCents);
-    if (!validMoney(totalCents)) fail('El importe de una partida excede el límite permitido.');
+    const unitCostCents = item.unitCostCents == null ? null : item.unitCostCents;
+    if (unitCostCents != null && !validMoney(unitCostCents)) fail('El costo unitario no puede ser negativo ni contener fracciones de centavo.');
+    const totalCents = unitCostCents == null ? null : Math.round(item.qty*unitCostCents);
+    if (totalCents != null && !validMoney(totalCents)) fail('El importe de una partida excede el límite permitido.');
     const skuOrUpc = text(item.skuOrUpc||item.sku||item.upc);
     if ((previous?.receivedQty||0) > 0) {
       if (item.qty < previous.receivedQty) fail('La cantidad no puede ser menor que la mercancía ya recibida.');
       if (skuOrUpc !== text(previous.skuOrUpc||previous.sku||previous.upc)) fail('No se puede cambiar el producto de una partida recibida.');
     }
-    return {...(previous||{}),id:previous?.id||'',skuOrUpc,name,qty:item.qty,unitCostCents:item.unitCostCents,totalCents,
-      receivedQty:previous?.receivedQty||0,...(previous?.sku?{sku:previous.sku}:{})};
+    return {...(previous||{}),id:previous?.id||'',skuOrUpc,name,qty:item.qty,unitCostCents,totalCents,
+      supplierItem:text(item.supplierItem??previous?.supplierItem),documentIds:documentReferences(item.documentIds??previous?.documentIds),
+      receivedQty:previous?.receivedQty||0,...(previous?.sku?{sku:previous.sku}:text(item.sku)?{sku:text(item.sku)}:{})};
   });
   for (const item of previousItems.values()) if ((item.receivedQty||0)>0 && !itemIds.has(item.id)) fail('No se puede eliminar una partida con mercancía recibida.');
-  const linesTotalCents = sum(items,item => item.totalCents);
-  const amountCents = base.amountCents == null && linesTotalCents > 0 ? linesTotalCents : base.amountCents;
-  if (!validMoney(amountCents,1)) fail('El importe de la compra debe ser mayor que cero.');
+  if (receiptMode === 'physical') {
+    const derived = purchaseReceiptStatus(items);
+    if (payload.receiptStatus && payload.receiptStatus !== derived && payload.receiptStatus !== 'Pendiente') fail('La recepción se determina al recibir mercancía en almacén; no se marca manualmente.');
+    receiptStatus=derived;
+  }
+  const linesTotalCents = items.some(item=>item.totalCents==null) ? null : sum(items,item => item.totalCents);
+  const amountCents = base.amountCents == null ? (items.length && linesTotalCents > 0 ? linesTotalCents : null) : base.amountCents;
+  if (amountCents != null && !validMoney(amountCents,1)) fail('El importe de la compra debe ser mayor que cero o quedar pendiente de confirmar.');
   const paid = prior ? installmentState(prior,state.purchasePayments).paidCents : 0;
+  if (paid > 0 && amountCents == null) fail('No se puede dejar sin importe una compra que ya tiene abonos.');
   if (amountCents < paid) fail('El importe no puede ser menor que lo ya pagado.');
-  return {sicar,date,lender,instrument,supplier,term,firstPaymentDate,receiptStatus,satReviewed,amountCents,
+  return {sicar,date,lender,instrument,supplier,term,firstPaymentDate,receiptStatus,receiptMode,shippingStatus,satReviewed,amountCents,
     taxInvoice:text(base.taxInvoice),supplierOrder:text(base.supplierOrder),notes:text(base.notes),items,
-    linesTotalCents,lineDifferenceCents:items.length ? amountCents-linesTotalCents : null};
+    documentIds:documentReferences(base.documentIds),
+    linesTotalCents,lineDifferenceCents:items.length && amountCents!=null && linesTotalCents!=null ? amountCents-linesTotalCents : null};
 }
 
 function expenseInput(state,payload,today,prior) {
@@ -310,14 +333,15 @@ export function applyOperation(state,operation,context = {}) {
     const id = prior?.id || nextId(state.purchases||[],'C');
     let nextLineNumber = Math.max(0,...(prior?.items||[]).map(item => Number(String(item.id||'').split('-').at(-1))||0));
     data.items = data.items.map(item => ({...item,id:item.id||`${id}-${String(++nextLineNumber).padStart(3,'0')}`,purchaseId:id}));
-    const entity = {...prior,...data,id,status:prior?.status||'Activa',createdAt:prior?.createdAt||ctx.now,updatedAt:ctx.now,source:prior?.source||'AIMERKA'};
+    const entity = {...prior,...data,id,number:prior?.number||'O'+id,status:prior?.status||'Activa',createdAt:prior?.createdAt||ctx.now,updatedAt:ctx.now,source:prior?.source||'AIMERKA'};
     updateBalances(entity,state.purchasePayments,'purchase');
     if (prior) Object.assign(prior,entity); else {if(!state.purchases)state.purchases=[];state.purchases.push(entity);}
-    result = {ok:true,id,message:prior ? 'Compra actualizada.' : 'Compra registrada con sus partidas.',lineDifferenceCents:data.lineDifferenceCents};
+    result = {ok:true,id,number:entity.number,message:prior ? 'Compra actualizada.' : 'Orden de compra '+entity.number+' registrada. La existencia se actualiza al recibir mercancía.',lineDifferenceCents:data.lineDifferenceCents};
   } else if (operation.type === 'purchase.receipt') {
     const entity = (state.purchases||[]).find(e => e.id === p.id);
     if (!entity) fail('La compra no existe.');
     if (!RECEIPT_STATES.includes(p.receiptStatus)) fail('El estado de recepción no es válido.');
+    if (entity.receiptMode === 'physical' && p.receiptStatus !== purchaseReceiptStatus(entity.items)) fail('Usa Recibir mercancía en almacén para actualizar la recepción física.');
     entity.receiptStatus = p.receiptStatus;entity.updatedAt=ctx.now;
     result = {ok:true,id:entity.id,message:'Recepción documental actualizada. No se creó un movimiento de inventario.'};
   } else if (operation.type === 'expense.create' || operation.type === 'expense.update') {
@@ -360,7 +384,7 @@ export function applyOperation(state,operation,context = {}) {
 }
 
 function entityFilter(entity,filters,payments,rules,today) {
-  if (filters.query && !normal([entity.id,entity.sicar,entity.supplier,entity.description,entity.taxInvoice,entity.merchantReference,entity.notes].join(' ')).includes(normal(filters.query))) return false;
+  if (filters.query && !normal([entity.id,entity.number,entity.sicar,entity.supplier,entity.description,entity.taxInvoice,entity.merchantReference,entity.notes].join(' ')).includes(normal(filters.query))) return false;
   for (const key of ['lender','instrument','category','supplier','status','receiptStatus','satReviewed']) {
     if (filters[key] && filters[key] !== 'Todos' && text(entity[key]) !== text(filters[key])) return false;
   }

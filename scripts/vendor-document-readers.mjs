@@ -1,0 +1,11 @@
+import {copyFile,cp,mkdir,readdir} from 'node:fs/promises';
+import path from 'node:path';
+const root=process.cwd(),dest=path.join(root,'public/erp/vendor');
+const copy=async(source,target)=>{await mkdir(path.dirname(target),{recursive:true});await copyFile(source,target);};
+for(const name of ['pdf.min.mjs','pdf.worker.min.mjs'])await copy(path.join(root,'node_modules/pdfjs-dist/legacy/build',name),path.join(dest,'pdfjs',name));
+for(const dir of ['cmaps','standard_fonts','wasm'])await cp(path.join(root,'node_modules/pdfjs-dist',dir),path.join(dest,'pdfjs',dir),{recursive:true});
+await copy(path.join(root,'node_modules/pdfjs-dist/LICENSE'),path.join(dest,'pdfjs/LICENSE'));
+for(const name of ['tesseract.min.js','worker.min.js','tesseract.min.js.LICENSE.txt','worker.min.js.LICENSE.txt'])await copy(path.join(root,'node_modules/tesseract.js/dist',name),path.join(dest,'tesseract',name));
+for(const name of await readdir(path.join(root,'node_modules/tesseract.js-core')))if(name.endsWith('.wasm.js')||name.endsWith('.wasm')||name==='LICENSE')await copy(path.join(root,'node_modules/tesseract.js-core',name),path.join(dest,'tesseract/core',name));
+for(const language of ['spa','eng'])await copy(path.join(root,'node_modules/@tesseract.js-data',language,'4.0.0_best_int',language+'.traineddata.gz'),path.join(dest,'tesseract/lang',language+'.traineddata.gz'));
+console.log('Lectores PDF y OCR disponibles localmente.');
