@@ -1,5 +1,5 @@
 import * as pricing from './modules/pricing-v28.mjs';
-import * as operations from './modules/operations-v28.mjs';
+import * as operations from './modules/operations-v28.mjs?v=20261029-payments';
 import * as reconciliation from './modules/reconciliation-v28.mjs';
 import * as inventory from './modules/inventory-v28.mjs';
 ERP.engines={pricing,operations,reconciliation,inventory};
