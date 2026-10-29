@@ -80,3 +80,21 @@ test('unknown types, ambiguous articles and preserved leading zeros do not pass 
  const ambiguous=validate([doc('one')],{lines:[line(1),line(1)]});assert.ok(has(ambiguous,'INVOICE_ITEM_MISMATCH'));
  const zeros=validate([order(),doc('one','invoice',{supplierOrder:'0599633002'})]);assert.ok(has(zeros,'ORDER_NUMBER_MISMATCH'));
 });
+
+test('clock or date values are rejected explicitly as an order reference in purchase, document and original record',()=>{
+ for(const temporal of ['02:17:18','5:17 a.m.','19/10/2026','2026-10-19']){
+  const documents=[doc('order','order',{supplierOrder:temporal}),doc('one','invoice',{supplierOrder:temporal,supplierOrderReviewed:true})];
+  const original={id:'C1',supplier:'Costco',supplierOrder:temporal,items:[line()]};
+  const report=validate(documents,{purchase:{supplier:'Costco',supplierOrder:temporal,amountCents:819800},purchaseId:'C1',originalPurchase:original});
+  assert.equal(report.valid,false,temporal+' must not pass as an order number');
+  for(const source of ['purchase','document','original'])assert.ok(report.issues.some(row=>row.code==='TEMPORAL_ORDER_REFERENCE'&&row.source===source),source+' should explain the temporal value');
+  assert.match(report.issues.find(row=>row.code==='TEMPORAL_ORDER_REFERENCE').message,/hora\/fecha.*número de orden/);
+ }
+});
+
+test('numeric supplier folios retain their leading zeros and are not rejected as dates or times',()=>{
+ for(const reference of ['599633002','000021718','20261019','OC-2026-001']){
+  const report=validate([doc('order','order',{supplierOrder:reference}),doc('one','invoice',{supplierOrder:reference})],{purchase:{supplier:'Costco',supplierOrder:reference,amountCents:819800}});
+  assert.equal(report.valid,true,reference);assert.equal(report.supplierOrder,reference);assert.equal(has(report,'TEMPORAL_ORDER_REFERENCE'),false);
+ }
+});

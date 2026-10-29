@@ -1,9 +1,9 @@
 'use strict';
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
- let draft=null,parserPromise=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-match');
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-match').then(engine=>(validationEngine=engine));
+ let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-reference-v2').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-reference-v2').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -17,9 +17,25 @@
  const blockers=d=>[...new Set((d.validation?.issues||[]).filter(issue=>issue.severity==='error').map(issue=>issue.message))];
  const hasChanges=d=>Boolean(d.documents.length||d.editedDocumentIds?.length);
  function validationFor(d){return validationEngine?.validatePurchaseDocuments(allDocs(d),{purchase:d.purchase,lines:d.lines,products:state.products||[],purchases:state.purchases||[],purchaseId:d.purchaseId||undefined});}
+ function refreshDerivedOrder(d){
+   if(!parserModule)return;
+   const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
+   // Saved purchase identity and deliberate manual references are never replaced
+   // to make a different invoice appear compatible.
+   if(prior?.supplierOrder){d.orderReferenceMode='existing';return;}
+   const current=String(d.purchase.supplierOrder||''),temporal=parserModule.isTemporalSupplierOrder(current);
+   if(d.orderReferenceMode!=='auto'&&!temporal)return;
+   const references=documents=>[...new Set(documents.map(doc=>doc.parsed?.supplierOrder)
+     .filter(value=>value&&!parserModule.isTemporalSupplierOrder(value)).map(value=>parserModule.normalizeSupplierOrder(value)).filter(Boolean))];
+   const orderReferences=references(allDocs(d).filter(doc=>doc.parsed?.kind==='order'));
+   const candidates=orderReferences.length?orderReferences:references(allDocs(d));
+   const next=candidates.length===1?candidates[0]:'';
+   d.purchase.supplierOrder=next;d.orderReferenceMode='auto';
+   const input=get('docs-order');if(input&&input.value!==next)input.value=next;
+   if(temporal&&next){d.progress='Se descartó una fecha u hora de la referencia anterior. La orden reconocida en el documento es '+next+'.';d.reviewed=false;const check=get('docs-reviewed');if(check)check.checked=false;}
+ }
  function refreshValidation(d,paint=true){
-   if(d!==draft)return;d.validation=validationFor(d);
-   if(!d.purchase.supplierOrder&&d.validation?.expectedSupplierOrder){d.purchase.supplierOrder=d.validation.expectedSupplierOrder;const input=get('docs-order');if(input)input.value=d.purchase.supplierOrder;}
+   if(d!==draft)return;refreshDerivedOrder(d);d.validation=validationFor(d);
    if(!paint)return;
    const panel=get('docs-validation');if(panel)panel.innerHTML=validationPanel(d);
    for(const row of document.querySelectorAll('#document-import-form [data-doc-match]')){const check=d.validation?.documentChecks?.find(check=>check.id===row.dataset.docMatch);row.innerHTML=matchBadge(check);}
@@ -50,7 +66,7 @@
  async function recompute(d){
    checkSession(d);const [engine]=await Promise.all([parser(),validator()]);checkSession(d);const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
    const originalDocs=allDocs(d),originalCombined=engine.combinePurchaseDocuments(originalDocs);
-   const orderReferences=[...new Set(originalDocs.map(doc=>engine.normalizeSupplierOrder(doc.parsed?.supplierOrder)).filter(Boolean))];
+   refreshDerivedOrder(d);
    let sources=originalDocs;
    // Confirmed quantities are authoritative even when OCR evidence was corrected.
    // Keep original files and parsed evidence intact; use the reviewed order for coverage.
@@ -68,7 +84,7 @@
    }
    const combined=engine.combinePurchaseDocuments(sources),old=new Map(d.lines.map(l=>[idKey(l),l]));
    d.combined=combined;
-   d.purchase={...(prior||{}),...d.purchase,supplier:d.purchase.supplier||originalCombined.supplier||combined.supplier||'',supplierOrder:d.purchase.supplierOrder||(orderReferences.length===1?orderReferences[0]:'')||combined.supplierOrder||'',
+   d.purchase={...(prior||{}),...d.purchase,supplier:d.purchase.supplier||originalCombined.supplier||combined.supplier||'',supplierOrder:d.purchase.supplierOrder||'',
      date:d.purchase.date||combined.date||ERP.today(),shippingStatus:d.purchase.shippingStatus||prior?.shippingStatus||'En tránsito',
      amountCents:d.totalEdited?d.purchase.amountCents:combined.totalCents??prior?.amountCents??null};
    const validIds=new Set(allDocs(d).map(x=>x.id));
@@ -98,14 +114,14 @@
  async function open(options={}){
    close();const requestedId=options.purchaseId||options.purchaseDraft?.id,p=requestedId?state.purchases.find(x=>x.id===requestedId):null;
    const base={...(p||{}),...(options.purchaseDraft||{})},initialLines=rowsFromPurchase(base).map(line=>({...line,...(!p?{manual:true,overrides:{qty:true,cost:line.unitCostCents!=null}}:{})}));
-   draft={workspace:ERP.workspace,purchaseId:p?.id||null,purchase:base,storedDocuments:structuredClone((state.documents||[]).filter(doc=>p&&doc.purchaseId===p.id)),documents:[],editedDocumentIds:[],uploadWarnings:[],lines:initialLines,combined:null,validation:null,busy:false,progress:'',reviewed:false};
+   draft={workspace:ERP.workspace,purchaseId:p?.id||null,purchase:base,storedDocuments:structuredClone((state.documents||[]).filter(doc=>p&&doc.purchaseId===p.id)),documents:[],editedDocumentIds:[],uploadWarnings:[],orderReferenceMode:p?.supplierOrder?'existing':base.supplierOrder?'manual':'auto',lines:initialLines,combined:null,validation:null,busy:false,progress:'',reviewed:false};
    const d=draft;render(d);
    try{await Promise.all([parser(),validator()]);if(d!==draft)return;if(allDocs(d).length)await recompute(d);else refreshValidation(d);}
    catch(error){if(d===draft){d.progress='No se pudo cargar la validación: '+error.message;render(d);}}
  }
  function capture(d){
    if(!get('document-import-form'))return;
-   for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes']])if(get(id))d.purchase[field]=value(id).trim();
+   for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes']])if(get(id)){const captured=value(id).trim();if(field==='supplierOrder'&&captured!==String(d.purchase.supplierOrder||''))d.orderReferenceMode='manual';d.purchase[field]=captured;}
    if(get('docs-total'))d.purchase.amountCents=cents(value('docs-total'));
    for(const input of document.querySelectorAll('[data-doc-order-reference]')){const doc=allDocs(d).find(doc=>doc.id===input.dataset.docOrderReference);if(doc)setDocumentReference(d,doc,input.value);}
    d.reviewed=!!get('docs-reviewed')?.checked;
@@ -289,7 +305,7 @@
    if(!draft)return;
    if(e.target.id==='docs-total')draft.totalEdited=true;
    if(e.target.hasAttribute('data-doc-order-reference')){capture(draft);refreshValidation(draft);return;}
-   if(['docs-supplier','docs-order','docs-total'].includes(e.target.id)){capture(draft);draft.reviewed=false;const check=get('docs-reviewed');if(check)check.checked=false;refreshValidation(draft);return;}
+   if(['docs-supplier','docs-order','docs-total'].includes(e.target.id)){if(e.target.id==='docs-order')draft.orderReferenceMode='manual';capture(draft);draft.reviewed=false;const check=get('docs-reviewed');if(check)check.checked=false;refreshValidation(draft);return;}
    if(!e.target.closest('[data-doc-line]'))return;
    const row=e.target.closest('[data-doc-line]'),i=Number(row.dataset.docLine),line=draft.lines[i];
    if(!line)return;

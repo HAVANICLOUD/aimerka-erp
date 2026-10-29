@@ -90,6 +90,14 @@ Se aceptan PDF, PNG y JPG de hasta **15 MB por archivo**, hasta **15 páginas po
 
 La extracción produce un borrador revisable. La interfaz permite inspeccionar el texto, cambiar la clasificación, volver a interpretar, forzar OCR, corregir partidas y relacionar productos. El reconocimiento usa UPC explícito, equivalencias confirmadas de proveedor e item, y coincidencias de nombre. Las sugerencias dudosas requieren asignación manual. Los documentos irreconocibles admiten captura manual de sus partidas y vínculos antes de confirmar.
 
+### Número de orden frente a fecha y hora
+
+El lector excluye las fechas y horas completas antes de buscar la referencia de la orden, conservando el texto original como evidencia. Esto incluye horas fragmentadas entre líneas y horas compactadas por OCR, como `021718 PM`, en encabezados donde los títulos de las columnas aparecen antes de sus valores. Los folios numéricos legítimos conservan sus ceros iniciales; una cadena de dígitos aislada no se rechaza sólo por parecer una hora.
+
+El borrador distingue referencias automáticas, manuales y guardadas. Al volver a interpretar, actualiza la referencia automática con la nueva lectura; conserva las capturas manuales válidas y la identidad de una compra ya registrada. Una fecha u hora inequívoca no se conserva como referencia de un borrador nuevo. El validador compartido de interfaz y servidor también bloquea fechas u horas usadas como número de orden, incluso si se marcaron como revisadas manualmente.
+
+Las regresiones cubren la exclusión de `021718 PM`, fragmentos como `02:17:\n18PM`, la actualización de una cabecera automática antigua y el rechazo de referencias temporales antes del guardado. En la orden de Costco de prueba, la fecha/hora es `19/10/2026 02:17:18 PM` y la referencia del proveedor es `599633002`.
+
 Se detectan archivos repetidos por SHA-256 y facturas repetidas por UUID. Las incompatibilidades de proveedor, orden, moneda, partidas o cantidades requieren revisión. Una factura ya vinculada a otra compra no se reaplica silenciosamente.
 
 **Límites operativos actuales:** no existe envío real a VentiApp o marketplaces; la cola sólo conserva el disponible pendiente de publicación. La mención fiscal `PUE` no crea un pago, una salida bancaria ni una liquidación de crédito. La lectura de un CFDI no implica validación de vigencia o autenticidad ante el SAT. El OCR puede equivocarse y siempre debe revisarse antes de guardar.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parsePurchaseDocument,matchPurchaseLine,combinePurchaseDocuments,normalizeSupplier,normalizeSupplierOrder} from '../lib/purchase-document-parser.mjs';
+import {parsePurchaseDocument,matchPurchaseLine,combinePurchaseDocuments,normalizeSupplier,normalizeSupplierOrder,isTemporalSupplierOrder} from '../lib/purchase-document-parser.mjs';
 
 // Synthetic fixtures retain the supplier's layout, without customer identity,
 // tax IDs, addresses, actual invoice UUIDs, or financial document attachments.
@@ -142,6 +142,50 @@ test('supplier reference comparison normalizes case and spacing but preserves me
   assert.notEqual(normalizeSupplierOrder('000600001'),normalizeSupplierOrder('600001'));
   const a=orderDoc(),b=invoice1();a.supplierOrder='oc - 000123';b.supplierOrder='OC-000123';
   const result=combinePurchaseDocuments([a,b]);assert.equal(result.canImport,true);assert.equal(result.supplierOrder,'OC-000123');
+});
+
+test('clear clocks and dates are temporal references but ordinary numeric and alphanumeric folios are not',()=>{
+  for(const value of ['02:17:18','02:17 PM','5:17 a.m.','021718 PM','021718PM','19/10/2026','29/10/26','2026-10-19',
+    '19/10/2026 02:17:18 PM','2026-10-19T14:17:18Z','2026-10-19T14:17:18.123-06:00',' 02 : 17 : 18 PM ']){
+    assert.equal(isTemporalSupplierOrder(value),true,value);
+  }
+  for(const value of ['599633002','000021718','021718','19102026','20261019','OC-2026-10-19','OC-2026-001','ABPM001','A02-17','']){
+    assert.equal(isTemporalSupplierOrder(value),false,value);
+  }
+});
+
+test('a compact creation time cannot become the first order-number candidate in a column-first PDF',()=>{
+  // Before the fix this chose 021718; adding the footer then created a false
+  // conflict between that time and the actual order number.
+  const body='Orden de compra\nFecha de creación Número de orden Forma de pago\n19/10/2026 021718 PM 600000001 Visa';
+  for(const source of [body,body+'\nhttps://www.costco.com.mx/my-account/order/600000001',body.replace(/\s+/g,' ')]){
+    const parsed=parsePurchaseDocument(source,{fileName:'neutral.pdf'});
+    assert.equal(parsed.supplierOrder,'600000001');
+    assert.deepEqual(parsed.supplierOrderCandidates,['600000001']);assert.equal(parsed.supplierOrderConflict,false);
+    assert.match(parsed.evidence.supplierOrder,/600000001/);
+    assert.doesNotMatch(parsed.evidence.supplierOrder,/~{2}/);
+  }
+});
+
+test('fragmented times preceding the order label cannot leak a seconds or meridiem fragment as another reference',()=>{
+  // Before the fix the backwards-value pattern also captured the 18PM line.
+  for(const time of ['02:17:\n18PM','02:\n17:\n18 PM','02 : 17 :\n18 P.M.','19/10/\n2026 02:17:18 PM']){
+    const source='Orden de compra\nFecha de creación\n'+time+'\nNúmero de orden\n600000001\nForma de pago\nVisa';
+    const parsed=parsePurchaseDocument(source);
+    assert.equal(parsed.supplierOrder,'600000001',time);
+    assert.deepEqual(parsed.supplierOrderCandidates,['600000001']);assert.equal(parsed.supplierOrderConflict,false);
+  }
+});
+
+test('a temporal value under the order label is left unreadable instead of reused as the supplier reference',()=>{
+  for(const temporal of ['02:17:18','02 : 17 : 18 PM','021718PM','5:17 a.m.','19/10/2026','2026-10-19T14:17:18Z']){
+    const parsed=parsePurchaseDocument('Orden de compra\nNúmero de orden: '+temporal+'\nForma de pago\nVisa');
+    assert.equal(parsed.supplierOrder,null,temporal);assert.deepEqual(parsed.supplierOrderCandidates,[]);
+  }
+  for(const reference of ['000021718','021718','20261019','OC-2026-10-19']){
+    const parsed=parsePurchaseDocument('Orden de compra\nFecha de creación: 19/10/2026 02:17:18 PM\nNúmero de orden: '+reference);
+    assert.equal(parsed.supplierOrder,reference);
+  }
 });
 
 test('CFDI amounts include the documented discount and IVA; PUE remains informational',()=>{
