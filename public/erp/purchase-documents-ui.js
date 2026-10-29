@@ -1,8 +1,9 @@
 'use strict';
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
- let draft=null,parserPromise=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-documents');
+ let draft=null,parserPromise=null,validationPromise=null,validationEngine=null;
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-match');
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-match').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -10,17 +11,47 @@
  const kindName=k=>({order:'Orden de compra',invoice:'Factura',unknown:'Por clasificar'})[k]||'Documento';
  const docUrl=id=>'/api/documents/'+encodeURIComponent(id)+'?workspace='+encodeURIComponent(ERP.workspace);
  const idKey=line=>String(line.supplierItem||'')+'|'+String(line.name||'').toLocaleUpperCase('es-MX');
- const existingDocs=d=>(state.documents||[]).filter(doc=>doc.purchaseId===d.purchaseId);
+ const existingDocs=d=>d.storedDocuments||(state.documents||[]).filter(doc=>doc.purchaseId===d.purchaseId);
  const allDocs=d=>[...existingDocs(d),...d.documents];
  const related=(line,p)=>line.sku===p.sku||line.skuOrUpc===p.sku||p.upc&&line.skuOrUpc===p.upc;
- const blockers=d=>(d.combined?.blockingWarnings||[]).filter(message=>!(d.manualReview&&d.lines.length&&message.includes('no tiene partidas reconocidas')));
+ const blockers=d=>[...new Set((d.validation?.issues||[]).filter(issue=>issue.severity==='error').map(issue=>issue.message))];
+ const hasChanges=d=>Boolean(d.documents.length||d.editedDocumentIds?.length);
+ function validationFor(d){return validationEngine?.validatePurchaseDocuments(allDocs(d),{purchase:d.purchase,lines:d.lines,products:state.products||[],purchases:state.purchases||[],purchaseId:d.purchaseId||undefined});}
+ function refreshValidation(d,paint=true){
+   if(d!==draft)return;d.validation=validationFor(d);
+   if(!d.purchase.supplierOrder&&d.validation?.expectedSupplierOrder){d.purchase.supplierOrder=d.validation.expectedSupplierOrder;const input=get('docs-order');if(input)input.value=d.purchase.supplierOrder;}
+   if(!paint)return;
+   const panel=get('docs-validation');if(panel)panel.innerHTML=validationPanel(d);
+   for(const row of document.querySelectorAll('#document-import-form [data-doc-match]')){const check=d.validation?.documentChecks?.find(check=>check.id===row.dataset.docMatch);row.innerHTML=matchBadge(check);}
+   const saveButton=get('docs-save');if(saveButton)saveButton.disabled=Boolean(d.busy||!hasChanges(d)||!d.lines.length||blockers(d).length||!d.validation);
+   const warning=get('docs-blockers');if(warning){warning.hidden=!blockers(d).length;warning.innerHTML=blockerPanel(d);}
+ }
+ const checkColor=check=>({matched:'green',mismatch:'red',missing:'amber',duplicate:'amber',unverified:'slate'})[check?.status]||'slate';
+ const matchBadge=check=>{const label=({matched:'Orden coincidente',mismatch:'No coincide',missing:'Sin referencia',duplicate:'Duplicado',unverified:'Por verificar'})[check?.status]||'Por verificar';return '<span title="'+esc(check?.label||label)+'">'+badge(label,checkColor(check))+'</span>';};
+ function validationPanel(d){
+   const report=d.validation;if(!allDocs(d).length)return '';
+   if(!report)return '<div class="doc-match-panel" role="status">Comprobando la orden y todas sus facturas…</div>';
+   const summary=report.summary||{},ref=report.expectedSupplierOrder||report.supplierOrder||d.purchase.supplierOrder;
+   const issues=report.issues||[],failed=issues.some(issue=>issue.severity==='error'),warnings=issues.filter(issue=>issue.severity==='warning');
+   return '<section class="doc-match-panel '+(failed?'has-errors':'')+'" aria-label="Validación de orden y facturas"><div class="doc-match-heading"><div><span class="small-note">ORDEN DEL PROVEEDOR</span><strong>'+esc(ref||'Pendiente de identificar')+'</strong></div>'+badge(failed?'Requiere corrección':warnings.length?'Revisar avisos':'Documentos compatibles',failed?'red':warnings.length?'amber':'green')+'</div><div class="doc-match-counts"><div><strong>'+Number(summary.orderedQty||0)+'</strong><span>Unidades ordenadas</span></div><div><strong>'+Number(summary.invoicedQty||0)+'</strong><span>Facturadas acumuladas</span></div><div class="'+(summary.excessQty?'has-excess':'')+'"><strong>'+Number(summary.excessQty||summary.pendingQty||0)+'</strong><span>'+(summary.excessQty?'Unidades de más':'Pendientes de facturar')+'</span></div></div><p class="small-note">Se comparan el proveedor, la orden, los artículos, las cantidades y los documentos anteriores y nuevos. '+Number(summary.invoiceCount||0)+' factura(s) revisada(s), sin contar duplicados.</p>'+
+     (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+'</section>';
+ }
+ function blockerPanel(d){return '<strong>Resuelve las diferencias antes de guardar</strong><p>'+blockers(d).map(esc).join(' ')+'</p><p>Quita el documento incorrecto o revisa su lectura y la referencia original.</p>';}
+ function setDocumentReference(d,doc,reference){
+   const value=String(reference??'').trim();if(value===String(doc.parsed?.supplierOrder||''))return;
+   const parsed=doc.parsed;parsed.supplierOrderOriginal??=parsed.supplierOrder||'';parsed.supplierOrder=value||null;parsed.supplierOrderReviewed=true;doc.extraction='manual';
+   if(existingDocs(d).some(row=>row.id===doc.id)&&!d.editedDocumentIds.includes(doc.id))d.editedDocumentIds.push(doc.id);
+   d.reviewed=false;const checkbox=get('docs-reviewed');if(checkbox)checkbox.checked=false;
+ }
  function checkSession(d){if(d!==draft||d.workspace!==ERP.workspace)throw new Error('La lectura se cerró o cambió el espacio de trabajo. Abre de nuevo la importación.');}
  function progress(d,message){if(d!==draft||d.workspace!==ERP.workspace)return;message=typeof message==='string'?message:message?.message||'Procesando documento…';d.progress=message;const status=get('docs-progress');if(status)status.textContent=message;}
  function close(){if(draft){for(const doc of draft.documents)if(doc.previewUrl)URL.revokeObjectURL(doc.previewUrl);}draft=null;get('modal')?.classList.remove('documents-modal');}
  function rowsFromPurchase(p){return (p?.items||[]).map(l=>({...l,sku:l.sku||state.products.find(x=>related(l,x))?.sku||'',documentIds:l.documentIds||[]}));}
  async function recompute(d){
-   checkSession(d);const engine=await parser(),prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
-   let sources=allDocs(d);
+   checkSession(d);const [engine]=await Promise.all([parser(),validator()]);checkSession(d);const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
+   const originalDocs=allDocs(d),originalCombined=engine.combinePurchaseDocuments(originalDocs);
+   const orderReferences=[...new Set(originalDocs.map(doc=>engine.normalizeSupplierOrder(doc.parsed?.supplierOrder)).filter(Boolean))];
+   let sources=originalDocs;
    // Confirmed quantities are authoritative even when OCR evidence was corrected.
    // Keep original files and parsed evidence intact; use the reviewed order for coverage.
    if(prior?.items?.length){
@@ -37,7 +68,7 @@
    }
    const combined=engine.combinePurchaseDocuments(sources),old=new Map(d.lines.map(l=>[idKey(l),l]));
    d.combined=combined;
-   d.purchase={...(prior||{}),...d.purchase,supplier:d.purchase.supplier||combined.supplier||'',supplierOrder:d.purchase.supplierOrder||combined.supplierOrder||'',
+   d.purchase={...(prior||{}),...d.purchase,supplier:d.purchase.supplier||originalCombined.supplier||combined.supplier||'',supplierOrder:d.purchase.supplierOrder||(orderReferences.length===1?orderReferences[0]:'')||combined.supplierOrder||'',
      date:d.purchase.date||combined.date||ERP.today(),shippingStatus:d.purchase.shippingStatus||prior?.shippingStatus||'En tránsito',
      amountCents:d.totalEdited?d.purchase.amountCents:combined.totalCents??prior?.amountCents??null};
    const validIds=new Set(allDocs(d).map(x=>x.id));
@@ -62,17 +93,21 @@
    }
    for(const line of old.values())if(line.manual&&!d.lines.some(row=>idKey(row)===idKey(line)))d.lines.push(line);
    if(!d.lines.length)d.lines=old.size?[...old.values()]:[];
-   render(d);
+   refreshValidation(d,false);render(d);
  }
  async function open(options={}){
-   close();const p=options.purchaseId?state.purchases.find(x=>x.id===options.purchaseId):null;
-   draft={workspace:ERP.workspace,purchaseId:p?.id||null,purchase:p?{...p}:{},documents:[],lines:rowsFromPurchase(p),combined:null,busy:false,progress:'',reviewed:false};
-   render(draft);
+   close();const requestedId=options.purchaseId||options.purchaseDraft?.id,p=requestedId?state.purchases.find(x=>x.id===requestedId):null;
+   const base={...(p||{}),...(options.purchaseDraft||{})},initialLines=rowsFromPurchase(base).map(line=>({...line,...(!p?{manual:true,overrides:{qty:true,cost:line.unitCostCents!=null}}:{})}));
+   draft={workspace:ERP.workspace,purchaseId:p?.id||null,purchase:base,storedDocuments:structuredClone((state.documents||[]).filter(doc=>p&&doc.purchaseId===p.id)),documents:[],editedDocumentIds:[],uploadWarnings:[],lines:initialLines,combined:null,validation:null,busy:false,progress:'',reviewed:false};
+   const d=draft;render(d);
+   try{await Promise.all([parser(),validator()]);if(d!==draft)return;if(allDocs(d).length)await recompute(d);else refreshValidation(d);}
+   catch(error){if(d===draft){d.progress='No se pudo cargar la validación: '+error.message;render(d);}}
  }
  function capture(d){
    if(!get('document-import-form'))return;
-   d.purchase={...d.purchase,supplier:value('docs-supplier').trim(),supplierOrder:value('docs-order').trim(),date:value('docs-date'),
-     shippingStatus:value('docs-shipping'),amountCents:cents(value('docs-total')),notes:value('docs-notes')};
+   for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes']])if(get(id))d.purchase[field]=value(id).trim();
+   if(get('docs-total'))d.purchase.amountCents=cents(value('docs-total'));
+   for(const input of document.querySelectorAll('[data-doc-order-reference]')){const doc=allDocs(d).find(doc=>doc.id===input.dataset.docOrderReference);if(doc)setDocumentReference(d,doc,input.value);}
    d.reviewed=!!get('docs-reviewed')?.checked;
    for(const row of document.querySelectorAll('[data-doc-line]')){
      const i=Number(row.dataset.docLine),line=d.lines[i];if(!line)continue;
@@ -85,10 +120,14 @@
      line.documentIds=[...row.querySelectorAll('[data-doc-link]:checked')].map(input=>input.dataset.docLink);
    }
  }
- function documentCard(doc,stored=false){
-   const p=doc.parsed||{},url=stored?docUrl(doc.id):doc.previewUrl;
+ function documentCard(doc,stored=false,validation,editable=false){
+   const p=doc.parsed||{},url=stored?docUrl(doc.id):doc.previewUrl,check=validation?.documentChecks?.find(check=>check.id===doc.id);
    return '<article class="document-card"><div class="document-card-icon">'+icon(p.kind==='invoice'?'wallet':'file')+'</div><div class="document-card-body"><strong>'+esc(doc.name)+'</strong>'+
      '<div class="document-card-meta">'+badge(kindName(p.kind),p.kind==='invoice'?'green':'blue')+'<span>'+esc(p.invoiceNumber||p.supplierOrder||'Sin referencia')+'</span><span>'+esc(doc.extraction==='ocr'?'OCR de imagen':doc.extraction==='manual'?'Revisión manual':'Lectura PDF')+'</span></div>'+
+     '<div class="document-order-reference"><span>Número de orden en este documento</span>'+
+     (editable?'<input data-doc-order-reference="'+esc(doc.id)+'" aria-label="Número de orden en '+esc(doc.name)+'" value="'+esc(p.supplierOrder||'')+'" maxlength="120" autocomplete="off" placeholder="Revisa el número en el original">':'<strong>'+esc(p.supplierOrder||'No identificado')+'</strong>')+
+     '<div data-doc-match="'+esc(doc.id)+'">'+matchBadge(check)+'</div>'+
+     (p.supplierOrderReviewed?'<small>Referencia revisada manualmente. Lectura inicial: '+esc(p.supplierOrderOriginal||'sin número')+'.</small>':p.evidence?.supplierOrder?'<small>Lectura: '+esc(p.evidence.supplierOrder)+'</small>':editable?'<small>Si la lectura falta o es incorrecta, escribe el número que aparece en este documento.</small>':'')+'</div>'+
      (p.totalCents!=null?'<div class="document-card-total">'+money(p.totalCents)+'</div>':'<div class="small-note">Importe por confirmar</div>')+
      (p.uuid?'<div class="document-uuid">UUID '+esc(p.uuid)+'</div>':'')+
      '<div class="document-card-actions">'+(url?'<a class="btn small" target="_blank" rel="noopener" href="'+esc(url)+'">Ver original ↗</a>':'')+
@@ -149,18 +188,19 @@
  }
  function render(d){
    if(d!==draft||d.workspace!==ERP.workspace)return;
-   const docs=allDocs(d),p=d.purchase,combined=d.combined,hasFiles=docs.length>0,skus=proposedSkus(d);
-   const warnings=[...new Set(combined?.warnings||[])];
+   refreshValidation(d,false);const docs=allDocs(d),p=d.purchase,combined=d.combined,hasFiles=docs.length>0,skus=proposedSkus(d);
+   const warnings=[...new Set([...(combined?.warnings||[]).filter(warning=>!(combined?.blockingWarnings||[]).includes(warning)),...(d.uploadWarnings||[])])];
    const existing=d.purchaseId?[]:(state.purchases||[]).filter(x=>p.supplierOrder&&x.supplierOrder===p.supplierOrder);
    const blocked=blockers(d).length;
    const title=d.purchaseId?'Añadir documentos a '+esc(state.purchases.find(x=>x.id===d.purchaseId)?.number||d.purchaseId):'Importar orden y facturas';
    showModal('<form id="document-import-form"><div class="docs-modal-head"><div><span class="eyebrow">COMPRAS / LECTURA DOCUMENTAL</span><h2 id="modal-title">'+title+'</h2><p class="modal-subtitle">De tus documentos a una orden lista para recibir.</p></div><span class="docs-workspace">'+(ERP.workspace==='practice'?'Práctica':'Operación V28')+'</span></div>'+
      '<div class="doc-steps"><span class="'+(!hasFiles?'active':'done')+'"><b>1</b> Adjuntar</span><span class="'+(hasFiles?'active':'')+'"><b>2</b> Revisar y relacionar</span><span><b>3</b> Guardar sin recibir</span></div>'+
-     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>Orden de compra, facturas o capturas</strong><p>PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
+     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>Orden de compra, facturas o capturas</strong><p>Puedes adjuntar la orden y sus facturas juntas, o agregar más facturas después. PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
      '<div id="docs-progress" class="docs-progress" role="status" aria-live="polite">'+esc(d.progress||'')+'</div>'+
-     (hasFiles?'<div class="document-grid">'+docs.map(doc=>documentCard(doc,!d.documents.some(x=>x.id===doc.id))).join('')+'</div>':'')+
+     (hasFiles?'<div class="document-grid">'+docs.map(doc=>documentCard(doc,!d.documents.some(x=>x.id===doc.id),d.validation,true)).join('')+'</div>':'')+
+     '<div id="docs-validation" aria-live="polite">'+validationPanel(d)+'</div>'+
      (warnings.length?'<div class="document-warnings"><strong>Revisa antes de guardar</strong><ul>'+warnings.map(w=>'<li>'+esc(typeof w==='string'?w:w.message||String(w))+'</li>').join('')+'</ul></div>':'')+
-     (existing.length?'<div class="info-box amber spacer-top">Ya existe '+existing.map(x=>esc(x.number||x.id)).join(', ')+' con la referencia '+esc(p.supplierOrder)+'. Esta pantalla creará una orden nueva; para anexar a una existente, entra desde su ficha.</div>':'')+
+     (existing.length?'<div class="info-box amber spacer-top">Ya existe '+existing.map(x=>esc(x.number||x.id)).join(', ')+' con la referencia '+esc(p.supplierOrder)+'. Abre esa compra para revisar sus artículos y anexar los documentos correspondientes.</div>':'')+
      (hasFiles?'<section class="doc-review-section"><div class="form-section-head"><h3>Datos de la compra</h3>'+badge(d.purchaseId?'Conservar folio':'Folio automático','blue')+'</div><div class="form-grid">'+
        ERP.field('docs-supplier','Proveedor *',p.supplier,'text','required list="docs-suppliers"')+
        ERP.field('docs-order','Orden original del proveedor',p.supplierOrder)+ERP.field('docs-date','Fecha de la orden *',p.date||ERP.today(),'date','required max="'+ERP.today()+'"')+
@@ -171,9 +211,9 @@
        '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div><button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button></div>'+
        (d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
        '<div class="doc-confirm"><label><input id="docs-reviewed" type="checkbox" '+(d.reviewed?'checked':'')+' required> Confirmé productos, cantidades, documentos e importes. Las unidades entrarán al inventario únicamente al recibirlas en almacén.</label></div>'+
-       (blocked?'<div class="document-warnings"><strong>Documentos incompatibles</strong><p>'+blockers(d).map(x=>esc(typeof x==='string'?x:x.message)).join(' ')+'</p><p>Separa estos documentos o corrige su lectura antes de guardar.</p></div>':''):'')+
+       '<div id="docs-blockers" class="document-warnings" '+(blocked?'':'hidden')+'>'+blockerPanel(d)+'</div>':'')+
      '<div class="modal-actions docs-sticky-actions"><button class="btn" type="button" data-action="close-modal">Cerrar</button>'+
-     (hasFiles?'<button class="btn primary" type="submit" '+(d.busy||!d.documents.length||!d.lines.length||blocked?'disabled':'')+'>'+icon('check')+(d.purchaseId?' Guardar documentos y actualizar orden':' Registrar orden documental')+'</button>':'')+'</div></form>');
+     (hasFiles?'<button class="btn primary" id="docs-save" type="submit" '+(d.busy||!hasChanges(d)||!d.lines.length||blocked||!d.validation?'disabled':'')+'>'+icon('check')+(d.purchaseId?' Guardar documentos y actualizar orden':' Registrar orden documental')+'</button>':'')+'</div></form>');
    get('modal').classList.add('documents-modal');
  }
  async function addFiles(files){
@@ -188,7 +228,7 @@
        if(!/\.(pdf|png|jpe?g)$/i.test(file.name)||!file.size||file.size>15*1024*1024)throw new Error(file.name+': utiliza PDF, PNG o JPG de hasta 15 MB.');
        progress(d,'Leyendo '+file.name+'…');
        const id=await DocumentHash29.digest(await file.arrayBuffer());
-       if(allDocs(d).some(doc=>doc.id===id)){toast(file.name+' ya está adjunto. No se repitió.');continue;}
+       if(allDocs(d).some(doc=>doc.id===id)){const warning=file.name+' ya está adjunto. El archivo duplicado se omitió y no sumó artículos.';d.uploadWarnings.push(warning);toast(warning);continue;}
        const read=await DocumentReader29.extract(file,message=>progress(d,file.name+' · '+(typeof message==='string'?message:message.message)));
        checkSession(d);const parsed=engine.parsePurchaseDocument(read.text,{fileName:file.name});
        parsed.warnings=[...new Set([...(parsed.warnings||[]),...(read.warnings||[])])];
@@ -202,12 +242,14 @@
  async function save(d){
    if(d.busy||ERP.busy)return;capture(d);
    if(!d.reviewed){toast('Confirma la revisión de los documentos.',true);return;}
-   if(blockers(d).length){toast('Resuelve los documentos incompatibles antes de guardar.',true);return;}
+   try{await validator();checkSession(d);if(d.busy||ERP.busy)return;refreshValidation(d);}catch(error){toast('No se pudo verificar la orden: '+error.message,true);return;}
+   if(!d.reviewed){toast('Confirma de nuevo la revisión después de los cambios.',true);return;}
+   if(blockers(d).length||!d.validation?.valid){toast('Resuelve las diferencias de la orden y sus facturas antes de guardar.',true);return;}
    if(d.documents.some(doc=>!doc.parsed.lines?.length&&!d.lines.some(line=>line.documentIds.includes(doc.id)))){toast('Relaciona los documentos sin lectura con sus partidas capturadas manualmente.',true);return;}
    if(d.lines.some(l=>!l.sku&&!l.newProduct)){toast('Asigna cada partida a un producto o genera uno nuevo.',true);return;}
    d.busy=true;render(d);
    try{
-     const documents=[];
+     const documents=existingDocs(d).filter(doc=>d.editedDocumentIds.includes(doc.id)).map(doc=>({id:doc.id,parsed:doc.parsed,extraction:'manual'}));
      for(const doc of d.documents){
        checkSession(d);progress(d,'Guardando archivo '+doc.name+'…');
        const form=new FormData();form.append('file',doc.file);
@@ -220,7 +262,7 @@
      const lines=d.lines.map(l=>({id:l.id,sku:l.sku||undefined,newProduct:l.newProduct?{...l.newProduct,name:l.name,costCents:l.unitCostCents??undefined,priceCents:0,
        review:l.unitCostCents==null?'Costo pendiente de confirmar. Artículo creado desde documento.':'Creado desde documento revisado.'}:undefined,
        name:l.name,supplierItem:l.supplierItem,qty:l.qty,unitCostCents:l.unitCostCents,documentIds:l.documentIds}));
-     const purchase=Object.fromEntries(['supplier','supplierOrder','date','shippingStatus','notes','amountCents'].map(key=>[key,d.purchase[key]]));
+     const purchase=Object.fromEntries(['supplier','supplierOrder','date','shippingStatus','notes','amountCents','lender','instrument','term','firstPaymentDate','sicar','taxInvoice','satReviewed'].filter(key=>d.purchase[key]!==undefined&&!(key==='taxInvoice'&&!d.purchase[key])).map(key=>[key,d.purchase[key]]));
      const result=await ERP.command('purchase.importDocuments',{purchaseId:d.purchaseId||undefined,purchase,lines,documents});
      if(!result.ok)throw new Error(result.error||'No se guardó la importación. Revisa y vuelve a intentar.');
      const id=result.result.purchaseId||result.result.id;get('modal').close();close();if(id)window.op28Detail?.('purchase',id);
@@ -228,9 +270,10 @@
    finally{d.busy=false;if(d===draft)render(d);}
  }
  function section(p){
-   const docs=(state.documents||[]).filter(doc=>doc.purchaseId===p.id);
-   return '<section class="purchase-documents-section"><div class="form-section-head"><div><h3>Orden y facturas</h3><span class="small-note">'+docs.length+' documentos conservados con esta compra</span></div><button class="btn small" data-doc-open="'+esc(p.id)+'">＋ Añadir documentos</button></div>'+
-     (docs.length?'<div class="document-grid">'+docs.map(doc=>documentCard(doc,true)).join('')+'</div>':'<div class="doc-empty">'+icon('file')+'<p>Conserva aquí la orden del proveedor y sus facturas. Podrás consultarlas también desde cada producto.</p></div>')+'</section>';
+   const docs=(state.documents||[]).filter(doc=>doc.purchaseId===p.id),d={purchaseId:p.id,purchase:p,storedDocuments:docs,documents:[],lines:p.items||[]};d.validation=validationFor(d);
+   if(docs.length&&!validationEngine){const workspace=ERP.workspace;validator().then(()=>{const node=get('purchase-documents-'+p.id),current=state.purchases.find(row=>row.id===p.id);if(node&&current&&ERP.workspace===workspace)node.outerHTML=section(current);}).catch(()=>{});}
+   return '<section class="purchase-documents-section" id="purchase-documents-'+esc(p.id)+'"><div class="form-section-head"><div><h3>Orden y facturas</h3><span class="small-note">'+docs.length+' documentos conservados con esta compra</span></div><button class="btn small" data-doc-open="'+esc(p.id)+'">＋ Añadir o revisar documentos</button></div>'+
+     (docs.length?validationPanel(d)+'<div class="document-grid">'+docs.map(doc=>documentCard(doc,true,d.validation)).join('')+'</div>':'<div class="doc-empty">'+icon('file')+'<p>Conserva aquí la orden del proveedor y sus facturas. Podrás consultarlas también desde cada producto.</p></div>')+'</section>';
  }
  document.addEventListener('change',e=>{
    if(e.target.id==='document-files'){addFiles(e.target.files);return;}
@@ -239,16 +282,19 @@
    if(e.target.matches('[data-doc-field="sku"]')){
      const d=draft;capture(d);const line=d.lines[Number(e.target.closest('[data-doc-line]').dataset.docLine)];
      if(e.target.value==='__new__'&&!line.newProduct?.brand){line.newProduct={...(line.newProduct||{}),name:line.name,brand:'',model:'',color:'',capacity:'',upc:''};}
-     d.reviewed=false;render(d);
+     d.reviewed=false;refreshValidation(d,false);render(d);
    }
  });
  document.addEventListener('input',e=>{
-   if(draft&&e.target.id==='docs-total')draft.totalEdited=true;
-   if(!draft||!e.target.closest('[data-doc-line]'))return;
+   if(!draft)return;
+   if(e.target.id==='docs-total')draft.totalEdited=true;
+   if(e.target.hasAttribute('data-doc-order-reference')){capture(draft);refreshValidation(draft);return;}
+   if(['docs-supplier','docs-order','docs-total'].includes(e.target.id)){capture(draft);draft.reviewed=false;const check=get('docs-reviewed');if(check)check.checked=false;refreshValidation(draft);return;}
+   if(!e.target.closest('[data-doc-line]'))return;
    const row=e.target.closest('[data-doc-line]'),i=Number(row.dataset.docLine),line=draft.lines[i];
    if(!line)return;
    if(['qty','cost'].includes(e.target.dataset.docField))(line.overrides??={})[e.target.dataset.docField]=true;
-   capture(draft);refreshSkuPreviews(draft);
+   capture(draft);refreshSkuPreviews(draft);draft.reviewed=false;const check=get('docs-reviewed');if(check)check.checked=false;refreshValidation(draft);
  });
  document.addEventListener('click',async e=>{
    const el=e.target.closest('button');if(!el)return;
@@ -279,4 +325,5 @@
  document.addEventListener('drop',e=>{if(e.target.closest('#document-dropzone')){e.preventDefault();addFiles(e.dataTransfer.files);}});
  get('modal')?.addEventListener('close',()=>{if(draft)close();});
  window.PurchaseDocs28={open,section,docUrl,close};
+ validator().catch(()=>{});
 })();

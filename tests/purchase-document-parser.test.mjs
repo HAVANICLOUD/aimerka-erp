@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parsePurchaseDocument,matchPurchaseLine,combinePurchaseDocuments,normalizeSupplier} from '../lib/purchase-document-parser.mjs';
+import {parsePurchaseDocument,matchPurchaseLine,combinePurchaseDocuments,normalizeSupplier,normalizeSupplierOrder} from '../lib/purchase-document-parser.mjs';
 
 // Synthetic fixtures retain the supplier's layout, without customer identity,
 // tax IDs, addresses, actual invoice UUIDs, or financial document attachments.
@@ -81,6 +81,67 @@ test('order still recognizes compact PDF.js whitespace; delivered count cannot r
   const incomplete=parsePurchaseDocument(ORDER.replace('Cantidad\n2','Cantidad\nNo legible'),{fileName:'costco.pdf'});
   assert.equal(incomplete.lines[0].qty,null);
   assert.equal(combinePurchaseDocuments([incomplete]).canImport,false);
+});
+
+test('supplier order comes from the printed number label without a filename or URL fallback',()=>{
+  const source=ORDER.replace(/^https:\/\/.*$/m,'').replace('Fecha de creación Número de orden Forma de pago\n19/10/2026 02:17:18 600000001 Visa',
+    'Fecha de creación\n19/10/2026 02:17:18\nPM\nNúmero de orden\n600000001\nForma de pago\nVisa');
+  for(const text of [source,source.replace(/\s+/g,' ')]){
+    const result=parsePurchaseDocument(text,{fileName:'neutral.pdf'});
+    assert.equal(result.supplierOrder,'600000001');
+    assert.equal(result.supplierOrderSource,'label');
+    assert.deepEqual(result.supplierOrderCandidates,['600000001']);
+    assert.match(result.evidence.supplierOrder,/Número de orden/);
+    assert.equal(result.supplierOrderConflict,false);
+  }
+  const table=parsePurchaseDocument(ORDER.replace(/^https:\/\/.*$/m,''),{fileName:'neutral.pdf'});
+  assert.equal(table.supplierOrder,'600000001');assert.equal(table.supplierOrderSource,'label');
+  const unbranded=parsePurchaseDocument(source.replace(/^Costco$/m,'').replace('Detalles de Mi Orden','Detalles de tu orden'),{fileName:'neutral.pdf'});
+  assert.equal(unbranded.supplierOrder,'600000001');assert.equal(unbranded.lines[0].qty,2);assert.equal(unbranded.supplier,null);
+});
+
+test('order-number labels cover OCR abbreviations and line breaks without dropping leading zeros',()=>{
+  for(const label of ['Número de orden','Numero de orden','Número de ordn','Núm. de orden','No. de pedido','Nº de orden','Orden de compra No.','Orden #','Purchase Order Number']){
+    for(const separator of [': ','\n']){
+      const result=parsePurchaseDocument(`Orden de compra\n${label}${separator}000600001\nFecha: 19/10/2026\nFolio: 785000000600000001_1`,{fileName:'neutral.pdf'});
+      assert.equal(result.supplierOrder,'000600001',label+JSON.stringify(separator));
+      assert.equal(result.supplierOrderConflict,false);
+    }
+  }
+  assert.equal(parsePurchaseDocument('Número\nde\norden\n600000001').supplierOrder,'600000001');
+  assert.equal(parsePurchaseDocument('600000001\nNúmero de orden\nForma de pago\nVisa').supplierOrder,'600000001');
+  assert.equal(parsePurchaseDocument('Número de orden: 600 000 001').supplierOrder,'600000001');
+});
+
+test('unreadable order labels never borrow an invoice folio, date, barcode, fiscal UUID or item',()=>{
+  for(const source of [
+    'Orden de compra\nNúmero de orden\nFecha: 19/10/2026\nFolio: 785000000600000001_1',
+    'Orden de compra\nNúmero de orden: 19/10/2026\nArtículo 700001\nUPC 012345678905',
+    'Orden de compra\nNúmero de orden\nFolio: 785000000600000001_1\n600000001',
+    'CFDI\nOrden: 11111111-1111-4111-8111-111111111111\nFolio: 785000000600000001_1',
+    'Orden de compra\nNúmero de orden Forma de pago Folio\n785000000600000001_1',
+    'Orden de compra\nRastreo de la orden\n0012345678900\nArtículo 700001'
+  ])assert.equal(parsePurchaseDocument(source,{fileName:'orden-600000001.pdf'}).supplierOrder,null,source);
+});
+
+test('conflicting printed order numbers or a conflicting URL require review instead of silently picking one',()=>{
+  for(const extra of ['Número de orden: 600000099','https://www.costco.com.mx/my-account/order/600000099']){
+    const result=parsePurchaseDocument('Orden de compra\nNúmero de orden: 600000001\n'+extra);
+    assert.equal(result.supplierOrder,null);assert.equal(result.supplierOrderConflict,true);
+    assert.deepEqual(result.supplierOrderCandidates,['600000001','600000099']);
+    assert.match(result.warnings.join(' '),/contradictorios/);
+    result.lines=[{name:NAME,qty:2}];
+    assert.equal(combinePurchaseDocuments([result]).canImport,false);
+  }
+});
+
+test('supplier reference comparison normalizes case and spacing but preserves meaningful identity',()=>{
+  assert.equal(normalizeSupplierOrder('  oc - 000123  '),'OC-000123');
+  assert.equal(normalizeSupplierOrder('000600001'),'000600001');
+  assert.notEqual(normalizeSupplierOrder('OC-000123'),normalizeSupplierOrder('OC000123'));
+  assert.notEqual(normalizeSupplierOrder('000600001'),normalizeSupplierOrder('600001'));
+  const a=orderDoc(),b=invoice1();a.supplierOrder='oc - 000123';b.supplierOrder='OC-000123';
+  const result=combinePurchaseDocuments([a,b]);assert.equal(result.canImport,true);assert.equal(result.supplierOrder,'OC-000123');
 });
 
 test('CFDI amounts include the documented discount and IVA; PUE remains informational',()=>{
@@ -264,6 +325,33 @@ test('file hashes detect duplicate documents even without UUID; filenames alone 
   assert.equal(distinct.duplicates.length,0);
 });
 
+test('the same supplier and invoice folio are duplicates when either copy has no UUID',()=>{
+  for(const missing of ['original','copy']){
+    const original=invoice1(),copy=invoice1();
+    if(missing==='original')original.uuid=null;else copy.uuid=null;
+    copy.invoiceNumber='pru90000001';copy.supplier='Costco de México SA de CV';
+    const result=combinePurchaseDocuments([wrapper('o',orderDoc()),wrapper('i1',original,'hash-a'),wrapper('copy',copy,'hash-b'),wrapper('i2',invoice2(),'hash-c')]);
+    assert.equal(result.lines[0].invoicedQty,2);assert.equal(result.totalCents,819800);
+    assert.equal(result.duplicates[0].reason,'invoice_folio');
+    assert.match(result.warnings.join(' '),/proveedor y folio/);
+  }
+  const original=invoice1(),other=invoice1();original.uuid=null;other.uuid=null;other.supplier='Otro proveedor';
+  assert.equal(combinePurchaseDocuments([original,other]).duplicates.length,0);
+});
+
+test('different fiscal UUIDs with the same supplier/folio must not be accepted as complementary invoices',()=>{
+  const other=invoice1();other.uuid='33333333-3333-4333-8333-333333333333';
+  const result=combinePurchaseDocuments([orderDoc(),invoice1(),other]);
+  assert.equal(result.canImport,false);assert.match(result.blockingWarnings.join(' '),/UUID distintos/);
+});
+
+test('copies of one invoice with conflicting order references or quantities require review',()=>{
+  for(const change of [{supplierOrder:'600000099'},{lines:[{...invoice1().lines[0],qty:2}]}]){
+    const result=combinePurchaseDocuments([orderDoc(),invoice1(),{...invoice1(),...change}]);
+    assert.equal(result.canImport,false);assert.match(result.blockingWarnings.join(' '),/referencias distintas|cantidades distintas/);
+  }
+});
+
 test('conflicting duplicate amounts block import',()=>{
   const copy=invoice1();copy.totalCents=410000;
   const result=combinePurchaseDocuments([invoice1(),copy]);
@@ -293,6 +381,13 @@ test('unmatched invoice items and over-invoiced units cannot silently expand the
   assert.equal(excess.canImport,false);
   assert.equal(excess.lines[0].qty,2);
   assert.equal(excess.lines[0].invoicedQty,3);
+});
+
+test('the same product name cannot hide a different supplier item in an invoice',()=>{
+  const wrong=invoice1();wrong.lines[0].supplierItem='700099';
+  const result=combinePurchaseDocuments([orderDoc(),wrong]);
+  assert.equal(result.canImport,false);assert.equal(result.unmatchedInvoiceLines.length,1);
+  assert.equal(result.lines[0].invoicedQty,0);
 });
 
 test('duplicate order snapshots do not double ordered quantity; conflicting snapshots require review',()=>{

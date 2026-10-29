@@ -50,6 +50,7 @@ test('a UUID belonging to another purchase is blocked atomically even with a dif
 
 test('an unknown product gets generated SKU, empty UPC and zero inventory while unknown monetary values stay null',()=>{
   const s=state(),document=doc(30);
+  document.parsed.supplier='Nuevo proveedor';
   const result=importDocs(s,[document],[{name:'Aspiradora Dyson V12',supplierItem:'701577',qty:2,unitCostCents:null,documentIds:[document.id],newProduct:{name:'Aspiradora Dyson V12',brand:'Dyson',model:'V12',color:'Azul',capacity:'0.35 L',good:100}}],{supplier:'Nuevo proveedor',amountCents:null});
   const product=s.products[0],purchase=s.purchases[0];
   assert.equal(product.sku,'DYSV12A035');assert.match(product.sku,/^[A-Z0-9]{1,10}$/);assert.equal(product.skuGenerated,true);assert.equal(product.upc,'');assert.equal(product.good,0);assert.equal(product.reserved,0);assert.equal(product.quarantine,0);
@@ -96,4 +97,66 @@ test('the same import command is idempotent and foreign document IDs are filtere
   assert.deepEqual(s.purchases[0].items[0].documentIds,[document.id]);
   const snapshot=JSON.stringify(s),again=importDocs(s,[document],[line(sku,[document])],{},undefined,'import-same');
   assert.equal(again.duplicate,true);assert.equal(again.id,result.id);assert.equal(JSON.stringify(s),snapshot);
+});
+
+test('cumulative invoices are checked at each attachment, and a third invoice cannot enlarge the purchase',()=>{
+  const s=state(),sku=createProduct(s),order=doc(100),first=importDocs(s,[order],[line(sku,[order])]);
+  assert.equal(s.purchases[0].supplierOrder,'599633002');
+  for(const n of [101,102]){
+    const invoice=doc(n,'invoice',1),purchase=s.purchases[0];
+    importDocs(s,[invoice],[{...purchase.items[0],documentIds:[invoice.id],unitCostCents:n===102?409900:null}],{amountCents:n===102?819800:null},first.id);
+  }
+  assert.equal(s.documents.length,3);assert.equal(s.purchases[0].items[0].qty,2);
+  const snapshot=JSON.stringify(s),extra=doc(103,'invoice',1);
+  assert.throws(()=>importDocs(s,[extra],[{...s.purchases[0].items[0],qty:3,documentIds:[extra.id]}],{amountCents:1229700},first.id),/unidades facturadas|revisión indica 3/);
+  assert.equal(JSON.stringify(s),snapshot);
+});
+
+test('wrong order, provider, product, missing reference and completed amount mismatch cannot be bypassed by reviewed fields',()=>{
+  for(const kind of ['order','supplier','product','missing','amount']){
+    const s=state(),sku=createProduct(s),order=doc(110),first=importDocs(s,[order],[line(sku,[order])]);
+    const invoice=doc(111,'invoice',2);invoice.parsed.totalCents=819800;invoice.parsed.lines[0].totalCents=819800;
+    if(kind==='order')invoice.parsed.supplierOrder='999999999';
+    if(kind==='supplier')invoice.parsed.supplier='Otro proveedor';
+    if(kind==='product')invoice.parsed.lines[0].supplierItem='999999';
+    if(kind==='missing')invoice.parsed.supplierOrder=null;
+    const snapshot=JSON.stringify(s),purchase=s.purchases[0];
+    assert.throws(()=>importDocs(s,[invoice],[{...purchase.items[0],unitCostCents:409900,documentIds:[invoice.id]}],{supplierOrder:kind==='order'?'999999999':'599633002',amountCents:kind==='amount'?819900:819800},first.id));
+    assert.equal(JSON.stringify(s),snapshot);
+  }
+});
+
+test('same supplier and order in a different purchase is rejected even if the files are new',()=>{
+  const s=state(),sku=createProduct(s),original=doc(120);importDocs(s,[original],[line(sku,[original])]);
+  const second=doc(121),snapshot=JSON.stringify(s);
+  assert.throws(()=>importDocs(s,[second],[line(sku,[second])]),/ya está registrada/);assert.equal(JSON.stringify(s),snapshot);
+});
+
+test('invoice without UUID is deduplicated by supplier and folio; conflicting duplicate evidence is rejected',()=>{
+  const s=state(),sku=createProduct(s),first=doc(130,'invoice',1);first.parsed.uuid=null;
+  const created=importDocs(s,[first],[line(sku,[first],{qty:1,unitCostCents:409900})],{amountCents:409900});
+  const copy=doc(131,'invoice',1,130);copy.parsed.uuid=null;
+  const result=importDocs(s,[copy],[{...s.purchases[0].items[0],documentIds:[copy.id]}],{},created.id);
+  assert.equal(result.duplicateDocuments[0].reason,'invoiceNumber');assert.equal(s.documents.length,1);
+  const wrong=doc(132,'invoice',1,130);wrong.parsed.uuid=null;wrong.parsed.supplierOrder='OTHER';const snapshot=JSON.stringify(s);
+  assert.throws(()=>importDocs(s,[wrong],[{...s.purchases[0].items[0]}],{},created.id),/duplicado.*distintos/);assert.equal(JSON.stringify(s),snapshot);
+});
+
+test('an explicit reference correction on a stored document preserves immutable parsed evidence and its file',()=>{
+  const s=state(),sku=createProduct(s),order=doc(140);order.parsed.supplierOrder=null;
+  const created=importDocs(s,[order],[line(sku,[order])]);
+  const stored=structuredClone(s.documents[0]),corrected={...order,parsed:{...order.parsed,supplierOrder:'599633002',supplierOrderReviewed:true,lines:[{supplierItem:'EVIL',name:'Changed',qty:999}]}},invoice=doc(141,'invoice',1);
+  const result=importDocs(s,[corrected,invoice],[{...s.purchases[0].items[0],documentIds:[order.id,invoice.id]}],{supplierOrder:'599633002'},created.id);
+  const saved=s.documents.find(doc=>doc.id===order.id);
+  assert.equal(saved.parsed.supplierOrder,'599633002');assert.equal(saved.parsed.supplierOrderOriginal,null);assert.equal(saved.parsed.supplierOrderReviewed,true);
+  assert.deepEqual(saved.parsed.lines,stored.parsed.lines);assert.equal(saved.sha256,stored.sha256);assert.equal(saved.name,stored.name);
+  assert.equal(result.documentValidation.valid,true);assert.equal(s.purchases[0].items[0].qty,2);
+});
+
+test('an added order PDF must match the existing purchase items, even with the same supplier order number',()=>{
+  const s=state(),sku=createProduct(s);
+  const created=applyOperation(s,{type:'purchase.create',payload:{supplier:'Costco',supplierOrder:'599633002',date:'2026-10-19',items:[{sku,name:'MacBook Air',qty:2,unitCostCents:null}]}},clock);
+  const order=doc(150),snapshot=JSON.stringify(s);
+  assert.throws(()=>importDocs(s,[order],[{...s.purchases[0].items[0]}],{},created.id),/PDF de orden.*no corresponde|PDF de orden no contiene/);
+  assert.equal(JSON.stringify(s),snapshot);
 });

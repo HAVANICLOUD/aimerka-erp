@@ -33,6 +33,19 @@ El generador reserva espacio para un sufijo cuando existe una colisión de SKU, 
 
 La fotografía se sirve desde `/erp/assets/products/dyson-v12-digital-slim.jpg`. Fuente: [ficha oficial del producto en Costco México](https://www.costco.com.mx/Electrodomesticos/Electrodomesticos-del-Hogar/Aspiradoras/Dyson-Aspiradora-Inalambrica-V12-Digital-Slim/p/701577). Una fotografía o precio promocional de esa página no determina el importe de una compra documental.
 
+## Correspondencia permanente entre orden y facturas
+
+- El número del proveedor se reconoce junto a «Número de orden», «Orden», «No. de pedido» y variantes de lectura. En el ejemplo es `599633002`, tanto en la orden como en las dos facturas. El folio fiscal y el folio adicional del proveedor conservan campos separados.
+- Desde **Nueva compra → Cargar orden y facturas** pueden adjuntarse todos los archivos juntos, conservando el borrador del formulario. Desde una compra guardada se usa **Añadir o revisar documentos**.
+- El panel valida todos los archivos guardados y los nuevos, muestra la referencia de cada documento y acumula unidades ordenadas, facturadas, pendientes y excedentes. Los cambios de proveedor, número, artículo o cantidad vuelven a comprobarse antes de guardar y en el servidor.
+- Facturación parcial válida: dos unidades ordenadas, primera factura por una unidad y segunda factura posterior por otra unidad. Una tercera factura distinta que agregue unidades bloquea el guardado. Las copias del mismo archivo, UUID o proveedor/folio se alertan y no se vuelven a contar.
+- Una factura de otra orden o proveedor, otro producto, cantidades excedentes, versiones contradictorias de la orden o importes incompatibles requieren corregir la selección o la lectura. Una referencia ilegible queda pendiente de revisión; no se declara coincidente automáticamente.
+- Las referencias pueden corregirse expresamente desde la lectura, conservando el archivo original y la referencia inicial. Para archivos guardados esta corrección no modifica UUID, partidas ni importes.
+- Si ya existe una compra con el mismo proveedor y número de orden, se muestra su folio y se bloquea crear otra. Se debe revisar la compra existente y sus productos antes de adjuntar documentos; no se fusionan operaciones diferentes por compartir una referencia.
+- Las modificaciones por el formulario ordinario de una compra con documentos también validan la correspondencia. Adjuntar facturas conserva pagos, recepción, inventario y números originales.
+
+El validador compartido es `lib/purchase-document-validation.mjs`, publicado también en los módulos del navegador mediante `scripts/sync-client.mjs`.
+
 ### 2. Registrar sólo la orden
 
 En Compras, abrir la carga de documentos y seleccionar `ORDEN COSTCO 599633002.pdf`. Revisar la lectura, proveedor, fecha, referencia y asignación al producto anterior. El resultado esperado es:
