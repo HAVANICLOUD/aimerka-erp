@@ -96,7 +96,31 @@
      (!stored?'<details class="document-reading"><summary>Revisar lectura y clasificación</summary><label>Tipo de documento<select data-doc-kind="'+doc.id+'">'+['order','invoice','unknown'].map(k=>'<option value="'+k+'" '+(p.kind===k?'selected':'')+'>'+kindName(k)+'</option>').join('')+'</select></label><label>Texto extraído<textarea data-doc-text="'+doc.id+'" rows="6">'+esc(doc.text||'')+'</textarea></label><div class="document-card-actions"><button class="btn small" type="button" data-doc-reparse="'+doc.id+'">Volver a interpretar</button><button class="btn small" type="button" data-doc-ocr="'+doc.id+'">Leer con OCR</button></div></details>':'')+
      '</div></article>';
  }
- function lineCard(line,i,d){
+ // Preview the whole batch in the same order as the server, including collisions between new lines.
+ function proposedSkus(d){
+   const reserved=[...(state.products||[])],byItem=new Map();
+   const text=v=>String(v??'').trim();
+   const normalized=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+   return d.lines.map(line=>{
+     if(!line.newProduct)return '';
+     const source={...line.newProduct,name:line.name},code=text(line.supplierItem).toUpperCase().replace(/\s+/g,'');
+     const signature=JSON.stringify([normalized(source.name),normalized(source.brand),normalized(source.model),normalized(source.color),normalized(source.capacity),text(source.upc)]);
+     const prior=code?byItem.get(code):null;
+     if(prior&&prior.signature===signature)return prior.sku;
+     const sku=ERP.engines.inventory.generateProductSku({...source,name:text(source.name).slice(0,250),brand:text(source.brand).slice(0,100)},reserved);
+     reserved.push({sku,upc:text(source.upc).slice(0,80).replace(/[\s-]/g,'')});
+     if(code&&!prior)byItem.set(code,{signature,sku});
+     return sku;
+   });
+ }
+ function refreshSkuPreviews(d){
+   const skus=proposedSkus(d);
+   for(const row of document.querySelectorAll('[data-doc-line]')){
+     const preview=row.querySelector('[data-doc-sku-preview]');
+     if(preview)preview.textContent=skus[Number(row.dataset.docLine)]||'';
+   }
+ }
+ function lineCard(line,i,d,skus){
    const selected=line.newProduct?'__new__':line.sku||'';
    const matchLabel=({exact_upc:'UPC reconocido',supplier_item:'Equivalencia del proveedor',name:'Nombre coincidente',suggestion:'Sugerencia: confirmar producto',unmatched:'Asigna un producto',existing:'Producto de esta compra'})[line.match?.confidence]||'Asignación revisada';
    const p=state.products.find(p=>p.sku===line.sku),np=line.newProduct||{},field=(key,label,val,type='text',extra='')=>
@@ -114,10 +138,10 @@
      '<option value="__new__" '+(selected==='__new__'?'selected':'')+'>＋ Crear producto y generar SKU interno</option></select></label></div></div>';
    if(!selected&&line.match?.candidates?.length)html+='<div class="small-note">Posibles coincidencias: '+line.match.candidates.slice(0,3).map(x=>esc(x.name||x.sku)).join(' · ')+'. Confirma el modelo antes de asignarlo.</div>';
    if(line.newProduct){
-     const generated=ERP.engines.inventory.generateProductSku({...np,name:line.name},state.products);
+     const generated=skus[i];
      html+='<div class="doc-new-product"><h4>Nuevo producto · existencia inicial 0</h4><div class="form-grid">'+field('brand','Marca *',np.brand,'text','required')+
        field('model','Modelo',np.model)+field('color','Color',np.color)+field('capacity','Capacidad',np.capacity)+field('upc','UPC / EAN (opcional)',np.upc,'text','inputmode="numeric" placeholder="Asignar al recibir"')+
-       field('category','Categoría',np.category)+field('image','URL HTTPS de imagen (opcional)',np.imageUrl,'text')+'</div><div class="doc-generated-sku"><span>SKU interno propuesto</span><code data-doc-sku-preview>'+esc(generated)+'</code></div><p class="small-note">Se genera al guardar y se conserva durante toda la vida del producto. El UPC puede incorporarse al recibir la mercancía.</p></div>';
+       field('category','Categoría',np.category)+field('image','URL HTTPS de imagen (opcional)',np.imageUrl,'text')+'</div><div class="doc-generated-sku"><span>SKU interno propuesto</span><code data-doc-sku-preview>'+esc(generated)+'</code></div><p class="small-note">Máximo 10 letras y números, sin espacios ni guiones. Se genera y verifica como único al guardar. El UPC puede incorporarse al recibir la mercancía.</p></div>';
    }
    html+='<fieldset class="doc-line-links"><legend>Documentos que corresponden a este artículo</legend>'+allDocs(d).map(doc=>
      '<label><input type="checkbox" data-doc-link="'+esc(doc.id)+'" '+(line.documentIds?.includes(doc.id)?'checked':'')+'> '+esc(kindName(doc.parsed?.kind)+' · '+(doc.parsed?.invoiceNumber||doc.name))+'</label>').join('')+'</fieldset></article>';
@@ -125,7 +149,7 @@
  }
  function render(d){
    if(d!==draft||d.workspace!==ERP.workspace)return;
-   const docs=allDocs(d),p=d.purchase,combined=d.combined,hasFiles=docs.length>0;
+   const docs=allDocs(d),p=d.purchase,combined=d.combined,hasFiles=docs.length>0,skus=proposedSkus(d);
    const warnings=[...new Set(combined?.warnings||[])];
    const existing=d.purchaseId?[]:(state.purchases||[]).filter(x=>p.supplierOrder&&x.supplierOrder===p.supplierOrder);
    const blocked=blockers(d).length;
@@ -145,7 +169,7 @@
        '<div class="doc-total-context">'+(combined?.invoiceTotals?.totalCents!=null?'<span>Facturas adjuntas</span><strong>'+money(combined.invoiceTotals.totalCents)+'</strong>':'<span>Puedes registrar la orden sin conocer aún su importe.</span>')+'</div></div><datalist id="docs-suppliers">'+(state.catalogs?.suppliers||[]).map(x=>'<option value="'+esc(typeof x==='string'?x:x.name||'')+'">').join('')+'</datalist>'+
        '<div class="field spacer-top"><label for="docs-notes">Observaciones</label><textarea id="docs-notes" rows="2">'+esc(p.notes||'')+'</textarea></div></section>'+
        '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div><button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button></div>'+
-       (d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
+       (d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
        '<div class="doc-confirm"><label><input id="docs-reviewed" type="checkbox" '+(d.reviewed?'checked':'')+' required> Confirmé productos, cantidades, documentos e importes. Las unidades entrarán al inventario únicamente al recibirlas en almacén.</label></div>'+
        (blocked?'<div class="document-warnings"><strong>Documentos incompatibles</strong><p>'+blockers(d).map(x=>esc(typeof x==='string'?x:x.message)).join(' ')+'</p><p>Separa estos documentos o corrige su lectura antes de guardar.</p></div>':''):'')+
      '<div class="modal-actions docs-sticky-actions"><button class="btn" type="button" data-action="close-modal">Cerrar</button>'+
@@ -224,8 +248,7 @@
    const row=e.target.closest('[data-doc-line]'),i=Number(row.dataset.docLine),line=draft.lines[i];
    if(!line)return;
    if(['qty','cost'].includes(e.target.dataset.docField))(line.overrides??={})[e.target.dataset.docField]=true;
-   capture(draft);if(!line.newProduct)return;const preview=row.querySelector('[data-doc-sku-preview]');
-   if(preview)preview.textContent=ERP.engines.inventory.generateProductSku({...line.newProduct,name:line.name},state.products);
+   capture(draft);refreshSkuPreviews(draft);
  });
  document.addEventListener('click',async e=>{
    const el=e.target.closest('button');if(!el)return;

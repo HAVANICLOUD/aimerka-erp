@@ -82,9 +82,9 @@ test('new physical orders cannot be marked received manually and legacy document
 
 test('generated SKUs include descriptive attributes and remain unique even without UPC; scanner can assign the barcode later',()=>{
  const s=state(),input={name:'Equipo versión Ágil',brand:'Marca',model:'M12',color:'Azul',capacity:'256 GB'};
- const sku=generateProductSku(input,s.products);assert.match(sku,/MARCA/);assert.match(sku,/M12/);assert.match(sku,/AZUL/);assert.match(sku,/256GB/);assert.match(sku,/^[A-Z0-9-]+$/);
+ const sku=generateProductSku(input,s.products);assert.equal(sku,'MARM12A256');assert.match(sku,/^[A-Z0-9]{1,10}$/);
  const a=product(s,input.name,{...input,good:900}),b=product(s,input.name,input);
- assert.equal(a.sku,sku);assert.equal(b.sku,sku+'-002');assert.equal(a.upc,'');assert.equal(a.good,0);
+ assert.equal(a.sku,sku);assert.equal(b.sku,sku.slice(0,8)+'02');assert.equal(a.upc,'');assert.equal(a.good,0);
  const result=inventory(s,'product.assignUpc',{sku:a.sku,upc:'885609037998'});assert.equal(result.sku,a.sku);assert.equal(result.upc,'885609037998');assert.equal(a.good,0);
  const before=JSON.stringify(s);assert.throws(()=>inventory(s,'product.assignUpc',{sku:b.sku,upc:'0885609037998'}),/otro producto/);assert.equal(JSON.stringify(s),before);
  inventory(s,'product.save',{originalSku:a.sku,product:{...a,name:'Nombre comercial actualizado'}});assert.equal(a.sku,sku);

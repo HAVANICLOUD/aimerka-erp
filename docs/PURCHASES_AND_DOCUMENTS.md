@@ -7,7 +7,7 @@ El flujo extiende la operación existente: una orden documental registra lo soli
 - Cada compra nueva obtiene un folio interno automático `OC000001`, `OC000002`, etc. El número original del proveedor se conserva en `supplierOrder`; SICAR es opcional y sólo se valida como único cuando está informado.
 - Las partidas conservan cantidad ordenada y cantidad recibida. El estado físico se calcula como `Pendiente`, `Recibida parcialmente` o `Recibida completa`. El traslado `Pendiente` / `En tránsito` es un dato independiente.
 - El costo unitario y el importe documental pueden permanecer en `null`: la interfaz muestra **Por confirmar**. Un importe desconocido no se transforma en una compra de cero pesos.
-- Los productos pueden crearse sin UPC. El SKU se genera con nombre, marca, modelo, color y capacidad, evitando colisiones. El SKU existente es permanente; el UPC original puede agregarse después y se valida como GTIN de 8, 12, 13 o 14 dígitos.
+- Los productos pueden crearse sin UPC. El SKU se genera con nombre, marca, modelo, color y capacidad, con un máximo de 10 caracteres alfanuméricos ASCII (`A–Z`, `0–9`), sin espacios ni guiones y evitando colisiones. Tras la migración de los códigos generados anteriormente, el SKU es permanente; el UPC original puede agregarse después y se valida como GTIN de 8, 12, 13 o 14 dígitos.
 - Cada recepción suma exclusivamente las unidades seleccionadas a inventario vendible, conserva su comprobante y genera movimientos por partida. Se valida todo el lote antes de modificar stock o asignar códigos.
 - La ficha de producto reúne compras, recepciones, movimientos, ventas, devoluciones, reintegros y documentos asociados. Los registros históricos conservan su condición documental: un estado antiguo de “recibida” no acredita por sí solo una nueva entrada física.
 
@@ -25,11 +25,11 @@ Seleccionar **Práctica** y abrir el artículo desde Productos o Inventario:
 | Marca / modelo | Dyson / V12 Digital Slim |
 | Color / capacidad | Morado / 0.3 L |
 | UPC indicado por el usuario | `885609037998` |
-| SKU esperado | `DYSON-ASPIRADORA-INALAMBRICA-V12DIGITALSLIM-MORADO-03L` |
+| SKU esperado | `DYSV12M03L` |
 | Existencia inicial | 0 física, 0 reservada y 0 disponible |
 | Item del proveedor | `701577` |
 
-El generador añade un sufijo cuando existe una colisión de SKU. Para esta prueba se utiliza la ficha ya preparada: no crear un segundo producto para el mismo UPC. Los PDF de ejemplo no contienen ese UPC; procede de la indicación del usuario y no debe inferirse del item, clave SAT, folio o UUID.
+El generador reserva espacio para un sufijo cuando existe una colisión de SKU, sin superar 10 caracteres. Los SKU generados anteriormente se acortan conservando el código anterior como alias y actualizando sus vínculos de historial; los identificadores externos y los SKU importados del catálogo histórico se conservan. Para esta prueba se utiliza la ficha ya preparada: no crear un segundo producto para el mismo UPC. Los PDF de ejemplo no contienen ese UPC; procede de la indicación del usuario y no debe inferirse del item, clave SAT, folio o UUID.
 
 La fotografía se sirve desde `/erp/assets/products/dyson-v12-digital-slim.jpg`. Fuente: [ficha oficial del producto en Costco México](https://www.costco.com.mx/Electrodomesticos/Electrodomesticos-del-Hogar/Aspiradoras/Dyson-Aspiradora-Inalambrica-V12-Digital-Slim/p/701577). Una fotografía o precio promocional de esa página no determina el importe de una compra documental.
 

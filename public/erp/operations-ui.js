@@ -31,7 +31,7 @@ function op28PurchaseReference(e){return e.number||e.id||'Automático al guardar
 function op28PurchaseProduct(line){
   var code=String(line.sku||line.skuOrUpc||line.upc||'').trim().toUpperCase();
   if(!code)return null;
-  var found=(state.products||[]).filter(p=>String(p.sku||'').toUpperCase()===code||(p.upc&&String(p.upc)===code));
+  var found=(state.products||[]).filter(p=>[p.sku,...(p.skuAliases||[])].some(sku=>String(sku||'').toUpperCase()===code)||(p.upc&&String(p.upc)===code));
   return found.length===1?found[0]:null;
 }
 function op28PurchaseProgress(e){
@@ -175,7 +175,7 @@ function op28ReceiveApplyScan(row,sku,upc){
 function op28ReceiveScan(){
   var form=document.getElementById('op28-receive-form'),input=document.getElementById('op28-receive-scan');if(!form||!input)return;
   var code=input.value.trim();if(!code){op28ReceiveFeedback('Escanea un SKU o UPC para identificar la mercancía.',true);input.focus();return;}
-  var products=(state.products||[]).filter(p=>String(p.sku||'').toUpperCase()===code.toUpperCase()||(p.upc&&String(p.upc)===code)),rows=op28ReceiveRows(form).filter(row=>Number(row.dataset.p29Remaining)>0);
+  var products=(state.products||[]).filter(p=>[p.sku,...(p.skuAliases||[])].some(sku=>String(sku||'').toUpperCase()===code.toUpperCase())||(p.upc&&String(p.upc)===code)),rows=op28ReceiveRows(form).filter(row=>Number(row.dataset.p29Remaining)>0);
   document.getElementById('op28-scan-assignment').hidden=true;op28ReceiptScan=null;
   if(products.length>1){op28ReceiveFeedback('El código corresponde a más de un producto. Selecciona y verifica el SKU de la partida manualmente.',true);return;}
   if(products.length===1){
