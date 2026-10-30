@@ -105,6 +105,25 @@
       .replace(/[\u00a0\u202f]/g, ' ').replace(/[ \t]+\n/g, '\n').trim();
   }
 
+  async function readPDFText(page) {
+    if (typeof page.streamTextContent !== 'function') return extractPDFText(await page.getTextContent());
+    const reader = page.streamTextContent().getReader();
+    const items = [];
+    try {
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        if (Array.isArray(chunk.value?.items)) items.push(...chunk.value.items);
+      }
+      return extractPDFText(items);
+    } catch (error) {
+      try { Promise.resolve(reader.cancel(error)).catch(() => {}); } catch (_) {}
+      throw error;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   function usableText(text) {
     const compact = text.replace(/\s/g, '');
     if (compact.length < 40) return false;
@@ -263,7 +282,7 @@
             report('pdf-text', pageProgress(0.03), `Leyendo página ${currentPage} de ${pages}…`, extra());
             let text = '';
             if (!options?.forceOCR) {
-              try { text = extractPDFText(await page.getTextContent()); }
+              try { text = await timed(readPDFText(page), 45000, 'La capa de texto del PDF no respondió a tiempo.', 'PDF_TEXT_TIMEOUT'); }
               catch (_) { warnings.push(`Página ${currentPage}: no se pudo usar la capa de texto; se intentó OCR sobre su imagen.`); }
             }
             if (!options?.forceOCR && usableText(text)) {
@@ -318,10 +337,10 @@
       throw friendlyError(error);
     } finally {
       abandonedWorker = true;
-      if (worker) { try { await worker.terminate(); } catch (_) { /* Best-effort cleanup. */ } }
-      if (loadingTask) { try { await loadingTask.destroy(); } catch (_) { /* Best-effort cleanup. */ } }
+      if (worker) { try { Promise.resolve(worker.terminate()).catch(() => {}); } catch (_) {} }
+      if (loadingTask) { try { Promise.resolve(loadingTask.destroy()).catch(() => {}); } catch (_) {} }
     }
   }
 
-  global.DocumentReader29 = Object.freeze({extract, extractPDFText});
+  global.DocumentReader29 = Object.freeze({extract, extractPDFText, readPDFText});
 })(window);
