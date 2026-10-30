@@ -132,21 +132,30 @@ export function resolveCommission(config, input = {}) {
   return {valid: !errors.length, errors, channel, category, baseRate, msiRate, rate, vatRate, isrRate, path, context: 'Calculadora V28'};
 }
 
-export function roundMargin99(costTotal, factor, targetMargin) {
+export function pricePolicy(config = {}) {
+  const p=config.parameters||{},policy={step:p.priceStep??100,ending:p.priceEnding??99,transferDiscount:p.transferDiscount??.1,transferCommission:p.transferCommission??.006};
+  if(!Number.isSafeInteger(policy.step)||policy.step<1||policy.step>10000||!Number.isSafeInteger(policy.ending)||policy.ending<0||policy.ending>=policy.step)throw new Error('La terminación debe ser un entero menor que el intervalo de redondeo.');
+  for(const k of ['transferDiscount','transferCommission'])if(typeof policy[k]!=='number'||!Number.isFinite(policy[k])||policy[k]<0||policy[k]>=1)throw new Error('Las tasas de transferencia deben estar entre 0% y menos de 100%.');
+  return policy;
+}
+const floorPrice=(value,p)=>Math.floor((value-p.ending)/p.step)*p.step+p.ending;
+const ceilPrice=(value,p)=>Math.ceil((value-p.ending)/p.step)*p.step+p.ending;
+const firstPrice=p=>p.ending||p.step;
+export function roundMargin99(costTotal, factor, targetMargin, p={step:100,ending:99}) {
   if (!Number.isFinite(costTotal + factor + targetMargin) || factor - targetMargin <= 0) return null;
   const theoretical = costTotal / (factor - targetMargin);
-  const lower = Math.max(99, Math.floor((theoretical + 1) / 100) * 100 - 1);
-  const upper = Math.max(99, Math.ceil((theoretical + 1) / 100) * 100 - 1);
+  const lower = Math.max(firstPrice(p), floorPrice(theoretical,p));
+  const upper = Math.max(firstPrice(p), ceilPrice(theoretical,p));
   const lowerSafe = lower * factor - costTotal >= -1e-7;
   return lowerSafe && Math.abs(factor - costTotal / lower - targetMargin) <= Math.abs(factor - costTotal / upper - targetMargin) ? lower : upper;
 }
 
-export function roundRegular99(discount, inflation) {
+export function roundRegular99(discount, inflation, p={step:100,ending:99}) {
   if (!Number.isFinite(discount + inflation) || discount <= 0) return null;
   const raw = discount * (1 + inflation);
-  const minimum = inflation > 0 ? Math.max(99, (Math.floor((discount + 1) / 100) + 1) * 100 - 1) : Math.max(99, Math.ceil((discount + 1) / 100) * 100 - 1);
-  const lower = Math.max(minimum, Math.floor((raw + 1) / 100) * 100 - 1);
-  const upper = Math.max(minimum, Math.ceil((raw + 1) / 100) * 100 - 1);
+  const minimum = Math.max(firstPrice(p),inflation>0?floorPrice(discount,p)+p.step:ceilPrice(discount,p));
+  const lower = Math.max(minimum, floorPrice(raw,p));
+  const upper = Math.max(minimum, ceilPrice(raw,p));
   return Math.abs(lower - raw) <= Math.abs(upper - raw) ? lower : upper;
 }
 
@@ -170,11 +179,11 @@ function decision(result, marketPrice, context, zeroCommission, priceType = 'des
   return context === 'calculadora' ? 'PUBLICAR: cumple utilidad' : 'PUBLICAR';
 }
 
-function transferResult(discount, cost, shipping, targetMargin, context) {
+function transferResult(discount, cost, shipping, targetMargin, context, policy) {
   if (!discount) return null;
-  const price = discount.price * 0.9, commission = price * 0.006, profit = price - cost - shipping - commission;
+  const price = discount.price * (1-policy.transferDiscount), commission = price * policy.transferCommission, profit = price - cost - shipping - commission;
   const comparisonTarget = context === 'recomendador' ? (cost + shipping) * targetMargin : discount.price * targetMargin;
-  return {price, discountRate: 0.1, commissionRate: 0.006, commission, cost, shipping, profit, netPayout: price - shipping - commission,
+  return {price, discountRate: policy.transferDiscount, commissionRate: policy.transferCommission, commission, cost, shipping, profit, netPayout: price - shipping - commission,
     margin: profit / price, differenceVsNormal: profit - discount.profit, comparisonTarget,
     targetBasis: context === 'recomendador' ? 'Costo + envío' : 'Precio con descuento antes de transferencia',
     decision: profit < 0 ? 'PÉRDIDA' : profit < comparisonTarget ? 'REVISAR UTILIDAD' : 'PUBLICAR'};
@@ -189,6 +198,7 @@ function modeOf(mode) {
 }
 
 function run(config, input, product = null, includeComparisons = true) {
+  let policy;try{policy=pricePolicy(config);}catch(error){return invalid([issue('parameters',error.message)]);}
   const context = input.context || (product ? 'recomendador' : 'cotizador');
   const mode = modeOf(input.mode), errors = [], warnings = [];
   const cost = Number(input.cost), marketPrice = Number(input.marketPrice ?? 0);
@@ -205,32 +215,31 @@ function run(config, input, product = null, includeComparisons = true) {
   if (mode === 'precios') {
     if (manualDiscount === null || manualDiscount <= 0) errors.push(issue('manualDiscount', 'Captura un precio con descuento mayor a cero.'));
     if (present(input.manualRegular) && (manualRegular === null || manualRegular <= 0)) errors.push(issue('manualRegular', 'El precio regular debe ser mayor a cero.'));
-    if (manualRegular === null && manualDiscount > 0) manualRegular = roundRegular99(manualDiscount, inflation);
+    if (manualRegular === null && manualDiscount > 0) manualRegular = roundRegular99(manualDiscount, inflation,policy);
   }
   const referencePrice = mode === 'precios' && context !== 'recomendador' ? manualRegular : marketPrice;
   const category = input.category || (product ? resolveCategory(config, product, input.channel) : '');
   let rates = resolveCommission(config, {...input, category, referencePrice});
   errors.push(...rates.errors);
   if (errors.length) return invalid(errors, {channel: rates.channel, category, context, mode, inputs: clone(input)});
-  if (config.parameters?.priceEnding !== 99) warnings.push('V28 calcula terminación 99 de forma literal; el parámetro de terminación no cambia sus fórmulas.');
   if (rates.rate === 0 && rates.channel !== 'Tienda Nube') warnings.push('V28 muestra FALTA CONFIGURAR COMISIÓN cuando la tasa total es cero.');
   const shippingAmount = shipping.amount, costTotal = cost + shippingAmount;
   let factor = 1 - rates.rate - rates.vatRate - rates.isrRate;
   let discountPrice, regularPrice, competitive = null;
   if (mode === 'competitivo') {
     if (marketPrice <= 0 || factor <= 0 || (rates.rate === 0 && rates.channel !== 'Tienda Nube')) return invalid([issue('marketPrice', 'No se puede calcular un precio competitivo con mercado y tasas incompletas.')], {channel: rates.channel, category, context, mode});
-    const belowMarket = Math.max(0, Math.floor((marketPrice + 1) / 100) * 100 - 1);
-    const minimumProfitable = Math.max(99, Math.ceil(roundExcel(((costTotal + 0.01) / factor + 1) / 100, 10)) * 100 - 1);
+    const belowMarket = Math.max(0, floorPrice(marketPrice,policy));
+    const minimumProfitable = Math.max(firstPrice(policy), Math.ceil(roundExcel(((costTotal+.01)/factor-policy.ending)/policy.step,10))*policy.step+policy.ending);
     if (context === 'recomendador') {
       const tolerance = Number(config.parameters?.competitiveTolerance ?? 0.03);
       discountPrice = belowMarket >= minimumProfitable ? belowMarket : minimumProfitable <= marketPrice * (1 + tolerance) ? minimumProfitable : null;
       const competitiveInflation = Number(input.competitiveInflation ?? input.inflation ?? 0.1);
       if (!Number.isFinite(competitiveInflation) || competitiveInflation < 0 || competitiveInflation > 0.5) return invalid([issue('competitiveInflation', 'El inflado competitivo debe estar entre 0% y 50%.')]);
-      regularPrice = discountPrice === null ? null : Math.max(discountPrice + 100, roundExcel((discountPrice * (1 + competitiveInflation) + 1) / 100) * 100 - 1);
+      regularPrice = discountPrice === null ? null : Math.max(discountPrice + policy.step, roundExcel((discountPrice * (1 + competitiveInflation) - policy.ending) / policy.step) * policy.step + policy.ending);
       competitive = {minimumProfitable, belowMarket, tolerance, maximumAllowed: marketPrice * (1 + tolerance)};
     } else {
-      discountPrice = belowMarket >= 99 && belowMarket * factor - costTotal > 0 ? belowMarket : null;
-      regularPrice = discountPrice === null ? null : roundRegular99(discountPrice, inflation);
+      discountPrice = belowMarket >= firstPrice(policy) && belowMarket * factor - costTotal > 0 ? belowMarket : null;
+      regularPrice = discountPrice === null ? null : roundRegular99(discountPrice, inflation,policy);
       competitive = {minimumProfitable, belowMarket, tolerance: 0, maximumAllowed: marketPrice};
       if (discountPrice !== null) {
         // CotizadorERP.Competitivo calls Calcular again in manual-price mode.
@@ -248,8 +257,8 @@ function run(config, input, product = null, includeComparisons = true) {
     margin = factor - costTotal / discountPrice;
     inflation = regularPrice / discountPrice - 1;
   } else {
-    discountPrice = roundMargin99(costTotal, factor, margin);
-    regularPrice = discountPrice === null ? null : roundRegular99(discountPrice, inflation);
+    discountPrice = roundMargin99(costTotal, factor, margin,policy);
+    regularPrice = discountPrice === null ? null : roundRegular99(discountPrice, inflation,policy);
   }
   if (numeric(input.comparisonTargetMargin)) margin = Number(input.comparisonTargetMargin);
   const discount = breakdown(discountPrice, cost, shippingAmount, rates, margin);
@@ -272,7 +281,7 @@ function run(config, input, product = null, includeComparisons = true) {
     shipping: shippingAmount, shippingDetails: shipping, commissionRate: rates.rate, baseCommissionRate: rates.baseRate,
     msiRate: rates.msiRate, vatRate: rates.vatRate, isrRate: rates.isrRate, margin, inflation, factor, marketPrice,
     theoreticalPrice: factor - margin > 0 ? costTotal / (factor - margin) : null,
-    discount, regular, status, competitive, transfer: rates.channel === 'Tienda Nube' ? transferResult(discount, cost, shippingAmount, margin, context) : null,
+    discount, regular, status, competitive, pricePolicy:policy, transfer: rates.channel === 'Tienda Nube' ? transferResult(discount, cost, shippingAmount, margin, context,policy) : null,
     mlComparison: null, inputs: clone(input), ratePath: rates.path, source: `V28 · ${context === 'recomendador' ? 'RECOMENDADOR_UPC' : 'CALCULADORA / COTIZADOR'}`};
   if (includeComparisons && rates.channel === 'Mercado Libre') result.mlComparison = {
     classic: run(config, {...input, mlType: 'CLASICA', comparisonTargetMargin: margin}, product, false),

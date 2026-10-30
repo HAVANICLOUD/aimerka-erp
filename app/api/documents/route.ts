@@ -1,5 +1,6 @@
 import { workspaceId } from '../../../lib/store';
 import { documentBucket, documentKey, fileMetadata, MAX_DOCUMENT_BYTES } from '../../../lib/documents';
+import {requestAccess,assertPermission} from '../../../lib/access';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
@@ -7,6 +8,7 @@ export async function POST(request: Request) {
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return Response.json({error:'Origen de solicitud no válido.'},{status:403});
     const workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
+    const access=await requestAccess(request);try{assertPermission(access,'purchase.importDocuments');}catch(error:any){return Response.json({error:error.message},{status:403});}
     if (!request.headers.get('content-type')?.includes('multipart/form-data')) return Response.json({error:'Adjunta un archivo PDF, PNG o JPG.'},{status:415});
     if (Number(request.headers.get('content-length') || 0) > MAX_DOCUMENT_BYTES + 65536) return Response.json({error:'El archivo supera el límite de 15 MB.'},{status:413});
     const form = await request.formData(), file = form.get('file');

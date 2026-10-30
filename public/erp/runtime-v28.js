@@ -4,7 +4,7 @@ const ERP={
  async reload(){
    const response=await fetch('/api/state?workspace='+encodeURIComponent(this.workspace),{cache:'no-store'}),data=await response.json();
    if(!response.ok)throw new Error(data.error||'No se pudo cargar la operación.');
-   state=data.state;this.revision=data.revision;this.updatedAt=data.updatedAt;this.ready=true;render();return data;
+   state=data.state;this.access=data.access;this.revision=data.revision;this.updatedAt=data.updatedAt;this.ready=true;render();return data;
  },
  async command(type,payload={},options={}){
    if(this.busy||!this.ready){toast('Espera a que termine la operación actual.',true);return {ok:false};}
@@ -12,7 +12,7 @@ const ERP={
    this.busy=true;this.setStatus('Guardando…','saving');
    try{
      const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)}),data=await response.json();
-     if(data.state){state=data.state;this.revision=data.revision;this.updatedAt=data.updatedAt;}
+     if(data.state){state=data.state;this.access=data.access||this.access;this.revision=data.revision;this.updatedAt=data.updatedAt;}
      if(!response.ok){if(data.state)render();throw new Error(data.error||'No se pudo guardar.');}
      this.lastCommand=command;render();toast(data.result?.message||'Cambios guardados.');this.setStatus('Guardado','saved');return {ok:true,result:data.result,state:data.state};
    }catch(error){toast(error.message,true);this.setStatus('No se guardó · reintentar','error');return {ok:false,error:error.message};}

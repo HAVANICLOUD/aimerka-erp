@@ -137,6 +137,7 @@ function productFor(item,products) {
 }
 /** Pure: no mutations, stock writes or deposit writes. */
 export function estimateOrder(order, products, config, opts={}) {
+  if(order.marketplace34&&!opts.ignoreMarketplace34)return estimateMarketplace34(order,products,config,opts);
   if(isCancelled(order)) throw new Error('Venta cancelada: no se presupone un depósito.');
   const gross=cents(order.totalCents,'Importe de venta');
   if(gross<=0) throw new Error('Falta el importe de venta.');
@@ -192,6 +193,29 @@ export function estimateOrder(order, products, config, opts={}) {
     shippingCents:totalShipping,externalShippingCents:totalExternal,netCents:net,costCents:cost,profitCents:profit,margin:profit===null?null:profit/gross,
     commissionRate:totalCommission/gross,baseCommissionRate:(totalCommission-totalMsi)/gross,msiRate:totalMsi/gross,warnings,lines};
 }
+export function estimateMarketplace34(order,products,config,opts={}){
+ const metadata=order.marketplace34||{},draft=structuredClone(order),refunded=order.paymentStatus==='refunded'||order.refundCents>0||metadata.trace?.refundMarketplace||metadata.trace?.refundSeller;
+ if(refunded&&order.refundCents>0&&order.refundCents!==order.totalCents)throw new Error('El reembolso parcial requiere desglose financiero; no se presupone un débito completo.');
+ const sign=order.market==='Liverpool'?(refunded?-1:isCancelled(order)||metadata.trace?.cancelMarketplace||metadata.trace?.cancelSeller?0:1):1;
+ if(order.market!=='Liverpool'&&isCancelled(order))throw new Error('Revisa el reembolso de esta venta cancelada antes de conciliar.');
+ draft.status=isCancelled(draft)?'delivered':draft.status;draft.commercialStatus='Activa';
+ draft.reconciliation??={};draft.reconciliation.conditions={...(draft.reconciliation.conditions||{})};
+ if(metadata.promotion)draft.reconciliation.conditions.msi=metadata.promotion.msiMonths;
+ if(metadata.logistics?.confirmed)draft.reconciliation.conditions.shippingCents=0;
+ const result=estimateOrder(draft,products,config,{...opts,ignoreMarketplace34:true}),charges=metadata.logistics?.charges||[];
+ if(metadata.logistics?.confirmed){
+  const deducted=charges.filter(c=>c.treatment==='Descontado').reduce((sum,c)=>sum+c.amountCents*(c.credit?-1:1),0),external=charges.filter(c=>c.treatment==='Externo').reduce((sum,c)=>sum+c.amountCents*(c.credit?-1:1),0);
+  result.shippingCents=deducted;result.externalShippingCents=external;result.netCents-=deducted;if(result.profitCents!==null)result.profitCents-=deducted+external;
+  for(const line of result.lines){line.shippingCents=0;line.externalShippingCents=0;}
+  for(const [field,total]of [['shippingCents',deducted],['externalShippingCents',external]]){let allocated=0;result.lines.forEach((line,index)=>{line[field]=index===result.lines.length-1?total-allocated:Math.round(total*line.baseCents/result.grossCents);allocated+=line[field];});}
+  for(const line of result.lines){if(line.costCents!==null){line.profitCents=line.baseCents-line.commissionCents-line.vatCents-line.incomeCents-line.shippingCents-line.externalShippingCents-line.costCents;line.margin=line.profitCents/line.baseCents;}}
+  result.warnings=result.warnings.filter(w=>!/guía.*confirmar|guía.*confirmad/i.test(w));
+ }else result.warnings.push('V34: cargos logísticos aún sin cotejar contra el estado de cuenta; no representan un cero confirmado.');
+ result.version=34;result.source='Liverpool34 / Conciliacion29-30';result.marketplace34Snapshot=structuredClone(metadata);result.financialSign=sign;
+ if(order.market==='Liverpool'&&metadata.promotion?.amountCents)result.warnings.push('Promoción informativa: Liverpool liquida el importe completo. No se descuenta ni suma el cupón otra vez.');
+ if(sign<=0){result.netCents=sign*Math.abs(result.netCents);if(result.profitCents!==null)result.profitCents=sign*result.profitCents;result.warnings.push(sign<0?'Débito por reembolso estimado. Restituciones de comisión y retenciones pendientes de cotejar.':'Cancelación sin reembolso: neto cero; conserva el bruto para cotejar cargos.');}
+ result.margin=result.profitCents===null?null:result.profitCents/result.grossCents;return result;
+}
 export function setConditions(order, patch, opts={}) {
   const r=ensure(order),before=clone(r.conditions),next={...before};
   if(Object.hasOwn(patch,'shippingCents'))next.shippingCents=cents(patch.shippingCents,'Envío confirmado',true);
@@ -244,7 +268,9 @@ export function saveDeposit(order, input={}, opts={}) {
   if(state&&!FOLLOWUPS.has(state))throw new Error('Estado de seguimiento no válido.');
   if(state&&!notes)throw new Error('Agrega un comentario para documentar este seguimiento.');
   if(state==='No pagada'&&((r.depositCents||0)>0||(amount||0)>0))throw new Error('Hay un depósito registrado. Marca la diferencia como Incongruencia o Incidencia.');
-  const checkedAmount=cents(amount,'Depósito registrado',true);
+  const signedDebit=opts.allowSignedDebit&&order.market==='Liverpool'&&r.estimate?.version===34&&r.estimate.financialSign===-1&&typeof amount==='number'&&Number.isSafeInteger(amount)&&amount<0;
+  if(signedDebit&&!notes)throw new Error('Documenta el débito del estado de cuenta.');
+  const checkedAmount=signedDebit?amount:cents(amount,'Depósito registrado',true);
   if(checkedAmount!==null) {
     if(!validDate(depositDate))throw new Error('Selecciona una fecha de depósito válida.');
     if(depositDate>(opts.today||mexicoToday()))throw new Error('El depósito no puede tener una fecha futura.');
