@@ -9,7 +9,7 @@ import {generateProductSku} from '../lib/inventory-v28.mjs';
 const source=fs.readFileSync(new URL('../public/erp/purchase-documents-ui.js',import.meta.url),'utf8')
   .replace(/const parser=\(\)=>parserPromise\?\?=import\([^;]+;/,'const parser=async()=>(parserModule=parserEngine);')
   .replace(/const validator=\(\)=>validationPromise\?\?=import\([^;]+;/,'const validator=()=>{validationEngine=validationModule;return Promise.resolve(validationModule);};')
-  .replace('window.PurchaseDocs28={open,section,docUrl,close};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder}};');
+   .replace('window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder}};');
 const product={sku:'DYSV12M03L',upc:'885609037998',name:'Dyson V12',brand:'Dyson',supplierCodes:[{supplier:'Costco',item:'701577'}]};
 const line={sku:product.sku,name:product.name,supplierItem:'701577',qty:2,unitCostCents:null,totalCents:null,documentIds:[]};
 const order=(id='order')=>({id,name:'orden.pdf',parsed:{kind:'order',supplier:'Costco',supplierOrder:'599633002',currency:'MXN',date:'2026-10-19',totalCents:null,lines:[{supplierItem:'701577',name:'Dyson V12',qty:2}]}});
@@ -40,6 +40,24 @@ test('capture preserves the purchase header before file controls are rendered',a
   const draft=ui.helpers.getDraft(),before=structuredClone(draft.purchase);
   ui.helpers.capture(draft);
   assert.equal(JSON.stringify(draft.purchase),JSON.stringify(before));assert.equal(draft.lines[0].qty,2);
+});
+
+test('invoice mode retains draft and existing order lines instead of reconstructing them',async()=>{
+  for(const persisted of [false,true]){
+    const purchase={id:'C1',number:'OC1',supplier:'Costco',supplierOrder:'599633002',date:'2026-10-19',items:[{...structuredClone(line),name:'Reviewed Dyson name',id:'L1',receivedQty:1}],amountCents:null};
+    const ui=setup({products:[structuredClone(product)],purchases:persisted?[purchase]:[],documents:[],catalogs:{suppliers:['Costco']}});
+    await ui.api.open(persisted?{purchaseId:'C1',mode:'invoice'}:{purchaseDraft:purchase,mode:'invoice'});
+    const draft=ui.helpers.getDraft(),before=JSON.parse(JSON.stringify(draft.lines));
+    const first=invoice('one',37144420),second=invoice('two',37144423);
+    for(const doc of [first,second]){doc.parsed.taxCents=56538;doc.parsed.lines[0].taxCents=56538;}
+    draft.documents.push(first);await ui.helpers.recompute(draft);
+    assert.equal(draft.lines[0].name,before[0].name);assert.equal(draft.lines[0].qty,2);assert.equal(draft.lines[0].receivedQty,1);
+    assert.equal(draft.validation.invoiceTotalCents,409900);assert.equal(draft.validation.lines[0].invoiceAverageNetCostCents,353362);
+    draft.documents.push(second);await ui.helpers.recompute(draft);
+    assert.equal(draft.lines.length,1);assert.equal(draft.lines[0].id,before[0].id);assert.equal(draft.validation.invoiceTotalCents,819800);
+    assert.match(ui.html,/Subir facturación/);assert.match(ui.html,/Guardar facturación/);assert.match(ui.html,/Costo sin IVA/);
+    assert.doesNotMatch(ui.html,/data-doc-add-line/);assert.doesNotMatch(ui.html,/data-doc-field="qty"/);
+  }
 });
 
 test('attaching an order to a pre-existing purchase retains the original PDF order reference',async()=>{

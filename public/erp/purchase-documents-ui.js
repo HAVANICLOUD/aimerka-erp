@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261029-order-context-v3').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261029-order-context-v3').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261030-invoices').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261030-invoices').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -67,8 +67,10 @@
    const summary=report.summary||{},ref=report.expectedSupplierOrder||report.supplierOrder||d.purchase.supplierOrder;
    const issues=report.issues||[],failed=issues.some(issue=>issue.severity==='error'),warnings=issues.filter(issue=>issue.severity==='warning');
    return '<section class="doc-match-panel '+(failed?'has-errors':'')+'" aria-label="Validación de orden y facturas"><div class="doc-match-heading"><div><span class="small-note">ORDEN DEL PROVEEDOR</span><strong>'+esc(ref||'Pendiente de identificar')+'</strong></div>'+badge(failed?'Requiere corrección':warnings.length?'Revisar avisos':'Documentos compatibles',failed?'red':warnings.length?'amber':'green')+'</div><div class="doc-match-counts"><div><strong>'+Number(summary.orderedQty||0)+'</strong><span>Unidades ordenadas</span></div><div><strong>'+Number(summary.invoicedQty||0)+'</strong><span>Facturadas acumuladas</span></div><div class="'+(summary.excessQty?'has-excess':'')+'"><strong>'+Number(summary.excessQty||summary.pendingQty||0)+'</strong><span>'+(summary.excessQty?'Unidades de más':'Pendientes de facturar')+'</span></div></div><p class="small-note">Se comparan el proveedor, la orden, los artículos, las cantidades y los documentos anteriores y nuevos. '+Number(summary.invoiceCount||0)+' factura(s) revisada(s), sin contar duplicados.</p>'+
-     (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+'</section>';
+     (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+
+     '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo promedio documental calculado con las unidades facturadas. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p></section>';
  }
+ const costLabel=value=>value==null?'Por confirmar':money(value);
  function blockerPanel(d){return '<strong>Resuelve las diferencias antes de guardar</strong><p>'+blockers(d).map(esc).join(' ')+'</p><p>Quita el documento incorrecto o revisa su lectura y la referencia original.</p>';}
  function setDocumentReference(d,doc,reference){
    const value=String(reference??'').trim();if(value===String(doc.parsed?.supplierOrder||''))return;
@@ -84,6 +86,14 @@
    checkSession(d);const [engine]=await Promise.all([parser(),validator()]);checkSession(d);const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
    const originalDocs=allDocs(d),originalCombined=engine.combinePurchaseDocuments(originalDocs);
    refreshDerivedOrder(d);
+   if(d.mode==='invoice'&&d.lines.length){
+     d.combined={...originalCombined,warnings:originalDocs.filter(doc=>doc.parsed?.kind==='invoice').flatMap(doc=>doc.parsed.warnings||[])};d.validation=validationFor(d);
+     for(const [index,line] of d.lines.entries()){
+       const coverage=d.validation?.lines[index];
+       line.documentIds=[...new Set([...(line.documentIds||[]),...(coverage?.invoiceDocumentIds||[])])];
+     }
+     render(d);return;
+   }
    let sources=originalDocs;
    // Confirmed quantities are authoritative even when OCR evidence was corrected.
    // Keep original files and parsed evidence intact; use the reviewed order for coverage.
@@ -131,7 +141,7 @@
  async function open(options={}){
    close();const requestedId=options.purchaseId||options.purchaseDraft?.id,p=requestedId?state.purchases.find(x=>x.id===requestedId):null;
    const base={...(p||{}),...(options.purchaseDraft||{})},initialLines=rowsFromPurchase(base).map(line=>({...line,...(!p?{manual:true,overrides:{qty:true,cost:line.unitCostCents!=null}}:{})}));
-   draft={workspace:ERP.workspace,purchaseId:p?.id||null,purchase:base,storedDocuments:structuredClone((state.documents||[]).filter(doc=>p&&doc.purchaseId===p.id)),documents:[],editedDocumentIds:[],uploadWarnings:[],orderReferenceMode:p?.supplierOrder?'existing':base.supplierOrder?'manual':'auto',lines:initialLines,combined:null,validation:null,busy:false,progress:'',reviewed:false};
+   draft={mode:options.mode||'review',workspace:ERP.workspace,purchaseId:p?.id||null,purchase:base,storedDocuments:structuredClone((state.documents||[]).filter(doc=>p&&doc.purchaseId===p.id)),documents:[],editedDocumentIds:[],uploadWarnings:[],orderReferenceMode:p?.supplierOrder?'existing':base.supplierOrder?'manual':'auto',lines:initialLines,combined:null,validation:null,busy:false,progress:'',reviewed:false};
    const d=draft;render(d);
    try{await Promise.all([parser(),validator()]);if(d!==draft)return;if(allDocs(d).length)await recompute(d);else refreshValidation(d);}
    catch(error){if(d===draft){d.progress='No se pudo cargar la validación: '+error.message;render(d);}}
@@ -139,10 +149,11 @@
  function capture(d){
    if(!get('document-import-form'))return;
    for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes']])if(get(id)){const captured=value(id).trim();if(field==='supplierOrder'&&captured!==String(d.purchase.supplierOrder||''))d.orderReferenceMode='manual';d.purchase[field]=captured;}
-   if(get('docs-total'))d.purchase.amountCents=cents(value('docs-total'));
+   if(get('docs-total')&&d.mode!=='invoice')d.purchase.amountCents=cents(value('docs-total'));
    for(const input of document.querySelectorAll('[data-doc-order-reference]')){const doc=allDocs(d).find(doc=>doc.id===input.dataset.docOrderReference);if(doc)setDocumentReference(d,doc,input.value);}
    d.reviewed=!!get('docs-reviewed')?.checked;
    for(const row of document.querySelectorAll('[data-doc-line]')){
+     if(d.mode==='invoice')continue;
      const i=Number(row.dataset.docLine),line=d.lines[i];if(!line)continue;
      const val=field=>row.querySelector('[data-doc-field="'+field+'"]')?.value??'';
      line.name=val('name');line.qty=Number(val('qty'));line.unitCostCents=cents(val('cost'));line.supplierItem=val('item');
@@ -164,6 +175,7 @@
      '<div data-doc-reference-notice="'+esc(doc.id)+'">'+referenceNotice(p)+'</div></div>'+
      (p.totalCents!=null?'<div class="document-card-total">'+money(p.totalCents)+'</div>':'<div class="small-note">Importe por confirmar</div>')+
      (p.uuid?'<div class="document-uuid">UUID '+esc(p.uuid)+'</div>':'')+
+     (p.kind==='invoice'?'<div class="small-note">Folio fiscal / factura: <strong>'+esc(p.invoiceNumber||'Por confirmar')+'</strong><br>Subtotal '+costLabel(p.subtotalCents)+' · Descuento '+costLabel(p.discountCents)+' · IVA '+costLabel(p.taxCents)+'</div>':'')+
      '<div class="document-card-actions">'+(url?'<a class="btn small" target="_blank" rel="noopener" href="'+esc(url)+'">Ver original ↗</a>':'')+
      (!stored?'<button class="btn small" type="button" data-doc-remove="'+doc.id+'">Quitar</button>':'')+'</div>'+
      (!stored?'<details class="document-reading"><summary>Revisar lectura y clasificación</summary><label>Tipo de documento<select data-doc-kind="'+doc.id+'">'+['order','invoice','unknown'].map(k=>'<option value="'+k+'" '+(p.kind===k?'selected':'')+'>'+kindName(k)+'</option>').join('')+'</select></label><label>Texto extraído<textarea data-doc-text="'+doc.id+'" rows="6">'+esc(doc.text||'')+'</textarea></label><div class="document-card-actions"><button class="btn small" type="button" data-doc-reparse="'+doc.id+'">Volver a interpretar</button><button class="btn small" type="button" data-doc-ocr="'+doc.id+'">Leer con OCR</button></div></details>':'')+
@@ -226,10 +238,11 @@
    const warnings=[...new Set([...(combined?.warnings||[]).filter(warning=>!(combined?.blockingWarnings||[]).includes(warning)),...(d.uploadWarnings||[])])];
    const existing=d.purchaseId?[]:(state.purchases||[]).filter(x=>p.supplierOrder&&x.supplierOrder===p.supplierOrder);
    const blocked=blockers(d).length;
-   const title=d.purchaseId?'Añadir documentos a '+esc(state.purchases.find(x=>x.id===d.purchaseId)?.number||d.purchaseId):'Importar orden y facturas';
+   const title=(d.mode==='invoice'?'Subir facturación':d.mode==='order'?'Importar orden':'Revisar documentos')+(d.purchaseId?' · '+esc(state.purchases.find(x=>x.id===d.purchaseId)?.number||d.purchaseId):'');
    showModal('<form id="document-import-form"><div class="docs-modal-head"><div><span class="eyebrow">COMPRAS / LECTURA DOCUMENTAL</span><h2 id="modal-title">'+title+'</h2><p class="modal-subtitle">De tus documentos a una orden lista para recibir.</p></div><span class="docs-workspace">'+(ERP.workspace==='practice'?'Práctica':'Operación V28')+'</span></div>'+
      '<div class="doc-steps"><span class="'+(!hasFiles?'active':'done')+'"><b>1</b> Adjuntar</span><span class="'+(hasFiles?'active':'')+'"><b>2</b> Revisar y relacionar</span><span><b>3</b> Guardar sin recibir</span></div>'+
-     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>Orden de compra, facturas o capturas</strong><p>Puedes adjuntar la orden y sus facturas juntas, o agregar más facturas después. PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
+     '<div class="head-actions"><button type="button" class="btn" data-doc-mode="order">Importar orden</button><button type="button" class="btn" data-doc-mode="invoice">Subir facturación</button></div>'+
+     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>'+esc(d.mode==='invoice'?'Subir facturación':'Importar orden')+'</strong><p>'+(d.mode==='invoice'?'Adjunta una o varias facturas. AIMERKA las relacionará con la orden, los productos y actualizará los costos.':'Lee una orden de compra o captura del proveedor para crear automáticamente sus partidas.')+' PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
      '<div id="docs-progress" class="docs-progress" role="status" aria-live="polite">'+esc(d.progress||'')+'</div>'+
      (hasFiles?'<div class="document-grid">'+docs.map(doc=>documentCard(doc,!d.documents.some(x=>x.id===doc.id),d.validation,true)).join('')+'</div>':'')+
      '<div id="docs-validation" aria-live="polite">'+validationPanel(d)+'</div>'+
@@ -239,20 +252,21 @@
        ERP.field('docs-supplier','Proveedor *',p.supplier,'text','required list="docs-suppliers"')+
        ERP.field('docs-order','Orden original del proveedor',p.supplierOrder)+ERP.field('docs-date','Fecha de la orden *',p.date||ERP.today(),'date','required max="'+ERP.today()+'"')+
        ERP.select('docs-shipping','Estado de traslado',['Pendiente','En tránsito'],p.shippingStatus||'En tránsito')+
-       ERP.field('docs-total','Importe total de la compra (MXN)',number(p.amountCents),'number','min="0.01" step="0.01" placeholder="Por confirmar"')+
+       ERP.field('docs-total',d.mode==='invoice'?'Total facturado acumulado (MXN)':'Importe total de la compra (MXN)',number(d.mode==='invoice'?d.validation?.invoiceTotalCents:p.amountCents),'number',d.mode==='invoice'?'readonly':'min="0.01" step="0.01" placeholder="Por confirmar"')+
        '<div class="doc-total-context">'+(combined?.invoiceTotals?.totalCents!=null?'<span>Facturas adjuntas</span><strong>'+money(combined.invoiceTotals.totalCents)+'</strong>':'<span>Puedes registrar la orden sin conocer aún su importe.</span>')+'</div></div><datalist id="docs-suppliers">'+(state.catalogs?.suppliers||[]).map(x=>'<option value="'+esc(typeof x==='string'?x:x.name||'')+'">').join('')+'</datalist>'+
        '<div class="field spacer-top"><label for="docs-notes">Observaciones</label><textarea id="docs-notes" rows="2">'+esc(p.notes||'')+'</textarea></div></section>'+
-       '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div><button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button></div>'+
-       (d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
+       '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div>'+(d.mode==='invoice'?'':'<button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button>')+'</div>'+
+       (d.mode==='invoice'?'<p class="small-note">Se conservan las '+d.lines.length+' partidas y cantidades de la orden. Revisa arriba su facturación y costos acumulados.</p>':d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
        '<div class="doc-confirm"><label><input id="docs-reviewed" type="checkbox" '+(d.reviewed?'checked':'')+' required> Confirmé productos, cantidades, documentos e importes. Las unidades entrarán al inventario únicamente al recibirlas en almacén.</label></div>'+
        '<div id="docs-blockers" class="document-warnings" '+(blocked?'':'hidden')+'>'+blockerPanel(d)+'</div>':'')+
      '<div class="modal-actions docs-sticky-actions"><button class="btn" type="button" data-action="close-modal">Cerrar</button>'+
-     (hasFiles?'<button class="btn primary" id="docs-save" type="submit" '+(d.busy||!hasChanges(d)||!d.lines.length||blocked||!d.validation?'disabled':'')+'>'+icon('check')+(d.purchaseId?' Guardar documentos y actualizar orden':' Registrar orden documental')+'</button>':'')+'</div></form>');
+     (hasFiles?'<button class="btn primary" id="docs-save" type="submit" '+(d.busy||!hasChanges(d)||!d.lines.length||blocked||!d.validation?'disabled':'')+'>'+icon('check')+(d.mode==='invoice'?' Guardar facturación':d.purchaseId?' Guardar documentos':' Registrar orden documental')+'</button>':'')+'</div></form>');
    get('modal').classList.add('documents-modal');
  }
  async function addFiles(files){
    const d=draft;if(!d||d.busy)return;capture(d);
    const selected=[...files];if(!selected.length)return;
+   if(d.mode==='invoice'&&!d.lines.length){toast('Importa la orden o captura sus artículos antes de subir facturación.',true);return;}
    if(d.documents.length+selected.length>12){toast('Adjunta un máximo de 12 archivos por importación.',true);return;}
    d.busy=true;d.reviewed=false;render(d);
    try{
@@ -265,6 +279,8 @@
        if(allDocs(d).some(doc=>doc.id===id)){const warning=file.name+' ya está adjunto. El archivo duplicado se omitió y no sumó artículos.';d.uploadWarnings.push(warning);toast(warning);continue;}
        const read=await DocumentReader29.extract(file,message=>progress(d,file.name+' · '+(typeof message==='string'?message:message.message)));
        checkSession(d);const parsed=engine.parsePurchaseDocument(read.text,{fileName:file.name});
+       if(d.mode==='invoice'&&parsed.kind!=='invoice')throw new Error(file.name+': no se reconoció una factura. Carga la orden desde Importar orden.');
+       if(d.mode==='order'&&parsed.kind!=='order')throw new Error(file.name+': utiliza Subir facturación para adjuntar facturas.');
        parsed.warnings=[...new Set([...(parsed.warnings||[]),...(read.warnings||[])])];
        d.documents.push({id,sha256:id,name:file.name,mime:file.type,size:file.size,file,text:read.text,parsed,extraction:read.extraction,previewUrl:URL.createObjectURL(file)});
      }
@@ -297,7 +313,7 @@
        review:l.unitCostCents==null?'Costo pendiente de confirmar. Artículo creado desde documento.':'Creado desde documento revisado.'}:undefined,
        name:l.name,supplierItem:l.supplierItem,qty:l.qty,unitCostCents:l.unitCostCents,documentIds:l.documentIds}));
      const purchase=Object.fromEntries(['supplier','supplierOrder','date','shippingStatus','notes','amountCents','lender','instrument','term','firstPaymentDate','sicar','taxInvoice','satReviewed'].filter(key=>d.purchase[key]!==undefined&&!(key==='taxInvoice'&&!d.purchase[key])).map(key=>[key,d.purchase[key]]));
-     const result=await ERP.command('purchase.importDocuments',{purchaseId:d.purchaseId||undefined,purchase,lines,documents});
+     const result=await ERP.command('purchase.importDocuments',{mode:d.mode,purchaseId:d.purchaseId||undefined,purchase,lines,documents});
      if(!result.ok)throw new Error(result.error||'No se guardó la importación. Revisa y vuelve a intentar.');
      const id=result.result.purchaseId||result.result.id;get('modal').close();close();if(id)window.op28Detail?.('purchase',id);
    }catch(error){if(d===draft){d.progress=error.message;toast(error.message,true);}}
@@ -306,7 +322,7 @@
  function section(p){
    const docs=(state.documents||[]).filter(doc=>doc.purchaseId===p.id),d={purchaseId:p.id,purchase:p,storedDocuments:docs,documents:[],lines:p.items||[]};d.validation=validationFor(d);
    if(docs.length&&!validationEngine){const workspace=ERP.workspace;validator().then(()=>{const node=get('purchase-documents-'+p.id),current=state.purchases.find(row=>row.id===p.id);if(node&&current&&ERP.workspace===workspace)node.outerHTML=section(current);}).catch(()=>{});}
-   return '<section class="purchase-documents-section" id="purchase-documents-'+esc(p.id)+'"><div class="form-section-head"><div><h3>Orden y facturas</h3><span class="small-note">'+docs.length+' documentos conservados con esta compra</span></div><button class="btn small" data-doc-open="'+esc(p.id)+'">＋ Añadir o revisar documentos</button></div>'+
+   return '<section class="purchase-documents-section" id="purchase-documents-'+esc(p.id)+'"><div class="form-section-head"><div><h3>Orden y facturas</h3><span class="small-note">'+docs.length+' documentos conservados con esta compra</span></div><div class="head-actions"><button class="btn small" data-doc-open="'+esc(p.id)+'" data-mode="order">Importar orden</button><button class="btn small primary" data-doc-open="'+esc(p.id)+'" data-mode="invoice">Subir facturación</button></div></div>'+
      (docs.length?validationPanel(d)+'<div class="document-grid">'+docs.map(doc=>documentCard(doc,true,d.validation)).join('')+'</div>':'<div class="doc-empty">'+icon('file')+'<p>Conserva aquí la orden del proveedor y sus facturas. Podrás consultarlas también desde cada producto.</p></div>')+'</section>';
  }
  document.addEventListener('change',e=>{
@@ -332,8 +348,9 @@
  });
  document.addEventListener('click',async e=>{
    const el=e.target.closest('button');if(!el)return;
-   if(el.hasAttribute('data-doc-open')){open({purchaseId:el.dataset.docOpen});return;}
+   if(el.hasAttribute('data-doc-open')){open({purchaseId:el.dataset.docOpen,mode:el.dataset.mode});return;}
    const d=draft;if(!d||d.busy)return;
+   if(el.hasAttribute('data-doc-mode')){capture(d);if(el.dataset.docMode==='invoice'&&!d.lines.length){toast('Importa la orden o captura sus artículos antes de subir facturación.',true);return;}d.mode=el.dataset.docMode;d.reviewed=false;render(d);return;}
    if(el.hasAttribute('data-doc-remove')){
      capture(d);const doc=d.documents.find(x=>x.id===el.dataset.docRemove);if(doc?.previewUrl)URL.revokeObjectURL(doc.previewUrl);
      d.documents=d.documents.filter(x=>x.id!==el.dataset.docRemove);d.reviewed=false;await recompute(d);
@@ -358,6 +375,6 @@
  document.addEventListener('dragleave',e=>e.target.closest('#document-dropzone')?.classList.remove('dragging'));
  document.addEventListener('drop',e=>{if(e.target.closest('#document-dropzone')){e.preventDefault();addFiles(e.dataTransfer.files);}});
  get('modal')?.addEventListener('close',()=>{if(draft)close();});
- window.PurchaseDocs28={open,section,docUrl,close};
+ window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};
  validator().catch(()=>{});
 })();

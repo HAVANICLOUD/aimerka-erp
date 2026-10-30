@@ -56,6 +56,24 @@ const invoice1=()=>parsePurchaseDocument(invoiceText(),{fileName:'factura-prueba
 const invoice2=()=>parsePurchaseDocument(invoiceText({number:'90000002',uuid:'22222222-2222-4222-8222-222222222222'}),{fileName:'factura-prueba-2.pdf'});
 const wrapper=(id,parsed,sha256)=>({id,parsed,...(sha256 ? {sha256} : {})});
 
+test('OCR column loss is recoverable only when single-line base, rate and printed total agree',()=>{
+  const text=`TIPO DE COMPROBANTE: I Ingreso\nCOSTCO DE MEXICO\nFOLIO FISCAL: BMG 37144420\n47121602 | 701577 H87 Pieza i Aspiradora Prueba V12 Digital Slim 6,895.69 6,895.69 3,362.07 3,533.6250 | 0.160000 i\nOrden: 599633002\nSubtotal $6,006.68\nDescuento $3,362.07\nIVA al 16.00% $505.38\nTotal $4,099.00`;
+  const parsed=parsePurchaseDocument(text);
+  assert.equal(parsed.lines.length,1);assert.equal(parsed.lines[0].qty,1);assert.equal(parsed.lines[0].supplierItem,'701577');
+  assert.equal(parsed.subtotalCents,689569);assert.equal(parsed.taxCents,56538);assert.equal(parsed.totalCents,409900);
+  assert.match(parsed.warnings.join(' '),/cantidad OCR/);assert.match(parsed.warnings.join(' '),/resumen OCR de IVA/);
+  assert.equal(parsePurchaseDocument(text.replace('Total $4,099.00','Total $4,199.00')).lines.length,0);
+  assert.equal(parsePurchaseDocument(text.replace('3,533.6250','3,933.6250')).lines.length,0);
+});
+
+test('an OCR order with a corrupted item retains its name and quantity without inventing an item code',()=>{
+  const text=`Detalles de tu orden\nFecha de creación Nimerodeorden Forma de pago\n19/10/2026 021718 599633002 Visa\nPM\nAspiradora Prueba V12 Digital Slim\nEk 4 7057\nEstatus\nEntregado (2 artículos)\nCantidad\n2`;
+  const parsed=parsePurchaseDocument(text,{fileName:'orden-costco.pdf'});
+  assert.equal(parsed.kind,'order');assert.equal(parsed.supplierOrder,'599633002');assert.equal(parsed.lines.length,1);
+  assert.equal(parsed.lines[0].supplierItem,null);assert.equal(parsed.lines[0].qty,2);assert.equal(parsed.lines[0].name,NAME);
+  assert.match(parsed.warnings.join(' '),/número de artículo no es legible/);
+});
+
 test('Costco order takes quantity and creation date, never banner prices or supplier delivery as receipt',()=>{
   const result=orderDoc();
   assert.equal(result.kind,'order');

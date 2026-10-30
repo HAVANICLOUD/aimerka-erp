@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {applyDocumentImport} from '../lib/purchase-document-commands.mjs';
 import {applyInventory} from '../lib/inventory-v28.mjs';
 import {applyOperation} from '../lib/operations-v28.mjs';
+import {productInvoiceCosts} from '../lib/purchase-document-validation.mjs';
 
 const clock={now:'2026-10-29T16:00:00Z',today:'2026-10-29',actor:'QA'};
 const id=n=>n.toString(16).padStart(64,'0');
@@ -15,6 +16,41 @@ const doc=(n,kind='order',qty=2,uuidNumber=n)=>({id:id(n),parsed:parsed(kind,qty
 const metadata=docs=>docs.map(d=>({id:d.id,sha256:d.id,name:d.id+'.pdf',mime:'application/pdf',size:500,createdAt:clock.now}));
 const importDocs=(s,documents,lines,purchase={},purchaseId,commandId)=>applyDocumentImport(s,{id:commandId||'import-'+(++sequence),type:'purchase.importDocuments',payload:{purchaseId,purchase:{supplier:'Costco',date:'2026-10-19',shippingStatus:'En tránsito',...purchase},lines,documents}},{...clock,verifiedDocuments:metadata(documents)});
 const line=(sku,documents,patch={})=>({sku,name:'Dyson V12 Digital Slim',supplierItem:'701577',qty:2,unitCostCents:null,documentIds:documents.map(d=>d.id),...patch});
+
+test('separate invoice upload accumulates Costco costs and preserves the order and inventory',()=>{
+  const ledger=state(),sku=createProduct(ledger),order=doc(201);
+  const created=importDocs(ledger,[order],[line(sku,[order])]);
+  const stock=structuredClone(ledger.products),receipts=structuredClone(ledger.purchaseReceipts),movements=structuredClone(ledger.movements);
+  const lineId=ledger.purchases[0].items[0].id;
+  for(const [index,folio] of ['37144420','37144423'].entries()){
+    const invoice=doc(202+index,'invoice',1,202+index);
+    Object.assign(invoice.parsed,{invoiceNumber:'BMG '+folio,subtotalCents:689569,discountCents:336207,taxCents:56538});
+    Object.assign(invoice.parsed.lines[0],{subtotalCents:689569,discountCents:336207,taxCents:56538});
+    const purchase=ledger.purchases[0];
+    applyDocumentImport(ledger,{id:'separate-'+folio,type:'purchase.importDocuments',payload:{mode:'invoice',purchaseId:created.id,purchase:{supplier:'Wrong supplier',notes:'Do not replace'},lines:structuredClone(purchase.items),documents:[invoice]}},{...clock,verifiedDocuments:metadata([invoice])});
+    const saved=ledger.purchases[0],item=saved.items[0];
+    assert.equal(saved.amountCents,409900*(index+1));assert.equal(saved.taxInvoice,['BMG 37144420','BMG 37144423'].slice(0,index+1).join(', '));
+    assert.equal(saved.supplier,'Costco');assert.equal(saved.items.length,1);assert.equal(item.id,lineId);assert.equal(item.qty,2);
+    assert.equal(item.invoicedQty,index+1);assert.equal(item.pendingInvoiceQty,1-index);assert.equal(item.invoicedNetCents,353362*(index+1));
+    assert.equal(item.invoicedTaxCents,56538*(index+1));assert.equal(item.invoiceAverageCostCents,409900);
+    assert.equal(ledger.documents.at(-1).lineLinks[0].qty,1);assert.equal(ledger.documents.at(-1).lineLinks[0].sku,sku);
+  }
+  assert.deepEqual(productInvoiceCosts(ledger,sku),{units:2,totalCents:819800,averageCostCents:409900,averageNetCostCents:353362,averageTaxCents:56538});
+  assert.equal(ledger.products[0].costCents,409900);assert.equal(ledger.products[0].averageCostMxn,4099);assert.equal(ledger.products[0].priceCents,stock[0].priceCents);
+  for(const key of ['good','reserved','quarantine','damaged','safety'])assert.equal(ledger.products[0][key],stock[0][key]);
+  assert.deepEqual(ledger.movements,movements);assert.deepEqual(ledger.purchaseReceipts,receipts);
+  const before=structuredClone(ledger),extra=doc(204,'invoice',1);
+  assert.throws(()=>applyDocumentImport(ledger,{type:'purchase.importDocuments',payload:{mode:'invoice',purchaseId:created.id,purchase:{},lines:[{...ledger.purchases[0].items[0],qty:3}],documents:[extra]}},{...clock,verifiedDocuments:metadata([extra])}),/conserva/);
+  assert.deepEqual(ledger,before);
+});
+
+test('invoice upload refuses inconsistent tax arithmetic atomically',()=>{
+  const ledger=state(),sku=createProduct(ledger),order=doc(210),created=importDocs(ledger,[order],[line(sku,[order])]);
+  const invoice=doc(211,'invoice',1);Object.assign(invoice.parsed.lines[0],{subtotalCents:400000,discountCents:0,taxCents:56538});
+  const before=structuredClone(ledger);
+  assert.throws(()=>applyDocumentImport(ledger,{type:'purchase.importDocuments',payload:{mode:'invoice',purchaseId:created.id,purchase:{},lines:structuredClone(ledger.purchases[0].items),documents:[invoice]}},{...clock,verifiedDocuments:metadata([invoice])}),/IVA y total/);
+  assert.deepEqual(ledger,before);
+});
 
 test('legacy OCR payload using the compact time from the user screenshot is rejected atomically',()=>{
   const s=state(),sku=createProduct(s),order=doc(170);
