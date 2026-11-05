@@ -76,3 +76,8 @@ test('V43 pricing calculators use nominal withholding on the VAT-exclusive T1 ba
  const rates=resolveCommission(config,{channel:'T1 Comercios'});assert.ok(Math.abs(rates.vatRate-.08/1.16)<1e-12);assert.ok(Math.abs(rates.isrRate-.025/1.16)<1e-12);
  const old=structuredClone(config);delete old.parameters.t1IncludedVat;assert.equal(resolveCommission(old,{channel:'T1 Comercios'}).vatRate,.08);
 });
+
+test('Sears Operadora bank origin is recognized alongside GS Tiendas, without changing date or reference',()=>{
+ const text=read('BANAMEX_OCTUBRE').replaceAll('GS TIENDAS','SEARS OPERADORA');const parsed=parseBankStatement(text,cfg);assert.equal(parsed.period,'2026-10');const tx=parsed.transactions.find(t=>t.chequeNumber==='32798');assert.equal(tx.market,'Sears');assert.equal(tx.reference,'0032798');assert.equal(tx.amountCents,1054037);
+ const previousYear=parseBankStatement(text.replaceAll('2026','2025'),cfg);assert.equal(previousYear.period,'2025-10');assert.ok(previousYear.transactions.every(t=>t.date.startsWith('2025-')));
+});
