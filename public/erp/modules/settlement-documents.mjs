@@ -132,7 +132,7 @@ export function reconcileLedger(state,context={}){
   r.sourceRoundingDifferenceCents=r.documentaryNetCents==null||order.t1Source?.documentaryNetCents==null?null:r.documentaryNetCents-order.t1Source.documentaryNetCents;
   r.depositCents=confirmed.length?confirmed.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
   r.depositDate=confirmed.length?ledger.transactions.filter(t=>r.bankProofIds.includes(t.id)).map(t=>t.date).sort().at(-1):null;
-  r.status=related.length&&confirmed.length===related.length?'Conciliada':confirmed.length?'Conciliación parcial':'Pendiente de banco';
+  r.status=related.length&&confirmed.length===related.length?'Conciliada':confirmed.length?'Conciliación parcial':!related.length&&/Cancelad|Devuel|Reembols/i.test(order.commercialStatus+' '+order.sourceReturnStatus+' '+order.sourcePaymentStatus)?'Cancelada · sin pago esperado':'Pendiente de banco';
   const calc=compareV43(order,state.products,state.config);r.realProfitCents=calc.realProfit==null?null:Math.round(calc.realProfit*100);r.modelDifferenceCents=r.depositCents==null?null:r.depositCents-Math.round(calc.expectedNet*100);order.paidCents=r.depositCents;
  }
 }
