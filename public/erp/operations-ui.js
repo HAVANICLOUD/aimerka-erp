@@ -77,7 +77,7 @@ function op28Detail(kind,id){
 
 function op28PurchaseForm(id){
   var prior=id?(state.purchases||[]).find(x=>x.id===id):null;
-  op28draft={kind:'purchase',id:prior?.id||'',data:prior?JSON.parse(JSON.stringify(prior)):{date:op28today(),term:1,receiptMode:'physical',receiptStatus:'Pendiente',shippingStatus:'Pendiente',satReviewed:'No',items:[]},items:prior?JSON.parse(JSON.stringify(prior.items||[])):[]};
+  op28draft={kind:'purchase',commandId:ERP.makeId(),id:prior?.id||'',data:prior?JSON.parse(JSON.stringify(prior)):{date:op28today(),term:1,receiptMode:'physical',receiptStatus:'Pendiente',shippingStatus:'Pendiente',satReviewed:'No',items:[]},items:prior?JSON.parse(JSON.stringify(prior.items||[])):[]};
   op28RenderPurchaseForm();
 }
 function op28RenderPurchaseForm(){
@@ -316,12 +316,12 @@ document.addEventListener('keydown',function(event){
 
 document.addEventListener('submit',async function(event){var form=event.target;if(!form.id.startsWith('op28-'))return;event.preventDefault();var btn=form.querySelector('button[type="submit"]');if(btn?.disabled)return;if(!form.reportValidity())return;if(btn)btn.disabled=true;
   try{var v=Object.fromEntries(new FormData(form)),result,kind=form.dataset.kind,id=form.dataset.id;
-    if(form.id==='op28-purchase-form'){op28CapturePurchase();result=await ERP.command(op28draft.id?'purchase.update':'purchase.create',{...op28draft.data,id:op28draft.id||undefined,items:op28draft.items});}
+    if(form.id==='op28-purchase-form'){op28CapturePurchase();var type=op28draft.id?'purchase.update':'purchase.create',payload={...op28draft.data,id:op28draft.id||undefined,items:op28draft.items};result=await ERP.command(type,payload,{command:{id:op28draft.commandId||(op28draft.commandId=ERP.makeId()),type,payload,workspace:ERP.workspace,revision:ERP.revision}});}
     else if(form.id==='op28-expense-form'){result=await ERP.command(id?'expense.update':'expense.create',{...v,id:id||undefined,amountCents:op28parseAmount(v.amount),term:Number(v.term)});}
     else if(form.id==='op28-payment-form'){result=await ERP.command(kind+'.payment',{entityId:id,date:v.date,notes:v.notes,mode:v.mode,installmentsCovered:Number(v.installmentsCovered||1),amountCents:op28parseAmount(v.amount)});}
     else if(form.id==='op28-credit-form'){result=await ERP.command('credit.save',{...v,active:true,cutoffDay:v.cutoffDay===''?null:Number(v.cutoffDay),paymentDay:v.paymentDay===''?null:Number(v.paymentDay)});}
     else if(form.id==='op28-catalog-form'){result=await ERP.command('catalog.add',{catalog:op28catalog,value:v.value});if(result?.ok){return;}}
-    else if(form.id==='op28-receive-form'){result=await ERP.command('inventory.receivePurchase',{purchaseId:id,warehouseId:document.getElementById('op28-receive-warehouse').value,items:op28ReceivePayload(form),reason:v.reason});}
+    else if(form.id==='op28-receive-form'){var type='inventory.receivePurchase',payload={purchaseId:id,warehouseId:document.getElementById('op28-receive-warehouse').value,items:op28ReceivePayload(form),reason:v.reason};result=await ERP.command(type,payload,{command:{id:form.dataset.receiptRequestId||(form.dataset.receiptRequestId=ERP.makeId()),type,payload,workspace:ERP.workspace,revision:ERP.revision}});}
     if(result?.ok){op28closeModal();var savedId=id||result.result?.id;if(savedId&&(kind==='purchase'||kind==='expense'))op28Detail(kind,savedId);else closeDrawer();}
     else if(result)op28formError(form,result.error||result.message||'Revisa los datos indicados e inténtalo nuevamente.');
   }catch(error){op28formError(form,error.message);}finally{if(btn)btn.disabled=false;}

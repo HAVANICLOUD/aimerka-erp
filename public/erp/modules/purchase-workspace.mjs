@@ -1,0 +1,32 @@
+import {installmentState} from './operations-v28.mjs';
+import {validatePurchaseDocuments} from './purchase-document-validation.mjs';
+const key=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es-MX');
+const supplierKey=v=>key(v).replace(/[^a-z0-9&]/g,'');
+const finite=n=>typeof n==='number'&&Number.isFinite(n);
+export function purchaseSuppliers(state){return [...([...(state.catalogs?.suppliers||[]).map(s=>typeof s==='string'?s:s.name),...(state.purchases||[]).map(p=>p.supplier),...(state.supplierProfiles||[]).map(p=>p.name)].filter(Boolean).reduce((map,name)=>{const id=supplierKey(name);if(!map.has(id))map.set(id,name);return map;},new Map())).values()].sort((a,b)=>a.localeCompare(b,'es'));}
+export function purchaseView(p,state){
+ const documents=(state.documents||[]).filter(d=>d.purchaseId===p.id),receipts=(state.purchaseReceipts||[]).filter(r=>r.purchaseId===p.id),physical=p.receiptMode==='physical'||receipts.length>0;
+ const report=(p.items||[]).length?validatePurchaseDocuments(documents,{purchase:p,lines:p.items,products:state.products||[],purchases:state.purchases||[],purchaseId:p.id}):null;
+ const lines=(p.items||[]).map((line,index)=>{const coverage=report?.lines[index],received=Number(line.receivedQty||0),invoiced=Number(coverage?.invoicedQty||0);return {...line,receivedQty:received,invoicedQty:invoiced,pendingReceiptQty:Math.max(0,line.qty-received),pendingInvoiceQty:Math.max(0,line.qty-invoiced),receivedUnbilledQty:Math.max(0,received-invoiced),invoiceDocumentIds:coverage?.invoiceDocumentIds||[],invoicedTotalCents:coverage?.invoicedTotalCents??null,invoicedNetCents:coverage?.invoicedNetCents??null,invoicedTaxCents:coverage?.invoicedTaxCents??null};});
+ const ordered=lines.reduce((s,l)=>s+l.qty,0),received=lines.reduce((s,l)=>s+l.receivedQty,0),invoiced=lines.reduce((s,l)=>s+l.invoicedQty,0),pendingInvoice=lines.reduce((s,l)=>s+l.pendingInvoiceQty,0),receivedUnbilled=lines.reduce((s,l)=>s+l.receivedUnbilledQty,0),historical=!physical&&p.receiptStatus==='Recibida completa';
+ const stage=p.status==='Cancelada'?'cancelled':historical?'historical':!lines.length?'draft':received>=ordered?'delivered':received>0?'partial':'pending';
+ const billing=!lines.length?'unverified':!report?.valid?'review':invoiced>=ordered?'complete':invoiced>0?'partial':'pending';
+ const invoicedAmountCents=report?.invoiceTotalCents??null,orderedAmountCents=p.amountSource==='invoices'?p.expectedAmountCents??(ordered>0&&invoiced>=ordered?invoicedAmountCents:null):p.amountCents??null;
+ return {purchase:p,documents,receipts,report,orderedAmountCents,invoicedAmountCents,lines,ordered,received,invoiced,pendingReceipt:historical?null:Math.max(0,ordered-received),pendingInvoice:lines.length?pendingInvoice:null,receivedUnbilled,physical,historical,stage,billing,canReceive:['pending','partial'].includes(stage),payment:installmentState(p,state.purchasePayments||[]),lastReceiptAt:receipts.map(r=>r.date).sort().at(-1)||null};
+}
+export function purchaseRows(state,f={}){return (state.purchases||[]).map(p=>purchaseView(p,state)).filter(r=>{
+ const p=r.purchase,date=String(p.date||'').slice(0,10),text=key([p.id,p.number,p.sicar,p.supplier,p.supplierOrder,p.originalDocument,p.taxInvoice,...r.lines.map(l=>[l.name,l.sku,l.skuOrUpc,l.upc,l.supplierItem].join(' ')),...r.documents.map(d=>[d.name,d.parsed?.invoiceNumber,d.parsed?.uuid].join(' '))].join(' '));
+ return (!f.query||text.includes(key(f.query)))&&(!f.supplier||supplierKey(p.supplier)===supplierKey(f.supplier))&&(!f.from||date>=f.from)&&(!f.to||date<=f.to)&&(!f.stage||f.stage==='all'||r.stage===f.stage)&&(!f.billing||f.billing==='all'||f.billing==='missing'&&['pending','partial','review'].includes(r.billing)||f.billing==='received-unbilled'&&r.receivedUnbilled>0||r.billing===f.billing)&&(!f.payment||f.payment==='all'||f.payment==='pending'&&r.payment.balanceCents>0||f.payment==='paid'&&r.payment.balanceCents===0||f.payment==='unknown'&&r.payment.amountCents==null);
+ }).sort((a,b)=>String(b.purchase.date||'').localeCompare(String(a.purchase.date||''))||String(b.purchase.id).localeCompare(String(a.purchase.id),undefined,{numeric:true}));}
+export function purchaseSummary(rows){const s={count:rows.length,amountCents:0,balanceCents:0,unknownAmounts:0,receivableCount:0,pendingUnits:0,deliveredCount:0,historicalCount:0,missingInvoicesCount:0,pendingInvoiceUnits:0,receivedUnbilledUnits:0,detailedCount:0,unverifiedCount:0,stages:{all:rows.length,draft:0,pending:0,partial:0,delivered:0,historical:0,cancelled:0}};
+ for(const r of rows){s.stages[r.stage]++;if(r.stage==='cancelled')continue;if(r.lines.length)s.detailedCount++;else s.unverifiedCount++;if(finite(r.payment.amountCents))s.amountCents+=r.payment.amountCents;else s.unknownAmounts++;if(finite(r.payment.balanceCents))s.balanceCents+=r.payment.balanceCents;if(r.canReceive){s.receivableCount++;s.pendingUnits+=r.pendingReceipt;}if(r.stage==='delivered')s.deliveredCount++;if(r.historical)s.historicalCount++;if(['pending','partial','review'].includes(r.billing)){s.missingInvoicesCount++;s.pendingInvoiceUnits+=r.pendingInvoice||0;}s.receivedUnbilledUnits+=r.receivedUnbilled;}return s;}
+export function savePurchaseSupplier(state,command,ctx={}){
+ const p=command.payload||{},name=String(p.name||'').trim().replace(/\s+/g,' '),email=String(p.email||'').trim(),rfc=String(p.rfc||'').trim().toUpperCase();
+ if(!name||name.length>180)throw new Error('Escribe un nombre de proveedor de hasta 180 caracteres.');
+ if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error('Revisa el correo del proveedor.');
+ if(rfc&&!/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc))throw new Error('Revisa el formato del RFC o déjalo pendiente.');
+ if(purchaseSuppliers(state).some(s=>supplierKey(s)===supplierKey(name)))throw new Error('Ese proveedor ya existe. Selecciónalo en la compra.');
+ const supplier={id:'PROV-'+command.id,name,rfc,email,phone:String(p.phone||'').trim().slice(0,60),notes:String(p.notes||'').trim().slice(0,2000),createdAt:ctx.now,actor:ctx.actor};
+ state.catalogs??={};state.catalogs.suppliers??=[];state.catalogs.suppliers.push(name);(state.supplierProfiles??=[]).push(supplier);
+ (state.events??=[]).unshift({id:command.id,type:command.type,date:ctx.now,actor:ctx.actor,result:'ok',message:'Proveedor registrado: '+name});return {ok:true,id:supplier.id,name,message:'Proveedor registrado. Ya puedes seleccionarlo en tus compras.'};
+}

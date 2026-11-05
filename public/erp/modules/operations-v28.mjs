@@ -221,9 +221,9 @@ function purchaseInput(state,payload,today,prior) {
   const sicar = text(base.sicar);
   if (sicar && (state.purchases||[]).some(p => p.id !== prior?.id && normal(p.sicar) === normal(sicar))) fail('Ese consecutivo SICAR ya está registrado.');
   const date = requiredDate(base.date,'La fecha de compra',today);
-  const lender = text(base.lender) ? chooseCatalog(state,'lenders',base.lender,'el dador de crédito') : '';
-  const instrument = text(base.instrument) ? chooseCatalog(state,'instruments',base.instrument,'el instrumento de pago') : '';
-  const supplier = chooseCatalog(state,'suppliers',base.supplier,'el proveedor');
+  const lender = text(base.lender) ? prior&&base.lender===prior.lender?prior.lender:chooseCatalog(state,'lenders',base.lender,'el dador de crédito') : '';
+  const instrument = text(base.instrument) ? prior&&base.instrument===prior.instrument?prior.instrument:chooseCatalog(state,'instruments',base.instrument,'el instrumento de pago') : '';
+  const supplier = prior&&base.supplier===prior.supplier ? prior.supplier : chooseCatalog(state,'suppliers',base.supplier,'el proveedor');
   const term = safeTerm(base.term??1);
   const firstPaymentDate = requiredDate(base.firstPaymentDate,'El primer pago',today,{past:false,optional:true});
   let receiptStatus = base.receiptStatus || 'Pendiente';
