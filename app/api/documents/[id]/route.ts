@@ -6,8 +6,12 @@ export async function GET(request: Request, context: {params: Promise<{id:string
   try {
     const id = documentId((await context.params).id), workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
     const current = await readState(workspace);
-    if(!(await requestAccess(request,current)).active)return new Response('Acceso no disponible.',{status:403});
-    const doc = (current.state.documents || []).find((row:any)=>row.id===id);
+    const access=await requestAccess(request,current);
+    if(!access.active)return new Response('Acceso no disponible.',{status:403});
+    const financial=(current.state.settlementLedger?.documents||[]).find((row:any)=>row.id===id);
+    if(financial&&!access.permissions.includes('finance'))return new Response('Se requiere permiso de finanzas.',{status:403});
+    const image=(current.state.products||[]).flatMap((p:any)=>p.images||[]).find((i:any)=>i.id===id);
+    const doc = financial||image||(current.state.documents || []).find((row:any)=>row.id===id);
     if (!doc) return new Response('Documento no encontrado en este espacio.',{status:404});
     const object = await documentBucket().get(documentKey(workspace,id));
     if (!object) return new Response('Archivo no disponible.',{status:404});

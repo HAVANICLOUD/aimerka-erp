@@ -127,7 +127,7 @@ export function applyInventory(state,action,context={}){
    let exactCost=p.averageCostMxn;
    if(existing&&existing.costCents!==costCents&&exactCost===existing.averageCostMxn)exactCost=costCents/100;
    if(exactCost!=null&&(!Number.isFinite(exactCost)||exactCost<0||Math.round(exactCost*100)!==costCents))fail('El costo promedio exacto no coincide con el importe en centavos.');
-   const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity'];
+   const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity','description','manufacturerPart','condition','unitSat','countryOfOrigin','material'];
    let imageUrl=existing?.imageUrl||'';if('imageUrl' in p){imageUrl=text(p.imageUrl,2000);if(imageUrl){let valid=imageUrl.startsWith('/')&&!imageUrl.startsWith('//');try{const u=new URL(imageUrl);valid=u.protocol==='https:'&&!u.username&&!u.password;}catch{}if(!valid)fail('La imagen debe usar una ruta del sitio o una URL HTTPS.');}}
    let supplierCodes=existing?.supplierCodes||[];
    if('supplierCodes' in p){if(!Array.isArray(p.supplierCodes)||p.supplierCodes.length>100)fail('Las equivalencias de proveedor no son válidas.');supplierCodes=p.supplierCodes.map(row=>({supplier:text(row.supplier,250),item:text(row.item,100),name:text(row.name,250)}));if(supplierCodes.some(row=>!row.supplier||!row.item))fail('Cada equivalencia necesita proveedor y número de artículo.');if(supplierCodes.some(row=>state.products.some(q=>q!==existing&&(q.supplierCodes||[]).some(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item)))))fail('Ese artículo del proveedor ya está asociado a otro producto.');supplierCodes=supplierCodes.filter((row,i,rows)=>rows.findIndex(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item))===i);}
@@ -135,6 +135,20 @@ export function applyInventory(state,action,context={}){
    Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??generated});for(const f of fields)if(f in p)base[f]=text(p[f],300);
    if(p.categoryOverrides)base.categoryOverrides=Object.fromEntries(Object.entries(p.categoryOverrides).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.categories)base.categories=Object.fromEntries(Object.entries(p.categories).map(([k,v])=>[text(k,60),text(v,150)]));
+   if(p.images){
+    if(!Array.isArray(p.images)||p.images.length>100)fail('Galería de imágenes inválida.');
+    base.images=p.images.map(image=>{
+     const original=existing?.images?.find(i=>i.source==='V43'&&i.id===image.id&&i.url===image.url);
+     if(image.source==='V43'){if(!original)fail('Imagen original no encontrada.');return {...original,primary:image.primary===true};}
+     const verified=ctx.verifiedImages?.find(i=>i.id===image.id);if(!verified||!['image/jpeg','image/png'].includes(verified.mime))fail('Vuelve a cargar la imagen antes de guardar.');
+     return {...verified,url:'/api/documents/'+verified.id+'?workspace='+encodeURIComponent(ctx.workspace),source:'upload',primary:image.primary===true};
+    });
+    if(new Set(base.images.map(i=>i.id)).size!==base.images.length)fail('No repitas la misma imagen.');
+    if(base.images.length){const principal=base.images.find(i=>i.primary)||base.images[0];base.images.forEach(i=>i.primary=i.id===principal.id);base.imageUrl=principal.url;}
+    else base.imageUrl='';
+   }
+   if(p.dimensions){const d={};for(const k of ['weightKg','heightCm','widthCm','lengthCm']){const n=Number(p.dimensions[k]);if(!Number.isFinite(n)||n<0||n>100000)fail('Revisa peso y dimensiones.');d[k]=n;}base.dimensions=d;}
+   if(p.channelIdentifiers){const allowed=['Sears','Sanborns','T1 Comercios','Liverpool','Elektra','Coppel','Mercado Libre','Tienda Nube'];base.channelIdentifiers=Object.fromEntries(Object.entries(p.channelIdentifiers).map(([k,v])=>{if(!allowed.includes(k))fail('Canal no reconocido.');return [k,{sellerSku:text(v.sellerSku,100),publicationId:text(v.publicationId,100),variantId:text(v.variantId,100)}];}));}
    for(const f of ['safety','minStock'])if(f in p){base[f]=amount(p[f],f);}
    if(exactCost!=null){base.averageCostMxn=exactCost;base.sourceCost=exactCost;}
    else if(!existing||existing.costCents!==costCents){base.averageCostMxn=costCents/100;base.sourceCost=costCents/100;}

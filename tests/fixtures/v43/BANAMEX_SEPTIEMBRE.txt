@@ -1,0 +1,392 @@
+BANAMEX
+ESTADO DE CUENTA AL 31 DE SEPTIEMBRE DE 2026
+RFC AAA010101AAA
+CLABE Interbancaria 000000000000001234
+FECHA                        CONCEPTO                               RETIROS            DEPOSITOS               SALDO
+04 SEP    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0025370
+          25370 RASTREO:
+          036INBU04092026296401294
+
+          CAJA 0072 AUT 00000000
+          HORA 18:56 SUC 0859                                                                   31,621.12              70,058.79
+14 SEP    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE SANBORN HERMANOS, S.
+          A. DE C. CTA.ORDENANTE
+          036180110043600115 REF.0011457
+          SPEI INBURSA RASTREO:
+          036INBU14092026298204729
+
+          CAJA 0078 AUT 00000000
+          HORA 13:12 SUC 0859                                                                    2,307.69
+14 SEP    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+
+
+
+
+                                                                                                  000180.B12CHDA003.OD.0930.01
+
+
+                                                    ESTADO DE CUENTA AL 30 DE SEPTIEMBRE DE 2026
+                                                         CLIENTE:                                                   127117431
+                                                         Página:                                                          4 de 12
+ HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+                                             DETALLE DE OPERACIONES
+
+FECHA                         CONCEPTO                                RETIROS             DEPOSITOS                 SALDO
+          036180120900100599 REF.0026449
+          26449 RASTREO:
+          036INBU14092026298285682
+
+          CAJA 0078 AUT 00000000
+          HORA 17:04 SUC 0859                                                                     6,846.09             78,159.71
+18 SEP    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0027350
+          27350 RASTREO:
+          036INBU18092026299218612
+
+          CAJA 0078 AUT 00000000
+          HORA 16:56 SUC 0859                                                                    20,928.40
+28 SEP    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0028386
+          28386 RASTREO:
+          036INBU28092026301061832
+
+          CAJA 0078 AUT 00000000
+          HORA 16:44 SUC 0859                                                                   999.55            16,003.35
+
+                                           SALDO MINIMO REQUERIDO
+            Saldo mínimo requerido para evitar la comisión por Manejo de Cuenta: $10,000.00
+
+                                             COMISIONES COBRADAS
+                             COMISIONES COBRADAS EN EL PERIODO    690.00
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                               000180.B12CHDA003.OD.0930.01
+
+
+                                                       ESTADO DE CUENTA AL 30 DE SEPTIEMBRE DE 2026
+                                                            CLIENTE:                                                       127117431
+                                                            Página:                                                              7 de 12
+ HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Versión                                  4.0
+ Folio                                    0001010101000786390202
+ Forma de Pago                            03-Transferencia electrónica de fondos
+ No. de Serie de CSD del Emisor           00001000000707865819
+ Serie                                    CAPTACION
+ Tipo de Cambio                           1
+ Moneda                                   MXN-Peso Mexicano
+ Tipo de Comprobante                      I-Ingreso
+ Exportación                              01-No Aplica
+ Método de Pago                           PUE-Pago en una sola exhibición
+ Lugar de Expedición                      06000-Ciudad de México
+ Fecha de Expedición                      2026-10-01
+ Fecha y Hora de Emisión                  2026-10-01T16:09:11
+ Fecha y Hora de Certificación            2026-10-01T19:24:46
+ RFC del Emisor                           BNM840515VB1
+ Nombre del Emisor                        BANCO NACIONAL DE MEXICO
+ Régimen fiscal del Emisor                601-General de Ley Personas Morales
+ RFC del Receptor                         AAA010101AAA
+ Nombre del Receptor                      HAVANI TECHNOLOGIES MEXICO
+ Domicilio Fiscal del Receptor            04938
+ Regimen Fiscal del Receptor              601-General de Ley Personas Morales
+ UsoCFDI                                  G03-Gastos en general
+ UUID                                     D9F07C41-3BA3-4B27-B302-520C758CF299
+ RFC Proveedor Certificado                CEC961028A98
+ No de serie de CSD del SAT               00001000000715863954
+
+CONCEPTOS
+  Clave Prod       84121500-Instituciones         Cantidad      1    Clave Unidad       E48-Unidad de servicio          Objeto        02
+      Serv                bancarias                                                                                    Impuesto
+   Descripción                COMISION COBRADA                   Valor Unitario     $690.00          Importe              $690.00
+
+IMPUESTOS
+Base                    $690.00       Impuesto               002-IVA       Tasa           16%          Importe            $110.40
+
+
+
+
+                                                                                                          000180.B12CHDA003.OD.0930.01
+
+
+                                                  ESTADO DE CUENTA AL 30 DE SEPTIEMBRE DE 2026
+                                                      CLIENTE:                                               127117431
+                                                      Página:                                                      8 de 12
+  HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+
+SUBTOTALES                                                                                                          $690.00
+TOTAL DE IMPUESTOS TRASLADADOS
+  Base      690.00   Impuesto      002     Tipo Factor     Tasa      Tasa       16%    Total Importe               $110.40
+                                                   TOTAL DE IMPUESTOS TRASLADADOS                                  $110.40
+TOTAL DEL COMPROBANTE                                                                                              $800.40
+
+                                  Domiciliación Banamex / Cargo Automático
+
+
+
+8 Instruccion(es) aplicada(s) del 01/Sep/2026 al 30/Sep/2026
+ Fecha                Pago a                Referencia con el Emisor              RFC Emisor                   Monto
+ Sep 17  AMERICAN EXPRESS CO                     340114190651008                AEC810901298                    $49,349.08
+         MEXICO SA DE CV
+         AUT DOMI 07945955
+ Sep 03  COPPEL SA DE CV                              MP9401                    COP920428Q20                      $2,254.63
+         AUT DOMI 09371277
+ Sep 09  COPPEL SA DE CV                              MP9401                    COP920428Q20                      $8,273.62
+         AUT DOMI 06848444
+ Sep 18  COPPEL SA DE CV                              MP9401                    COP920428Q20                      $2,749.49
+         AUT DOMI 00454539
+ Sep 25  COPPEL SA DE CV                              MP9401                    COP920428Q20                      $4,099.17
+         AUT DOMI 09596913
+ Sep 18  CHUBB SEGUROS MEXICO                Q3460348430042296174               ABA920310QW0                        $872.28
+         SA
+         AUT DOMI 09480205
+ Sep 24  BANCO NACIONAL DE                      0271174310170100                BNM840515VB1                    $24,110.50
+         MEXICO SA
+         AUT DOMI 00020035
+         CARGO TOTAL CREDITO                     SALDO A PAGAR                        0.00
+         HIPOTECARIO
+ Sep 07  BANCO NACIONAL DE                      8811090600014891                BNM840515VB1                    $55,592.00
+         MEXICO SA
+         AUT DOMI 01056609
+         CARGO TOTAL CREDITO                     SALDO A PAGAR                        0.00
+         PYME REVOL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                              000180.B12CHDA003.OD.0930.01
+
+
+                                                   ESTADO DE CUENTA AL 30 DE SEPTIEMBRE DE 2026
+                                                       CLIENTE:                                                  127117431
+                                                       Página:                                                        9 de 12
+ HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+
+
+
+
+
+
+
+
+
+
+Banamex Resuelve                                                Banamex Resuelve
+Segmento Empresarial y Gobierno                                 Segmento Pequeña y Mediana Empresa (PYME)
+
+
+
+
+
+
+
+
+
+
+
+
+IMPORTANTE:
+
+
+
+
+
+                                                                LEY FEDERAL DE PROTECCION DE DATOS PERSONALES EN
+                                                                POSESION DE LOS PARTICULARES
+
+
+
+
+                           ipab
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                 000180.B12CHDA003.OD.0930.01
+
+
+000180.B12CHDA003.OD.0930.01
+
+
+000180.B12CHDA003.OD.0930.01
+
+
+000180.B12CHDA003.OD.0930.01

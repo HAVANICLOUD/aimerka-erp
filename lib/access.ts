@@ -10,4 +10,8 @@ export async function requestAccess(request:Request,current?:any){
  return accessView(policy.state,{email:local?OWNER_EMAIL:email},OWNER_EMAIL);
 }
 export {assertPermission};
-export function visibleState(data:any,access:any){const output={...data,state:{...data.state},access};if(!access.permissions.includes('access'))delete output.state.security;return output;}
+export function visibleState(data:any,access:any){
+ const output={...data,state:{...data.state},access};if(!access.permissions.includes('access'))delete output.state.security;
+ if(!access.permissions.includes('finance')&&output.state.settlementLedger){output.state.settlementLedger={testOrderIds:output.state.settlementLedger.testOrderIds,restricted:true};}
+ return output;
+}

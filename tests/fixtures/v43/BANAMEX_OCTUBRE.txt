@@ -1,0 +1,77 @@
+BANAMEX
+ESTADO DE CUENTA AL 31 DE OCTUBRE DE 2026
+RFC AAA010101AAA
+CLABE Interbancaria 000000000000001234
+FECHA                        CONCEPTO                               RETIROS            DEPOSITOS                SALDO
+05 OCT    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0029683
+          29683 RASTREO:
+          036INBU05102026302760209
+
+          CAJA 0072 AUT 00000000
+          HORA 18:20 SUC 0859                                                                  33,617.14
+12 OCT    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0030530
+          30530 RASTREO:
+          036INBU12102026304112313
+
+          CAJA 0078 AUT 00000000
+          HORA 16:24 SUC 0859                                                                   25,695.34             98,450.38
+
+
+
+
+                                                                                                   000180.B12CHDA003.OD.1031.01
+
+
+                                                        ESTADO DE CUENTA AL 31 DE OCTUBRE DE 2026
+                                                        CLIENTE:                                                   127117431
+                                                        Página:                                                         4 de 12
+ HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+                                             DETALLE DE OPERACIONES
+
+FECHA                        CONCEPTO                                RETIROS             DEPOSITOS                 SALDO
+19 OCT    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0031528
+          31528 RASTREO:
+          036INBU19102026305719464
+
+          CAJA 0078 AUT 00000000
+          HORA 16:56 SUC 0859                                                                   33,237.81
+26 OCT    PAGO RECIBIDO DE INBURSA POR
+          ORDEN DE GS TIENDAS
+          DEPARTAMENTALES, S.
+          CTA.ORDENANTE
+          036180120900100599 REF.0032798
+          32798 RASTREO:
+          036INBU26102026307108274
+
+
+
+
+                                                                                                  000180.B12CHDA003.OD.1031.01
+
+
+                                                       ESTADO DE CUENTA AL 31 DE OCTUBRE DE 2026
+                                                       CLIENTE:                                                 127117431
+                                                       Página:                                                        6 de 12
+ HAVANI TECHNOLOGIES MEXICO S DE R.L DE C.V.
+
+
+                                            DETALLE DE OPERACIONES
+
+FECHA                        CONCEPTO                               RETIROS             DEPOSITOS               SALDO
+
+          CAJA 0078 AUT 00000000
+          HORA 17:32 SUC 0859                                                                 10,540.37           161,436.70

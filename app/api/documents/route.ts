@@ -8,7 +8,8 @@ export async function POST(request: Request) {
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return Response.json({error:'Origen de solicitud no válido.'},{status:403});
     const workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
-    const access=await requestAccess(request);try{assertPermission(access,'purchase.importDocuments');}catch(error:any){return Response.json({error:error.message},{status:403});}
+    const purpose=new URL(request.url).searchParams.get('purpose');
+    const access=await requestAccess(request);try{assertPermission(access,purpose==='settlement'?'settlement.cheque':purpose==='image'?'product.save':'purchase.importDocuments');}catch(error:any){return Response.json({error:error.message},{status:403});}
     if (!request.headers.get('content-type')?.includes('multipart/form-data')) return Response.json({error:'Adjunta un archivo PDF, PNG o JPG.'},{status:415});
     if (Number(request.headers.get('content-length') || 0) > MAX_DOCUMENT_BYTES + 65536) return Response.json({error:'El archivo supera el límite de 15 MB.'},{status:413});
     const form = await request.formData(), file = form.get('file');
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
     else if ([137,80,78,71,13,10,26,10].every((b,i)=>bytes[i]===b)) mime = 'image/png';
     else if (bytes[0]===255 && bytes[1]===216 && bytes[2]===255) mime = 'image/jpeg';
     if (!mime) return Response.json({error:'El contenido debe ser un PDF, PNG o JPG válido.'},{status:415});
+    if(purpose==='image'&&!mime.startsWith('image/'))return Response.json({error:'Selecciona una imagen JPG o PNG.'},{status:415});
     const digest = await crypto.subtle.digest('SHA-256',bytes);
     const id = Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,'0')).join('');
     const key = documentKey(workspace,id), bucket = documentBucket();

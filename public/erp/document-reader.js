@@ -98,15 +98,23 @@
   }
 
   /** Preserve the row boundaries supplied by PDF.js instead of flattening them. */
-  function extractPDFText(content) {
+  function extractPDFText(content, layout = false) {
     const items = Array.isArray(content) ? content : content?.items || [];
+    if(layout && items.some(item=>item.transform)){
+      const rows=[];
+      for(const item of items.filter(item=>typeof item?.str==='string'&&item.transform).sort((a,b)=>b.transform[5]-a.transform[5]||a.transform[4]-b.transform[4])){
+        let row=rows.find(row=>Math.abs(row.y-item.transform[5])<2.3);
+        if(!row){row={y:item.transform[5],items:[]};rows.push(row);}row.items.push(item);
+      }
+      return rows.map(row=>{let line='';for(const item of row.items.sort((a,b)=>a.transform[4]-b.transform[4])){const start=Math.round(item.transform[4]/3);line+=' '.repeat(Math.max(line.length?1:0,start-line.length))+item.str;}return line;}).join('\n');
+    }
     return items.filter(item => typeof item?.str === 'string')
       .map(item => item.str + (item.hasEOL ? '\n' : ' ')).join('')
       .replace(/[\u00a0\u202f]/g, ' ').replace(/[ \t]+\n/g, '\n').trim();
   }
 
-  async function readPDFText(page) {
-    if (typeof page.streamTextContent !== 'function') return extractPDFText(await page.getTextContent());
+  async function readPDFText(page, layout = false) {
+    if (typeof page.streamTextContent !== 'function') return extractPDFText(await page.getTextContent(),layout);
     const reader = page.streamTextContent().getReader();
     const items = [];
     try {
@@ -115,7 +123,7 @@
         if (chunk.done) break;
         if (Array.isArray(chunk.value?.items)) items.push(...chunk.value.items);
       }
-      return extractPDFText(items);
+      return extractPDFText(items,layout);
     } catch (error) {
       try { Promise.resolve(reader.cancel(error)).catch(() => {}); } catch (_) {}
       throw error;
@@ -274,7 +282,8 @@
         const pdf = await timed(loadingTask.promise, 45000, 'El PDF tardó demasiado en abrirse. Comprueba que no esté dañado o divídelo en archivos más pequeños.', 'PDF_OPEN_TIMEOUT');
         pages = pdf.numPages;
         if (!Number.isInteger(pages) || pages < 1) throw readerError('El PDF no contiene páginas legibles.', 'PDF_EMPTY');
-        if (pages > MAX_PAGES) throw readerError('El PDF supera 15 páginas. Divídelo en documentos de hasta 15 páginas para revisarlos completos.', 'PDF_TOO_MANY_PAGES');
+        const pageLimit=options?.layout?60:MAX_PAGES;
+        if (pages > pageLimit) throw readerError('El PDF supera '+pageLimit+' páginas. Divídelo para revisarlo completo.', 'PDF_TOO_MANY_PAGES');
         for (currentPage = 1; currentPage <= pages; currentPage++) {
           const page = await pdf.getPage(currentPage);
           let canvas = null;
@@ -282,7 +291,7 @@
             report('pdf-text', pageProgress(0.03), `Leyendo página ${currentPage} de ${pages}…`, extra());
             let text = '';
             if (!options?.forceOCR) {
-              try { text = await timed(readPDFText(page), 45000, 'La capa de texto del PDF no respondió a tiempo.', 'PDF_TEXT_TIMEOUT'); }
+              try { text = await timed(readPDFText(page,!!options?.layout), 45000, 'La capa de texto del PDF no respondió a tiempo.', 'PDF_TEXT_TIMEOUT'); }
               catch (_) { warnings.push(`Página ${currentPage}: no se pudo usar la capa de texto; se intentó OCR sobre su imagen.`); }
             }
             if (!options?.forceOCR && usableText(text)) {

@@ -1,12 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { splitState, joinState, diffFragments } from './state-codec.mjs';
 import seed from '../data/seed-v28.json';
+import seed43 from '../data/seed-v43.json';
 import pricingConfig from '../data/pricing-config.json';
 import legacy from './legacy-domain.mjs';
 
 export function database(){if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
-export function workspaceId(value:string|null|undefined){if(value==='practice')return 'practice';if(!value||value==='v28')return 'v28';throw new Error('Espacio de trabajo inválido.');}
+export function workspaceId(value:string|null|undefined){if(value==='v43'||value==='practice')return value;if(!value||value==='v28')return 'v28';throw new Error('Espacio de trabajo inválido.');}
 export function createSeed(id:string){
+  if(id==='v43')return structuredClone(seed43);
   if(id==='v28'){const state:any=structuredClone(seed);state.config=structuredClone(pricingConfig);return state;}
   const state:any=legacy.createState();
   const defaults:any=seed;

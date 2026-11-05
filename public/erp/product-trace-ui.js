@@ -176,6 +176,7 @@
     if(p.imageUrl&&!safeImage(p.imageUrl)){formError(form,'La imagen debe usar una URL HTTPS o una ruta de AIMERKA que comience con /.');return;}
     try {if(p.upc&&p.upc!==previous?.upc)ERP.engines.inventory.validateProductUpc(p.upc);}catch(error){formError(form,error.message);return;}
     if(previous?.costStatus==='Por confirmar'&&p.costCents>0)p.costStatus='Confirmado';
+    try{window.Catalog43?.readForm(form,p);}catch(error){formError(form,error.message);return;}
     ERP.engines.pricing.CHANNELS.forEach((channel,i)=>p.categoryOverrides[channel]=val(form,'override'+i));
     formError(form,'');form.dataset.submitting='true';const submit=form.querySelector('[type="submit"]');submit.disabled=true;
     try {

@@ -1,0 +1,72 @@
+                       GS TIENDAS DEPARTAMENTALES
+
+                            Relación del Pago de los Pedidos.
+
+             Cheque :    32798               Fecha de Cheque :      26/10/2026
+
+  No. de Proveedor :     3794                        Proveedor :    HAVANI TECHNOLOGIES MEXICO
+
+  Numero           Fecha           Fecha de          Número          Tipo                          Folio Fiscal                                       Total
+   Pedido          Pedido        Vencimiento        Documento       Docto
+
+ 31289383/       13/10/2026        13/10/2026        NP1151643      NP                                                                            $9,386.92
+
+ 87738488/       13/10/2026        13/10/2026        NP1151248      NP                                                                            $1,153.45
+
+  Totales de           2                                                                                                                           $10,540.37
+   Pedidos
+
+
+- Si  en un  lapso de  30  días  naturales a  partir de la  fecha de la emisión  del   cheque  no   recibimos ninguna  reclamación  sobre  la
+presente relación de facturas para pago, los datos asentados en este, se entenderán  de conformidad de  su parte y se archivarán  en  forma
+permanente  no aceptando reclamación respecto a  este pago.
+
+- Si en un lapso de 30 días naturales a partir de la elaboración de la devoluciones, no recoge su mercancia de las Unidades donde se
+originaron las mismas, la compañia no se hará responsable de dicha mercancía.
+
+
+- Descripción por tipo de documento :              Tipo de Documento         Descripción
+
+                                                   NP, NT                    PEDIDO ENTREGADO
+                                                   ND                        DEVOLUCIÓN DE PEDIDO
+                                                   DR                        RETENCIÓN ISR E IVA
+                                                   DV                        DESCUENTO SERVICIO DE REPARTO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Fecha de Reporte :          03/11/2026 01:39:45 a. m.                                                                                      Pagina 1 de 1

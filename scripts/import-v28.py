@@ -12,7 +12,7 @@ import openpyxl
 
 BASE = pathlib.Path(__file__).resolve().parents[1]
 SOURCE = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else BASE.parent / 'upload/ERP_AIMERKA_V28_CONCILIACION_LOTES_PRUEBA.xlsm'
-DESTINATION = BASE / 'data/seed-v28.json'
+DESTINATION = pathlib.Path(sys.argv[2]) if len(sys.argv)>2 else BASE / 'data/seed-v28.json'
 w = openpyxl.load_workbook(SOURCE, read_only=True, data_only=True, keep_vba=True)
 
 

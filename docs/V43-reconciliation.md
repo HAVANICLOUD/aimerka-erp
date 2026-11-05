@@ -1,0 +1,17 @@
+# Laboratorio V43
+
+The new `v43` workspace is an immutable import from the supplied V43 workbook. Existing `v28` and `practice` records are never migrated or replaced. Importers read cached formula values and extract images; they do not execute macros or write the workbook.
+
+Imported: 706 sales, 326 products, 49 purchases, 45 expenses, 66 cheques, 420 payment movements and 1,468 product photographs. Original line identifiers, leading UPC/order zeros, exact average costs, preliminary deposits, source tax certificate fields, logistics, promotions, serials and traceability are retained. Photographs are commercial catalog assets. Cheque originals are delivered by the server only to finance users; uploaded originals use private R2 storage. Bank account numbers are replaced by a hash and last four digits in persisted transaction records.
+
+The operative payment chain is cheque → exact marketplace/order link → Banamex credit → per-sale deposit. Initial documentary evidence never confirms a bank deposit. Latest cheques Sears 32798 and Sanborns 11457 are held out for recognition. Other documentary evidence comes from the workbook. The three-order test view is a display filter; a bank statement can reconcile other matching documentary cheques in this new laboratory.
+
+Bank matching requires the configured corporate RFC, marketplace origin, normalized cheque reference, date window, and exact amount. The reader preserves columns and cross-page transactions. Balances and withdrawals are not credits. Duplicate file hashes, cheque identities and bank traces cannot create a second payment. Unknown order links, contradictory documents, multiple candidate credits and amount differences remain unconfirmed.
+
+NP amounts already net are not reduced by withholding twice. Global CR/DR amounts are allocated across the cheque's orders with deterministic cent conservation. LD/ND and SI/SV remain separate movements. External shipping reduces profit, not the deposit. An estimated withholding is never represented as a SAT certificate. Expected commission uses editable quotation rules; a documentary or inferred historical commission remains a separate comparison. Bank confirmation is against the cheque, not against the expected commission model.
+
+V43 T1 calculator withholding uses gross / (1 + included VAT) before commission. Other workspace calculators retain their prior behavior. Profit uses exact current average cost until final rounding. Returns/cancellations retain their evidence without inventing realized profit. Manual legacy deposit and batch routes cannot bypass bank proof for Sears/Sanborns.
+
+Validation: 237 automated tests, including all 713 nonblank source expected net/profit values within one cent. Local API QA uploaded the four actual PDFs, reopened byte-identical originals, verified command replay/stale revisions and image upload, and confirmed no stock/cost changes or changes to V28/Practice. The actual PDF.js layout reader was also run against both bank statements. Browser QA covers the bank upload, duplicate retry, cheque image OCR and product gallery. Generated local evidence is in ignored `outputs/v43-audit/`.
+
+This is an adaptation of the workbook's business data and calculations to the existing web modules, not an execution environment for Excel VBA. The source workbook and the previous V34 review remain available as their original references. No prices or inventory are sent to VentiApp or SICAR.

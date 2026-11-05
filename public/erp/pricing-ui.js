@@ -146,6 +146,7 @@ function price28SettingsContent(){
     return `<section class="panel"><div class="panel-head"><div><h2>Parámetros generales</h2><div class="panel-sub">Valores de trabajo del Excel, editables para este espacio.</div></div></div>${price28ConfigTable(['Parámetro','Valor','Uso'],[
       `<tr><td>Retención IVA</td><td>${price28ConfigInput(tab,null,'vatWithholding',p.vatWithholding,{percent:true})}%</td><td>Se aplica al precio, salvo Tienda Nube.</td></tr>`,
       `<tr><td>Retención ISR</td><td>${price28ConfigInput(tab,null,'incomeWithholding',p.incomeWithholding,{percent:true})}%</td><td>Se aplica al precio, salvo Tienda Nube.</td></tr>`,
+      ...(p.t1IncludedVat!=null?[`<tr><td>IVA incluido en venta T1</td><td>${price28ConfigInput(tab,null,'t1IncludedVat',p.t1IncludedVat,{percent:true})}%</td><td>V43: Sears/Sanborns retienen sobre venta sin IVA, antes de comisión.</td></tr>`]:[]),
       `<tr><td>Tolerancia competitiva</td><td>${price28ConfigInput(tab,null,'competitiveTolerance',p.competitiveTolerance,{percent:true})}%</td><td>Precio por UPC; el Cotizador exige quedar dentro del mercado.</td></tr>`,
       `<tr><td>Terminación del precio</td><td>${price28ConfigInput(tab,null,'priceEnding',p.priceEnding??99)}</td><td>Ejemplo: 99 produce 199, 299, 399 con intervalo 100. Debe ser menor que el intervalo.</td></tr>`,
       `<tr><td>Intervalo de redondeo</td><td>${price28ConfigInput(tab,null,'priceStep',p.priceStep??100)}</td><td>Pesos entre precios permitidos; 1 permite precios enteros, 100 conserva el Excel.</td></tr>`,
