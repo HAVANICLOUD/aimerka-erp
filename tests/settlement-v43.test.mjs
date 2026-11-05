@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {parseCheque,parseBankStatement,allocateCents,linkCheque,compareV43,reconcileLedger} from '../lib/settlement-documents.mjs';
+import {parseCheque,parseBankStatement,allocateCents,linkCheque,compareV43,reconcileLedger,pendingBalanceCents} from '../lib/settlement-documents.mjs';
 import {applyCommand} from '../lib/commands.mjs';
 import {resolveCommission} from '../lib/pricing-v28.mjs';
 const seed=()=>JSON.parse(fs.readFileSync(new URL('../data/seed-v43.json',import.meta.url)));
@@ -59,6 +59,17 @@ test('all 713 available expected net/profit values match V43 within a cent and a
 });
 test('cent allocation conserves positive/negative totals with deterministic fractional retention splits',()=>{
  for(const n of [1,100,27145,-27145]){const a=allocateCents(n,[{id:'a',weight:100},{id:'b',weight:100},{id:'c',weight:100}]);assert.equal(Object.values(a).reduce((s,v)=>s+v,0),n);assert.equal(Math.abs(a.a-a.c)<=1,true);}
+});
+test('signed retention allocations reproduce every cheque-linked source payment within one cent and conserve returns',()=>{
+ const s=seed();reconcileLedger(s);let checked=0;
+ for(const o of s.orders.filter(o=>o.t1Source&&o.reconciliation.documentaryNetCents!=null)){checked++;assert.ok(Math.abs(o.reconciliation.documentaryNetCents-o.t1Source.documentaryNetCents)<=1,o.id);}
+ assert.ok(checked>200);assert.equal(s.orders.find(o=>o.id==='V002552').reconciliation.documentaryNetCents,117663);
+ const allocation=allocateCents(-824991,[{id:'paid',weight:100},{id:'returned',weight:-10}]);assert.equal(allocation.paid+allocation.returned,-824991);assert.ok(allocation.returned>0);
+});
+test('unpaid orders with no cheque and later documentary adjustments stay in marketplace debt until bank proof arrives',()=>{
+ const s=seed();reconcileLedger(s);const unpaid=s.orders.find(o=>o.t1Source&&!o.t1Source.cheques&&o.commercialStatus==='Activa');assert.ok(unpaid);assert.ok(pendingBalanceCents(unpaid,s.products,s.config)>0);
+ apply(s,'cheque',read('SEARS_32798'));bank(s,'OCTUBRE');const o=s.orders.find(o=>o.id==='V000996');assert.equal(pendingBalanceCents(o,s.products,s.config),0);
+ s.settlementLedger.cheques.push({id:'Sears|99999',market:'Sears',number:'99999',date:'2026-10-28',totalCents:10000,status:'documented',lines:[{orderId:o.id,orderNumber:o.number,documentNumber:'ADJ1',code:'SI',amountCents:10000}]});reconcileLedger(s);assert.equal(o.reconciliation.status,'Conciliación parcial');assert.equal(pendingBalanceCents(o,s.products,s.config),10000);
 });
 test('V43 pricing calculators use nominal withholding on the VAT-exclusive T1 base and keep other channels unchanged',()=>{
  const s=seed(),config=structuredClone(s.config);config.parameters.t1IncludedVat=.16;

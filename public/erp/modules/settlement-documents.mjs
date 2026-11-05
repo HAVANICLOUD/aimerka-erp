@@ -81,7 +81,21 @@ export function linkCheque(state,cheque){
  }
  const totals={};let global=0;
  for(const l of cheque.lines){if(l.orderId)totals[l.orderId]=(totals[l.orderId]||0)+l.amountCents;else if(['CR','DR'].includes(l.code))global+=l.amountCents;}
- if(global){const entries=Object.entries(totals).filter(([,n])=>n>0).map(([id,weight])=>({id,weight}));if(!entries.length)missing.push('Retención sin base');else{const allocated=allocateCents(global,entries);for(const [id,n] of Object.entries(allocated))totals[id]+=n;}}
+ if(global){
+  const eligible=cheque.lines.filter(l=>l.orderId&&['LP','NP','NT','LD','ND'].includes(l.code));
+  const sourceComplete=eligible.length&&eligible.every(l=>typeof l.sourceAllocatedRetentionMxn==='number');
+  const weights={};
+  for(const l of eligible){
+   const order=state.orders.find(o=>o.id===l.orderId),sign=['LD','ND'].includes(l.code)?-1:1;
+   // V43 already identifies signed bases and the exact fractional tax allocation,
+   // including negative allocation on returns and zero on SI/SV adjustments.
+   const weight=sourceComplete?l.sourceAllocatedRetentionMxn:typeof l.allocationBaseGrossCents==='number'?l.allocationBaseGrossCents:sign*(order?.totalCents||0);
+   weights[l.orderId]=(weights[l.orderId]||0)+weight;
+  }
+  const entries=Object.entries(weights).map(([id,weight])=>({id,weight}));
+  if(!entries.length||entries.reduce((s,e)=>s+e.weight,0)<=0)missing.push('Retención sin base');
+  else{const allocated=allocateCents(global,entries);for(const [id,n] of Object.entries(allocated))totals[id]+=n;}
+ }
  if(Object.values(totals).reduce((s,n)=>s+n,0)!==cheque.totalCents)missing.push('Total sin asignar');
  cheque.allocations=totals;cheque.unresolved=[...new Set(missing)];return cheque;
 }
@@ -100,8 +114,9 @@ export function compareV43(order,products,config){
 export function reconcileLedger(state,context={}){
  const ledger=state.settlementLedger,config=state.config.bankReconciliation||{},windowDays=config.dateWindowDays??90;
  for(const cheque of ledger.cheques){
+  linkCheque(state,cheque);
   if(cheque.status==='awaiting_ocr')continue;
-  linkCheque(state,cheque);const candidates=ledger.transactions.filter(t=>t.market===cheque.market&&t.chequeNumber===cheque.number&&(!t.chequeId||t.chequeId===cheque.id)&&Math.abs(new Date(t.date)-new Date(cheque.date))/86400000<=windowDays);
+  const candidates=ledger.transactions.filter(t=>t.market===cheque.market&&t.chequeNumber===cheque.number&&(!t.chequeId||t.chequeId===cheque.id)&&Math.abs(new Date(t.date)-new Date(cheque.date))/86400000<=windowDays);
   cheque.bankCandidates=candidates.map(t=>t.id);
   if(cheque.unresolved.length){cheque.status='review';continue;}
   if(candidates.length!==1){cheque.status=candidates.length?'ambiguous':'documented';continue;}
@@ -111,11 +126,21 @@ export function reconcileLedger(state,context={}){
  for(const order of state.orders.filter(o=>['Sears','Sanborns'].includes(o.market))){
   const related=ledger.cheques.filter(c=>c.lines.some(l=>l.orderId===order.id)),confirmed=related.filter(c=>c.status==='reconciled'),r=order.reconciliation??={};
   r.bankProofRequired=true;r.bankProofIds=confirmed.map(c=>c.bankTransactionId);
+  r.documentaryNetCents=related.length?related.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
+  r.sourceRoundingDifferenceCents=r.documentaryNetCents==null||order.t1Source?.documentaryNetCents==null?null:r.documentaryNetCents-order.t1Source.documentaryNetCents;
   r.depositCents=confirmed.length?confirmed.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
   r.depositDate=confirmed.length?ledger.transactions.filter(t=>r.bankProofIds.includes(t.id)).map(t=>t.date).sort().at(-1):null;
   r.status=related.length&&confirmed.length===related.length?'Conciliada':confirmed.length?'Conciliación parcial':'Pendiente de banco';
   const calc=compareV43(order,state.products,state.config);r.realProfitCents=calc.realProfit==null?null:Math.round(calc.realProfit*100);r.modelDifferenceCents=r.depositCents==null?null:r.depositCents-Math.round(calc.expectedNet*100);order.paidCents=r.depositCents;
  }
+}
+export function documentaryNetCents(order){
+ if(order.reconciliation&&Object.hasOwn(order.reconciliation,'documentaryNetCents'))return order.reconciliation.documentaryNetCents;
+ return /\d/.test(order.t1Source?.cheques||'')?order.t1Source?.documentaryNetCents??null:null;
+}
+export function pendingBalanceCents(order,products,config){
+ if(order.reconciliation?.status==='Conciliada'||/Cancelad|Devuel|Reembols/i.test(order.commercialStatus+' '+order.sourceReturnStatus+' '+order.sourcePaymentStatus))return 0;
+ return Math.max(0,(documentaryNetCents(order)??Math.round(compareV43(order,products,config).expectedNet*100))-(order.reconciliation?.depositCents||0));
 }
 export function applySettlementCommand(state,command,context={}){
  if(!state.settlementLedger)fail('Selecciona Laboratorio V43 para conciliar documentos T1.');
@@ -135,6 +160,8 @@ export function applySettlementCommand(state,command,context={}){
     const signature=c=>JSON.stringify({date:c.date,total:c.totalCents,lines:c.lines.map(l=>[l.orderNumber,l.documentNumber,l.code,l.amountCents]).sort()});
     if(signature(existing)!==signature(parsed))fail('El cheque ya existe con datos diferentes. No se sustituyó la evidencia previa.');
     if(existing.documentId)fail('Este número de cheque ya tiene un comprobante registrado.');
+    for(const line of parsed.lines){const original=existing.lines.find(l=>l.orderNumber===line.orderNumber&&l.documentNumber===line.documentNumber&&l.code===line.code&&l.amountCents===line.amountCents);if(original)for(const k of ['sourceRetentionMxn','sourceAllocatedRetentionMxn','allocationBaseGrossCents'])if(original[k]!=null)line[k]=original[k];}
+    linkCheque(state,parsed);
     Object.assign(existing,parsed,{status:'documented',documentId:doc.id});
    }else ledger.cheques.push({...parsed,status:'documented',documentId:doc.id});
   }else{
