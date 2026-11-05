@@ -4,11 +4,11 @@ import {reconcileLedger} from '../lib/settlement-documents.mjs';
 const seed=()=>JSON.parse(fs.readFileSync(new URL('../data/seed-v43.json',import.meta.url)));
 function confirmed(){const s=seed();for(const c of s.settlementLedger.cheques){c.status='documented';s.settlementLedger.transactions.push({id:'bank:'+c.id,market:c.market,chequeNumber:c.number,date:c.date,amountCents:c.totalCents,reference:'000'+c.number,chequeId:null});}reconcileLedger(s);return s;}
 
-test('all channels are shown, sorted by creation date before pagination; ties and missing dates are deterministic',()=>{
+test('all channels are shown, sorted by documentary date before pagination; ties and missing dates are deterministic',()=>{
  const s=seed(),before=JSON.stringify(s),rows=paymentRows(s);assert.equal(rows.length,706);assert.equal(new Set(rows.map(r=>r.order.market)).size,7);
  for(let i=1;i<rows.length;i++)assert.ok(rows[i-1].date>=rows[i].date);
  for(const market of ['Sears','Sanborns','Liverpool','Mercado Libre','Coppel','Tienda Nube','Elektra']){const list=paymentRows(s,{market});assert.ok(list.length);assert.ok(list.every(r=>r.order.market===market));for(let i=25;i<list.length;i+=25)assert.ok(list[i-1].date>=list[i].date);}
- const orders=[{id:'10',documentDate:'2026-01-01',creationDate:'2026-11-01'},{id:'2',documentDate:'2026-02-01',creationDate:'2026-01-01'},{id:'none'}];assert.deepEqual(newestSales(orders).map(o=>o.id),['10','2','none']);assert.equal(JSON.stringify(s),before);
+ const orders=[{id:'10',documentDate:'2026-01-01',creationDate:'2026-11-01'},{id:'2',documentDate:'2026-02-01',creationDate:'2026-01-01'},{id:'none'}];assert.deepEqual(newestSales(orders).map(o=>o.id),['2','10','none']);assert.equal(JSON.stringify(s),before);
 });
 test('real fee is independent from calculator and drafts; NP with unknown tax stays explicitly preliminary',()=>{
  const s=confirmed(),o=s.orders.find(o=>o.id==='V000996'),before=commissionEvidence(o,s);assert.equal(before.amountCents,170786);assert.ok(Math.abs(before.rate-.14)<.000001);assert.equal(before.quality,'estimated-tax');
@@ -52,12 +52,12 @@ test('classified document parts and tax allocation conserve all 363 per-sale doc
  const s=confirmed();for(const r of paymentRows(s).filter(r=>r.documents.length)){assert.equal(r.documents.reduce((sum,d)=>sum+d.netCents,0),r.depositCents,r.order.id);for(const d of r.documents)assert.equal(d.directCents+d.taxAdjustmentCents,d.netCents);}
  assert.equal(paymentRows(s).filter(r=>r.documentaryRefund&&r.confirmed).length,5);assert.equal(paymentSummary(paymentRows(s)).depositCents,239852305);
 });
-test('creation date has priority and the independent source document date is preserved',()=>{
- const s=seed(),o=s.orders.find(o=>o.id==='V000996'),r=paymentRow(o,s);assert.ok(r.date.startsWith('2026-10-08'));assert.ok(r.documentDate.startsWith('2026-10-06'));assert.equal(r.dateLabel,'Creación de la venta');const source={id:'only-document',documentDate:'2026-01-01'};assert.equal(saleDate(source),'2026-01-01');
+test('documentary date has priority and creation date is preserved',()=>{
+ const s=seed(),o=s.orders.find(o=>o.id==='V000996'),r=paymentRow(o,s);assert.ok(r.date.startsWith('2026-10-06'));assert.ok(r.documentDate.startsWith('2026-10-06'));assert.equal(r.dateLabel,'Fecha documental');const source={id:'only-document',documentDate:'2026-01-01'};assert.equal(saleDate(source),'2026-01-01');
 });
 
 test('Excel creation-date serials are normalized for display, ordering and date filters without replacing the originals',()=>{
- assert.equal(paymentDate('46261.3855'),'2026-08-27T09:15:07');assert.equal(paymentDate('2026-02-30'),'');assert.equal(paymentDate('not a date'),'');const s=seed(),before=JSON.stringify(s);const rows=paymentRows(s);assert.ok(rows.every(r=>!r.date||/^20\d\d-\d\d-\d\d/.test(r.date)));assert.ok(rows[0].date.startsWith('2026-11'));for(let i=1;i<rows.length;i++)assert.ok(rows[i-1].date>=rows[i].date);assert.equal(JSON.stringify(s),before);
+ assert.equal(paymentDate('46261.3855'),'2026-08-27T09:15:07');assert.equal(paymentDate('2026-02-30'),'');assert.equal(paymentDate('not a date'),'');const s=seed(),before=JSON.stringify(s);const rows=paymentRows(s);assert.ok(rows.every(r=>!r.date||/^20\d\d-\d\d-\d\d/.test(r.date)));assert.equal(rows[0].date,rows.map(r=>r.date).sort().at(-1));for(let i=1;i<rows.length;i++)assert.ok(rows[i-1].date>=rows[i].date);assert.equal(JSON.stringify(s),before);
 });
 
 test('explicit UTC timestamps display and sort in Mexico City while naive Excel timestamps retain local time',()=>{assert.equal(paymentDate('2026-01-02T01:00:00Z'),'2026-01-01T19:00:00');assert.equal(paymentDate('2026-01-02T01:00:00'),'2026-01-02T01:00:00');assert.equal(paymentDate('2026-01-02T01:00:00-06:00'),'2026-01-02T01:00:00');});

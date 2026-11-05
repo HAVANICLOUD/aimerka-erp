@@ -13,7 +13,7 @@ export function paymentDate(value){
  if(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)){const instant=new Date(raw);if(!Number.isFinite(instant.getTime()))return '';const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(instant).map(p=>[p.type,p.value]));return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;}
  return raw.replace(' ','T');
 }
-export function saleDate(o){return (paymentDate(o.creationDate)||paymentDate(o.marketplace34?.trace?.creation)||paymentDate(o.date)||paymentDate(o.documentDate)).slice(0,19);}
+export function saleDate(o){return (paymentDate(o.documentDate)||paymentDate(o.creationDate)||paymentDate(o.marketplace34?.trace?.creation)||paymentDate(o.date)).slice(0,19);}
 export function documentMovement(line){
  const code=String(line.code||'').toUpperCase(),amount=line.amountCents;
  if(['LP','NP','NT'].includes(code)&&amount>0)return {kind:'payment',label:'Pago de la venta',description:'Pago original documentado por el marketplace.'};
@@ -40,6 +40,9 @@ export function financialState(o,state){
 }
 /** A bank credit proves the net payment, not its tax/fee breakdown. No drafts or calculator rates become real commissions. */
 export function commissionEvidence(o,state){
+ const r=o.reconciliation,m=r?.confirmationSource==='manual'?r.manual:null;
+ if(m){const tax=m.withholdingCents??m.estimateSnapshot?.retentionCents;if(tax==null||m.shippingCents==null)return {amountCents:null,rate:null,quality:'unknown',label:'Desglose manual incompleto',note:'Falta separar retenciones o envío descontado para inferir la comisión.'};const amountCents=o.totalCents-m.amountCents-tax-m.shippingCents;if(amountCents<0||amountCents>o.totalCents||!m.complete)return {amountCents:null,rate:null,quality:'unknown',label:'Pago parcial o ajustes por revisar',note:'El depósito no permite aislar una comisión válida.'};return {amountCents,rate:o.totalCents?amountCents/o.totalCents:null,quality:m.withholdingCents==null?'estimated-tax':'manual',label:m.withholdingCents==null?'Inferida · retención estimada':'Inferida · datos declarados',note:'Venta menos depósito, retenciones y envío descontado declarados. Sin verificación bancaria ni fiscal.'};}
+
  if(!isT1(o))return {amountCents:null,rate:null,quality:'unknown',label:'Sin desglose del market',note:'El depósito por sí solo no identifica la comisión; falta el documento con deducciones.'};
  const related=(state.settlementLedger?.cheques||[]).filter(c=>c.lines.some(l=>l.orderId===o.id)),lines=related.flatMap(c=>c.lines).filter(l=>l.orderId===o.id),lp=lines.filter(l=>['LP','NT'].includes(l.code)&&l.amountCents>0),np=lines.filter(l=>l.code==='NP'&&l.amountCents>0);
  const gross=o.totalCents,adjustments=lines.filter(l=>['SI','SV'].includes(l.code)).reduce((sum,l)=>sum+l.amountCents,0);
@@ -64,9 +67,15 @@ export function paymentRow(o,state){
   else try{estimate=o.reconciliation?.estimate||estimateOrder(o,state.products,state.config);expectedRate=estimate.grossCents?estimate.commissionCents/estimate.grossCents:null;}catch(e){error=e.message;}
   if(present(deposit)&&status==='active'&&present(estimate?.costCents)&&present(estimate?.externalShippingCents))realProfit=deposit-estimate.costCents-estimate.externalShippingCents;
  }
- const confirmed=o.reconciliation?.status==='Conciliada',documentary=documentaryT1?documentaryNetCents(o):null;
+ const confirmed=['Conciliada','Conciliada manualmente'].includes(o.reconciliation?.status),manual=o.reconciliation?.confirmationSource==='manual',documentary=documentaryT1?documentaryNetCents(o):null;
  const pending=status!=='active'||confirmed?0:documentaryT1?pendingBalanceCents(o,state.products,state.config):present(estimate?.netCents)?Math.max(0,estimate.netCents-(deposit||0)):null;
- return {order:o,date:saleDate(o),creationDate:paymentDate(o.creationDate)||paymentDate(o.marketplace34?.trace?.creation),documentDate:paymentDate(o.documentDate),dateLabel:paymentDate(o.creationDate)?'Creación de la venta':paymentDate(o.marketplace34?.trace?.creation)?'Creación en marketplace':paymentDate(o.date)?'Registro de la venta':'Fecha documental · creación sin registrar',documents,documentaryRefund,compensations,financialState:status,estimate,error,expectedRate,actualCommission:commissionEvidence(o,state),depositCents:deposit,documentaryCents:documentary,realProfitCents:realProfit,pendingCents:pending,confirmed,statusLabel:confirmed?(status==='refunded'?'Conciliada · Reembolsada':'Conciliada'):status==='refunded'?'Reembolsada · cotejo pendiente':status==='cancelled'?'Cancelada':o.reconciliation?.status==='Conciliación parcial'?'Conciliación parcial':present(deposit)?'Depósito registrado':'Pendiente de pago'};
+ return {order:o,date:saleDate(o),creationDate:paymentDate(o.creationDate)||paymentDate(o.marketplace34?.trace?.creation),documentDate:paymentDate(o.documentDate),dateLabel:paymentDate(o.documentDate)?'Fecha documental':paymentDate(o.creationDate)?'Creación · sin fecha documental':paymentDate(o.marketplace34?.trace?.creation)?'Creación en marketplace · sin fecha documental':'Registro · sin fecha documental',documents,documentaryRefund,compensations,financialState:status,estimate,error,expectedRate,actualCommission:commissionEvidence(o,state),depositCents:deposit,documentaryCents:documentary,realProfitCents:realProfit,pendingCents:pending,confirmed,manual,statusLabel:manual?o.reconciliation.status:confirmed?(status==='refunded'?'Conciliada · Reembolsada':'Conciliada'):status==='refunded'?'Reembolsada · cotejo pendiente':status==='cancelled'?'Cancelada':o.reconciliation?.status==='Conciliación parcial'?'Conciliación parcial':present(deposit)?'Depósito registrado':'Pendiente de pago'};
+}
+export function paymentRetention(r){
+ const m=r.manual?r.order.reconciliation?.manual:null;if(m)return {amountCents:m.withholdingCents??m.estimateSnapshot?.retentionCents??null,label:m.withholdingCents==null?'Retención estimada · registro manual':'Retención declarada manualmente'};
+ const taxDocs=r.documents.filter(d=>d.taxAdjustmentCents!==0&&d.taxAdjustmentCents!=null);if(taxDocs.length)return {amountCents:-taxDocs.reduce((s,d)=>s+d.taxAdjustmentCents,0),label:'Retención / ajuste documental neto'};
+ if(present(r.order.t1Source?.withholdingMxn))return {amountCents:cents(r.order.t1Source.withholdingMxn),label:'Retención documental'};
+ return {amountCents:r.order.v43Comparison?.retentionMxn!=null?cents(r.order.v43Comparison.retentionMxn):r.estimate?r.estimate.vatCents+r.estimate.incomeCents:null,label:'Retención estimada · sin desglose fiscal'};
 }
 export function paymentRows(state,filter={}){
  return newestSales(state.orders.filter(o=>{
@@ -75,13 +84,13 @@ export function paymentRows(state,filter={}){
  })).map(o=>paymentRow(o,state)).filter(r=>!filter.status||filter.status==='all'||filter.status==='confirmed'&&r.confirmed||filter.status==='cancelled'&&r.financialState==='cancelled'||filter.status==='refunded'&&r.financialState==='refunded'||filter.status==='compensated'&&r.compensations.length>0||filter.status==='pending'&&r.financialState==='active'&&!r.confirmed);
 }
 export function paymentSummary(rows){
- const s={count:rows.length,grossCents:0,effectiveCents:0,cancelledCount:0,cancelledCents:0,refundedCount:0,refundedCents:0,estimatedCents:0,estimateCount:0,estimatedProfitCents:0,estimatedProfitCount:0,depositCents:0,depositCount:0,realProfitCents:0,realProfitCount:0,documentaryCents:0,documentaryCount:0,differenceCents:0,comparisonCount:0,pendingCents:0,pendingCount:0,pendingUnknown:0,confirmedCount:0};
+ const s={count:rows.length,grossCents:0,effectiveCents:0,cancelledCount:0,cancelledCents:0,refundedCount:0,refundedCents:0,estimatedCents:0,estimateCount:0,estimatedProfitCents:0,estimatedProfitCount:0,depositCents:0,depositCount:0,realProfitCents:0,realProfitCount:0,documentaryCents:0,documentaryCount:0,differenceCents:0,comparisonCount:0,pendingCents:0,pendingCount:0,pendingUnknown:0,confirmedCount:0,manualCount:0};
  for(const r of rows){const o=r.order;s.grossCents+=o.totalCents||0;
   if(r.financialState==='cancelled'){s.cancelledCount++;s.cancelledCents+=o.totalCents||0;}else if(r.financialState==='refunded'){s.refundedCount++;s.refundedCents+=present(o.refundCents)?o.refundCents:o.totalCents||0;}else s.effectiveCents+=o.totalCents||0;
   if(r.estimate){s.estimatedCents+=r.estimate.netCents;s.estimateCount++;if(present(r.estimate.profitCents)){s.estimatedProfitCents+=r.estimate.profitCents;s.estimatedProfitCount++;}}
   if(present(r.depositCents)){s.depositCents+=r.depositCents;s.depositCount++;if(present(r.realProfitCents)){s.realProfitCents+=r.realProfitCents;s.realProfitCount++;}if(r.estimate){s.differenceCents+=r.depositCents-r.estimate.netCents;s.comparisonCount++;}}
   if(present(r.documentaryCents)){s.documentaryCents+=r.documentaryCents;s.documentaryCount++;}
-  if(r.confirmed)s.confirmedCount++;
+  if(r.confirmed)s.confirmedCount++;if(r.manual)s.manualCount++;
   if(r.financialState==='active'&&!r.confirmed){s.pendingCount++;if(present(r.pendingCents))s.pendingCents+=r.pendingCents;else s.pendingUnknown++;}
  }
  return s;

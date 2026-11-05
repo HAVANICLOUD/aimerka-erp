@@ -130,9 +130,11 @@ export function reconcileLedger(state,context={}){
   r.bankProofRequired=true;r.bankProofIds=confirmed.map(c=>c.bankTransactionId);
   r.documentaryNetCents=related.length?related.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
   r.sourceRoundingDifferenceCents=r.documentaryNetCents==null||order.t1Source?.documentaryNetCents==null?null:r.documentaryNetCents-order.t1Source.documentaryNetCents;
-  r.depositCents=confirmed.length?confirmed.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
+  r.bankDepositCents=confirmed.length?confirmed.reduce((s,c)=>s+(c.allocations[order.id]||0),0):null;
   r.depositDate=confirmed.length?ledger.transactions.filter(t=>r.bankProofIds.includes(t.id)).map(t=>t.date).sort().at(-1):null;
   r.status=related.length&&confirmed.length===related.length?'Conciliada':confirmed.length?'Conciliación parcial':!related.length&&/Cancelad|Devuel|Reembols/i.test(order.commercialStatus+' '+order.sourceReturnStatus+' '+order.sourcePaymentStatus)?'Cancelada · sin pago esperado':'Pendiente de banco';
+  const bankComplete=related.length>0&&confirmed.length===related.length;r.confirmationSource=bankComplete?'bank':r.manual?'manual':confirmed.length?'bank-partial':null;r.depositCents=r.bankDepositCents;
+  if(!bankComplete&&r.manual){r.depositCents=r.manual.amountCents;r.depositDate=r.manual.date;r.status=r.manual.complete?'Conciliada manualmente':'Depósito manual parcial';}
   const calc=compareV43(order,state.products,state.config);r.realProfitCents=calc.realProfit==null?null:Math.round(calc.realProfit*100);r.modelDifferenceCents=r.depositCents==null?null:r.depositCents-Math.round(calc.expectedNet*100);order.paidCents=r.depositCents;
  }
 }
@@ -141,7 +143,7 @@ export function documentaryNetCents(order){
  return /\d/.test(order.t1Source?.cheques||'')?order.t1Source?.documentaryNetCents??null:null;
 }
 export function pendingBalanceCents(order,products,config){
- if(order.reconciliation?.status==='Conciliada'||/Cancelad|Devuel|Reembols/i.test(order.commercialStatus+' '+order.sourceReturnStatus+' '+order.sourcePaymentStatus))return 0;
+ if(['Conciliada','Conciliada manualmente'].includes(order.reconciliation?.status)||/Cancelad|Devuel|Reembols/i.test(order.commercialStatus+' '+order.sourceReturnStatus+' '+order.sourcePaymentStatus))return 0;
  return Math.max(0,(documentaryNetCents(order)??Math.round(compareV43(order,products,config).expectedNet*100))-(order.reconciliation?.depositCents||0));
 }
 export function applySettlementCommand(state,command,context={}){
