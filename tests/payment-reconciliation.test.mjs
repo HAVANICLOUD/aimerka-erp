@@ -61,3 +61,25 @@ test('Excel creation-date serials are normalized for display, ordering and date 
 });
 
 test('explicit UTC timestamps display and sort in Mexico City while naive Excel timestamps retain local time',()=>{assert.equal(paymentDate('2026-01-02T01:00:00Z'),'2026-01-01T19:00:00');assert.equal(paymentDate('2026-01-02T01:00:00'),'2026-01-02T01:00:00');assert.equal(paymentDate('2026-01-02T01:00:00-06:00'),'2026-01-02T01:00:00');});
+
+test('Sears comparison uses the same completed-sale population, without adding unpaid balances',()=>{
+ const s=confirmed(),all=paymentSummary(paymentRows(s,{market:'Sears'})),paid=paymentSummary(paymentRows(s,{market:'Sears',status:'confirmed'})),pending=paymentSummary(paymentRows(s,{market:'Sears',status:'pending'}));
+ assert.equal(all.estimatedCents,200653223);assert.equal(paid.estimatedCents,191101666);assert.equal(all.depositCents,204767357);assert.equal(paid.depositCents,all.depositCents);assert.equal(all.pendingCents,9551557);assert.equal(paid.pendingCents,0);assert.equal(all.estimatedCents-paid.estimatedCents,pending.estimatedCents);
+ assert.equal(all.differenceCents,13665691);assert.equal(all.comparableEstimatedCents,191101666);assert.equal(all.comparableReceivedCents,204767357);assert.equal(all.comparableReceivedCents-all.comparableEstimatedCents,all.differenceCents);assert.equal(paid.differenceCents,all.differenceCents);assert.equal(pending.comparisonCount,0);
+ assert.equal(all.favorableCents,13665695);assert.equal(all.shortfallCents,4);assert.equal(all.favorableCount,246);assert.equal(all.shortfallCount,4);assert.equal(all.roundingShortfallCount,4);assert.equal(all.favorableCents-all.shortfallCents,all.differenceCents);
+});
+test('positive and negative differences cannot cancel each other or absorb partial, unpaid and refunded amounts',()=>{
+ const row=(id,deposit,expected,extra={})=>({order:{id,totalCents:100000},financialState:'active',confirmed:true,depositCents:deposit,estimate:{netCents:expected},...extra});
+ const summary=paymentSummary([row('over',11000,10000),row('under',8000,10000),row('unpaid',null,30000,{confirmed:false,unpaid:true,pendingCents:30000}),row('partial',5000,20000,{confirmed:false,pendingCents:15000}),row('refund',500,0,{financialState:'refunded'})]);
+ assert.equal(summary.favorableCents,1000);assert.equal(summary.shortfallCents,2000);assert.equal(summary.differenceCents,-1000);assert.equal(summary.comparisonCount,2);assert.equal(summary.comparableEstimatedCents,20000);assert.equal(summary.comparableReceivedCents,19000);assert.equal(summary.pendingCents,45000);assert.equal(summary.unpaidCount,1);assert.equal(summary.partialCount,1);
+});
+test('unpaid review queue detects later bank-paid sales only within the same marketplace and respects documentary dates',()=>{
+ const s=confirmed(),before=JSON.stringify(s),rows=paymentRows(s,{market:'Sears',status:'unpaid'}),older=paymentRows(s,{market:'Sears',status:'older-unpaid'});assert.equal(rows.length,14);assert.equal(older.length,5);assert.ok(older.every(r=>r.unpaid&&r.laterPaidSale.date>r.date.slice(0,10)));
+ assert.deepEqual(new Set(older.map(r=>r.order.number)),new Set(['31279221','87585219','87357571','86465164','86313193']));assert.equal(paymentSummary(older).olderUnpaidEstimatedCents,5948570);assert.equal(paymentRows(s,{market:'Sanborns',status:'older-unpaid'}).length,1);
+ assert.equal(paymentRows(s,{market:'Sears',status:'unpaid',from:'2026-10-01'}).length,9);assert.equal(paymentRows(s,{market:'Sears',status:'favorable'}).length,246);assert.equal(paymentRows(s,{market:'Sears',status:'shortfall'}).length,4);assert.equal(JSON.stringify(s),before);
+});
+test('later-payment alert requires a later documentary day and bank proof; other channels and manual declarations do not qualify',()=>{
+ const s=confirmed();s.orders=s.orders.filter(o=>o.id==='V000967'||o.market==='Sanborns');assert.equal(paymentRows(s,{market:'Sears',status:'older-unpaid'}).length,0);
+ const base=s.orders.find(o=>o.id==='V000967'),later=structuredClone(base);later.id='later-manual';later.documentDate='2026-10-31';later.reconciliation={status:'Conciliada manualmente',depositCents:100,confirmationSource:'manual',manual:{complete:true}};s.orders.push(later);assert.equal(paymentRows(s,{market:'Sears',status:'older-unpaid'}).length,0);
+ later.reconciliation={status:'Conciliada',depositCents:100,bankProofIds:['bank-confirmed']};later.documentDate=base.documentDate;assert.equal(paymentRows(s,{market:'Sears',status:'older-unpaid'}).length,0);later.documentDate='2026-10-31';assert.equal(paymentRows(s,{market:'Sears',status:'older-unpaid'}).length,1);
+});
