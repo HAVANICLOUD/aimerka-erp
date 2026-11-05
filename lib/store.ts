@@ -4,7 +4,8 @@ import seed from '../data/seed-v28.json';
 import seed43 from '../data/seed-v43.json';
 import pricingConfig from '../data/pricing-config.json';
 import legacy from './legacy-domain.mjs';
-import {reconcileLedger} from './settlement-documents.mjs';
+import recoverySnapshot from '../data/recovery-v43-revision3.json';
+import {planV43Recovery,v43RecoveryWrites} from './v43-recovery.mjs';
 
 export function database(){if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
 export function workspaceId(value:string|null|undefined){if(value==='v43'||value==='practice')return value;if(!value||value==='v28')return 'v28';throw new Error('Espacio de trabajo inválido.');}
@@ -32,11 +33,21 @@ async function init(id:string){
 
 export async function readState(id:string){
   const db=database();
-  let batch=await db.batch([db.prepare('SELECT revision, initialized, updated_at FROM erp_workspaces WHERE id=?').bind(id),db.prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? ORDER BY name,part').bind(id)]);
-  if(!(batch[0].results[0] as any)?.initialized){await init(id);batch=await db.batch([db.prepare('SELECT revision, initialized, updated_at FROM erp_workspaces WHERE id=?').bind(id),db.prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? ORDER BY name,part').bind(id)]);}
-  const row:any=batch[0].results[0];
-  const state:any=joinState(batch[1].results);
-  if(id==='v43'&&state.settlementLedger)reconcileLedger(state,{now:row.updated_at});
+  const fetchBatch=()=>db.batch([db.prepare('SELECT revision, initialized, updated_at, last_action FROM erp_workspaces WHERE id=?').bind(id),db.prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? ORDER BY name,part').bind(id)]);
+  let batch=await fetchBatch();
+  if(!(batch[0].results[0] as any)?.initialized){await init(id);batch=await fetchBatch();}
+  let row:any=batch[0].results[0],state:any;
+  try{state=joinState(batch[1].results);}
+  catch(error){
+    if(id!=='v43')throw error;
+    const source:any=joinState(batch[1].results.filter((r:any)=>r.name==='source'));
+    const now=new Date().toISOString(),actionId='repair-v43-'+crypto.randomUUID();
+    const plan=planV43Recovery(recoverySnapshot,{workspace:id,revision:row.revision,lastAction:row.last_action,sourceSha256:source.source?.sha256},{now,actionId});
+    if(!plan)throw error;
+    const statements=v43RecoveryWrites(recoverySnapshot,plan).map(write=>db.prepare(write.sql).bind(...write.params));
+    await db.batch(statements);
+    batch=await fetchBatch();row=batch[0].results[0];state=joinState(batch[1].results);
+  }
   return {workspace:id,revision:row.revision,updatedAt:row.updated_at,state};
 }
 export async function priorAction(id:string,actionId:string){return database().prepare('SELECT input_hash,result,revision FROM erp_actions WHERE workspace=? AND id=?').bind(id,actionId).first<any>();}

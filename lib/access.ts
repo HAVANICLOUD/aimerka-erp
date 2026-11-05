@@ -1,5 +1,6 @@
 import {readState} from './store';
 import {accessView,assertPermission} from './access-control.mjs';
+import {projectState} from './state-view.mjs';
 // Owner verified against this existing Site's access configuration. Local preview
 // uses the Sites mock identity only in development, never on a production host.
 export const OWNER_EMAIL='geovanyjk@msn.com';
@@ -10,8 +11,4 @@ export async function requestAccess(request:Request,current?:any){
  return accessView(policy.state,{email:local?OWNER_EMAIL:email},OWNER_EMAIL);
 }
 export {assertPermission};
-export function visibleState(data:any,access:any){
- const output={...data,state:{...data.state},access};if(!access.permissions.includes('access'))delete output.state.security;
- if(!access.permissions.includes('finance')&&output.state.settlementLedger){output.state.settlementLedger={testOrderIds:output.state.settlementLedger.testOrderIds,restricted:true};}
- return output;
-}
+export const visibleState=projectState;
