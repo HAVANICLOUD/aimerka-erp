@@ -3,7 +3,7 @@
  localStorage.removeItem('aimerka-workspace-v28');
  const address=new URL(location.href);if(address.searchParams.has('workspace')){address.searchParams.delete('workspace');history.replaceState(null,'',address.pathname+address.search+address.hash);}
  ERP.workspace='v43';
- ERP.hasOpenDraft=()=>Boolean(document.querySelector('dialog[open],#drawer.open,#main form'));
+ ERP.hasOpenDraft=()=>Boolean(document.querySelector('dialog[open],#drawer:not([hidden]),#main form'))||Boolean(document.activeElement?.closest?.('#main')&&document.activeElement.matches('input,textarea,select,[contenteditable="true"]'));
  let checking=false,pending=false;
  function status(text){let button=document.getElementById('shared-data-update');if(!button){button=document.createElement('button');button.id='shared-data-update';button.className='btn small';button.type='button';button.setAttribute('aria-label','Actualizar datos compartidos');button.addEventListener('click',()=>ERP.checkSharedUpdates(true));document.querySelector('.topbar')?.append(button);}button.textContent=text;}
  ERP.checkSharedUpdates=async function(force=false){
