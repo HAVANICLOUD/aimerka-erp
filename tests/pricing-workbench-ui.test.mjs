@@ -36,9 +36,9 @@ test('cost and UPC clearing stay editable without restoring an example',()=>{
   h.listeners.input({target:{dataset:{price28Field:'cost'},value:''}});assert.equal(h.run('price28Input().cost'),null);
   h.listeners.input({target:{dataset:{price28Field:'cost'},value:'1200'}});assert.equal(h.run('price28Input().cost'),1200);
   h.run("price28Tab='recomendador';price28Forms.recomendador.productKey='840080527079'");assert.equal(h.run('price28Forms.recomendador.productKey'),'840080527079');
-  h.elements['price28-product-info']={};h.elements['price28-results']={};
+  h.elements['price28-product-info']={};h.elements['price28-results']={};h.elements['price28-category-info']={};
   h.listeners.input({target:{dataset:{price28Field:'productKey'},value:''}});
-  assert.match(h.elements['price28-product-info'].innerHTML,/pendiente de seleccionar/);assert.match(h.elements['price28-results'].innerHTML,/Selecciona un producto/);
+  assert.equal(h.elements['price28-category-info'].textContent,'—');assert.match(h.elements['price28-product-info'].innerHTML,/pendiente de seleccionar/);assert.match(h.elements['price28-results'].innerHTML,/Selecciona un producto/);
 });
 test('nominal tax rates, monetary base and effective coefficients have distinct labels',()=>{
   const h=harness();h.run(`globalThis.result={valid:true,status:'RENTABLE',channel:'T1 Comercios',withholdingBaseMode:'after_commission_ex_vat',commissionSource:'inferred14',commissionRate:.14,includedVat:.16,nominalVatRate:.08,nominalIsrRate:.025,vatRate:.05931,isrRate:.01853,discount:{price:2000,priceExVat:1724.14,commissionExVat:241.38,withholdingBase:1482.76,vat:118.62,isr:37.07,profit:300,netPayout:1300,margin:.15},regular:{price:2200}}`);
