@@ -75,7 +75,7 @@ export function importSicarHistory(state,command,ctx={}){
   p.sicarHistory={...e.source,signature:e.signature,differenceCents:e.differenceCents,original:{date:p.date??null,amountCents:p.amountCents??null,supplier:p.supplier,receiptStatus:p.receiptStatus??null,status:p.status},verifiedAt:ctx.now,actor:ctx.actor};
   p.items=e.lines;p.documentDate=e.source.documentDate;p.creationDate=e.source.creationDate;p.date=e.source.documentDate;p.receiptMode='historical-sicar';
   if(!p.supplier)p.supplier=e.source.sourceSupplier;
-  if(e.source.cancelled){p.status='Cancelada';p.receiptStatus='Cancelada';}else p.receiptStatus='Recibida completa';
+  if(e.source.cancelled){p.status='Cancelada';p.receiptStatus='Pendiente';}else p.receiptStatus='Recibida completa';
   p.updatedAt=ctx.now;
  }
  if(plan.importCount)(state.events??=[]).unshift({id:command.id,type:command.type,date:ctx.now,actor:ctx.actor,result:'ok',message:`${plan.importCount} compras cotejadas en SICAR; sin movimientos de inventario.`,purchaseIds:plan.entries.filter(e=>!e.duplicate).map(e=>e.purchase.id)});
