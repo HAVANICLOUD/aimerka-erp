@@ -1,3 +1,4 @@
+import {readInvoiceFiscal} from './invoice-fiscal-reader.mjs?v=20261105-fiscal';
 /**
  * Purchase document interpretation, independent of PDF/OCR transport and state.
  * All extracted money is in integer centavos; absent values remain null.
@@ -333,6 +334,7 @@ export function parsePurchaseDocument(text,{fileName='',kind}={}) {
     if (amount) record(field,amount.value,amount.evidence);
   }
   if (selected==='invoice') {
+    Object.assign(result,readInvoiceFiscal(source));
     const uuid=flat.match(UUID);
     if (uuid) record('uuid',uuid[0].toLowerCase(),uuid[0]);
     let number=flat.match(/\bFOLIO FISCAL\s*:\s*([A-Z]{1,8}\s+\d{3,20})\b/i)

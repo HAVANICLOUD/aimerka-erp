@@ -1,3 +1,4 @@
+import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
 const clone=v=>structuredClone(v);
 const fail=message=>{throw new Error(message);};
 const amount=(value,label='Importe')=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<0)fail(label+' debe expresarse en centavos y no puede ser negativo.');return n;};
@@ -130,7 +131,7 @@ export function applyInventory(state,action,context={}){
    const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity','description','manufacturerPart','condition','unitSat','countryOfOrigin','material'];
    let imageUrl=existing?.imageUrl||'';if('imageUrl' in p){imageUrl=text(p.imageUrl,2000);if(imageUrl){let valid=imageUrl.startsWith('/')&&!imageUrl.startsWith('//');try{const u=new URL(imageUrl);valid=u.protocol==='https:'&&!u.username&&!u.password;}catch{}if(!valid)fail('La imagen debe usar una ruta del sitio o una URL HTTPS.');}}
    let supplierCodes=existing?.supplierCodes||[];
-   if('supplierCodes' in p){if(!Array.isArray(p.supplierCodes)||p.supplierCodes.length>100)fail('Las equivalencias de proveedor no son válidas.');supplierCodes=p.supplierCodes.map(row=>({supplier:text(row.supplier,250),item:text(row.item,100),name:text(row.name,250)}));if(supplierCodes.some(row=>!row.supplier||!row.item))fail('Cada equivalencia necesita proveedor y número de artículo.');if(supplierCodes.some(row=>state.products.some(q=>q!==existing&&(q.supplierCodes||[]).some(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item)))))fail('Ese artículo del proveedor ya está asociado a otro producto.');supplierCodes=supplierCodes.filter((row,i,rows)=>rows.findIndex(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item))===i);}
+   if('supplierCodes' in p){if(!Array.isArray(p.supplierCodes)||p.supplierCodes.length>100)fail('Las equivalencias de proveedor no son válidas.');supplierCodes=p.supplierCodes.map(row=>({supplier:text(row.supplier,250),item:text(row.item,100),name:text(row.name,250)}));if(supplierCodes.some(row=>!row.supplier||!row.item))fail('Cada equivalencia necesita proveedor y número de artículo.');if(supplierCodes.some(row=>state.products.some(q=>q!==existing&&(q.supplierCodes||[]).some(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item)))))fail('Ese artículo del proveedor ya está asociado a otro producto.');assertSupplierCodes(state,sku,supplierCodes);supplierCodes=supplierCodes.filter((row,i,rows)=>rows.findIndex(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item))===i);}
    const base=existing?clone(existing):{sku,upc,good:0,reserved:0,quarantine:0,damaged:0,safety:0,minStock:3,icon:'box',source:'AIMERKA',sourceStock:null,categories:{},categoryOverrides:{}};
    Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??generated});for(const f of fields)if(f in p)base[f]=text(p[f],300);
    if(p.categoryOverrides)base.categoryOverrides=Object.fromEntries(Object.entries(p.categoryOverrides).map(([k,v])=>[text(k,60),text(v,150)]));
@@ -154,6 +155,7 @@ export function applyInventory(state,action,context={}){
    else if(!existing||existing.costCents!==costCents){base.averageCostMxn=costCents/100;base.sourceCost=costCents/100;}
    if(p.costStatus)base.costStatus=p.costStatus;
    else if(base.costStatus==='Por confirmar'&&costCents>0)base.costStatus='Confirmado';
+   if('supplierCodes' in p)syncSupplierCodes(state,base);
    const before=existing?{costCents:existing.costCents,averageCostMxn:existing.averageCostMxn,name:existing.name,category:existing.category}:null;
    if(existing)Object.assign(existing,base);else state.products.unshift(base);
    queueStock(state,existing||base,ctx,sku);

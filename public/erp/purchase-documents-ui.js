@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261030-invoices').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261030-invoices').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261105-fiscal').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261105-fiscal').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -23,7 +23,7 @@
      parsed.supplierOrder&&(parserModule?.isTemporalSupplierOrder(parsed.supplierOrder,{context:parsed.evidence?.supplierOrder})||
        (parsed.supplierOrderRejectedCandidates||[]).some(candidate=>normalize(candidate.value)===normalize(parsed.supplierOrder)&&(candidate.reason!=='ambiguous_columns'||!parsed.supplierOrderReviewed))));
  }
- function validationFor(d){return validationEngine?.validatePurchaseDocuments(allDocs(d),{purchase:d.purchase,lines:d.lines,products:state.products||[],purchases:state.purchases||[],purchaseId:d.purchaseId||undefined});}
+ function validationFor(d){return validationEngine?.validatePurchaseDocuments(allDocs(d),{purchase:d.purchase,lines:d.lines,products:state.products||[],purchases:state.purchases||[],purchaseId:d.purchaseId||undefined,fiscalConfig:state.config?.purchaseFiscal,requireFiscal:Boolean(ERP.engines.purchaseCatalogs),allowFiscalSnapshots:true});}
  function refreshDerivedOrder(d){
    if(!parserModule)return;
    const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
@@ -65,10 +65,12 @@
    const report=d.validation;if(!allDocs(d).length)return '';
    if(!report)return '<div class="doc-match-panel" role="status">Comprobando la orden y todas sus facturas…</div>';
    const summary=report.summary||{},ref=report.expectedSupplierOrder||report.supplierOrder||d.purchase.supplierOrder;
+   const fiscal=report.fiscal;
    const issues=report.issues||[],failed=issues.some(issue=>issue.severity==='error'),warnings=issues.filter(issue=>issue.severity==='warning');
-   return '<section class="doc-match-panel '+(failed?'has-errors':'')+'" aria-label="Validación de orden y facturas"><div class="doc-match-heading"><div><span class="small-note">ORDEN DEL PROVEEDOR</span><strong>'+esc(ref||'Pendiente de identificar')+'</strong></div>'+badge(failed?'Requiere corrección':warnings.length?'Revisar avisos':'Documentos compatibles',failed?'red':warnings.length?'amber':'green')+'</div><div class="doc-match-counts"><div><strong>'+Number(summary.orderedQty||0)+'</strong><span>Unidades ordenadas</span></div><div><strong>'+Number(summary.invoicedQty||0)+'</strong><span>Facturadas acumuladas</span></div><div class="'+(summary.excessQty?'has-excess':'')+'"><strong>'+Number(summary.excessQty||summary.pendingQty||0)+'</strong><span>'+(summary.excessQty?'Unidades de más':'Pendientes de facturar')+'</span></div></div><p class="small-note">Se comparan el proveedor, la orden, los artículos, las cantidades y los documentos anteriores y nuevos. '+Number(summary.invoiceCount||0)+' factura(s) revisada(s), sin contar duplicados.</p>'+
+   return '<section class="doc-match-panel '+(failed?'has-errors':'')+'" aria-label="Validación de orden y facturas"><div class="doc-match-heading"><div><span class="small-note">ORDEN DEL PROVEEDOR</span><strong>'+esc(ref||'Pendiente de identificar')+'</strong></div>'+badge(failed?'Requiere corrección':warnings.length?'Revisar avisos':'Documentos compatibles',failed?'red':warnings.length?'amber':'green')+'</div><div class="doc-match-counts"><div><strong>'+Number(summary.orderedQty||0)+'</strong><span>Unidades de la orden</span></div><div><strong>'+Number(summary.receivedQty||0)+'</strong><span>Recibidas · sin cambios</span></div><div><strong>'+Number(summary.invoicedQty||0)+'</strong><span>Facturadas acumuladas</span></div><div class="'+(summary.excessQty?'has-excess':'')+'"><strong>'+Number(summary.excessQty||summary.pendingQty||0)+'</strong><span>'+(summary.excessQty?'Unidades de más':'Pendientes de facturar')+'</span></div>'+(summary.unmatchedInvoiceQty?'<div class="has-excess"><strong>'+summary.unmatchedInvoiceQty+'</strong><span>Sin identificar · revisar artículo</span></div>':'')+'</div><p class="small-note">Se comparan el proveedor, la orden, los artículos, las cantidades y los documentos anteriores y nuevos. '+Number(summary.invoiceCount||0)+' factura(s) revisada(s), sin contar duplicados.</p>'+
+     ((report.equivalences||[]).length?'<div class="doc-equivalence-confirm">'+icon('link')+'<span>Equivalencias que se conservarán: '+report.equivalences.map(e=>'<b>'+esc(e.supplierItem)+' → '+esc(e.sku)+'</b>').join(' · ')+'. Se reutilizarán al subir documentos del mismo proveedor.</span></div>':'')+
      (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+
-     '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo promedio documental calculado con las unidades facturadas. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p></section>';
+     '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / recibidas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+(line.receivedQty||0)+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo promedio documental calculado con las unidades facturadas. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p>'+(fiscal?'<div class="doc-fiscal-status">'+badge(fiscal.valid?'Datos fiscales coincidentes':'Datos fiscales por corregir',fiscal.valid?'green':'red')+'<p>Empresa: '+esc(fiscal.profile?.legalName||'Por configurar')+' · Uso requerido G01. Este cotejo no consulta la vigencia del CFDI en el SAT.</p></div>':'')+'</section>';
  }
  const costLabel=value=>value==null?'Por confirmar':money(value);
  function blockerPanel(d){return '<strong>Resuelve las diferencias antes de guardar</strong><p>'+blockers(d).map(esc).join(' ')+'</p><p>Quita el documento incorrecto o revisa su lectura y la referencia original.</p>';}
@@ -148,7 +150,7 @@
  }
  function capture(d){
    if(!get('document-import-form'))return;
-   for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes']])if(get(id)){const captured=value(id).trim();if(field==='supplierOrder'&&captured!==String(d.purchase.supplierOrder||''))d.orderReferenceMode='manual';d.purchase[field]=captured;}
+   for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes'],['buyerCompanyId','docs-buyer']])if(get(id)){const captured=value(id).trim();if(field==='supplierOrder'&&captured!==String(d.purchase.supplierOrder||''))d.orderReferenceMode='manual';d.purchase[field]=captured;}
    if(get('docs-total')&&d.mode!=='invoice')d.purchase.amountCents=cents(value('docs-total'));
    for(const input of document.querySelectorAll('[data-doc-order-reference]')){const doc=allDocs(d).find(doc=>doc.id===input.dataset.docOrderReference);if(doc)setDocumentReference(d,doc,input.value);}
    d.reviewed=!!get('docs-reviewed')?.checked;
@@ -174,6 +176,7 @@
      (p.supplierOrderReviewed?'<small>Referencia revisada manualmente. Lectura inicial: '+esc(p.supplierOrderOriginal||'sin número')+'.</small>':p.evidence?.supplierOrder?'<small>Lectura: '+esc(p.evidence.supplierOrder)+'</small>':editable?'<small>Si la lectura falta o es incorrecta, escribe el número que aparece en este documento.</small>':'')+
      '<div data-doc-reference-notice="'+esc(doc.id)+'">'+referenceNotice(p)+'</div></div>'+
      (p.totalCents!=null?'<div class="document-card-total">'+money(p.totalCents)+'</div>':'<div class="small-note">Importe por confirmar</div>')+
+     (p.kind==='invoice'?'<div class="document-fiscal-reading"><strong>Receptor / uso fiscal</strong><span>'+esc(p.recipientName||'Razón social sin lectura')+'</span><small>RFC '+esc(p.recipientRfc||'Pendiente')+' · CP '+esc(p.recipientPostalCode||'Pendiente')+' · Régimen '+esc(p.recipientTaxRegime||'Pendiente')+' · Uso '+esc(p.cfdiUse||'Pendiente')+'</small></div>':'')+
      (p.uuid?'<div class="document-uuid">UUID '+esc(p.uuid)+'</div>':'')+
      (p.kind==='invoice'?'<div class="small-note">Folio fiscal / factura: <strong>'+esc(p.invoiceNumber||'Por confirmar')+'</strong><br>Subtotal '+costLabel(p.subtotalCents)+' · Descuento '+costLabel(p.discountCents)+' · IVA '+costLabel(p.taxCents)+'</div>':'')+
      '<div class="document-card-actions">'+(url?'<a class="btn small" target="_blank" rel="noopener" href="'+esc(url)+'">Ver original ↗</a>':'')+
@@ -232,15 +235,16 @@
      '<label><input type="checkbox" data-doc-link="'+esc(doc.id)+'" '+(line.documentIds?.includes(doc.id)?'checked':'')+'> '+esc(kindName(doc.parsed?.kind)+' · '+(doc.parsed?.invoiceNumber||doc.name))+'</label>').join('')+'</fieldset></article>';
    return html;
  }
+ function fiscalBuyerField(d){if(!ERP.engines.purchaseCatalogs)return '';const config=state.config?.purchaseFiscal||{profiles:[]},selected=d.purchase.buyerCompanyId||config.defaultProfileId||'',locked=Boolean(state.purchases.find(p=>p.id===d.purchaseId)?.buyerCompanyId);return '<section class="doc-buyer-card"><div>'+icon('shield')+'<span><strong>Empresa que compra</strong><small>Los datos fiscales se comparan con cada factura, además de la orden y sus artículos.</small></span></div><label>Empresa fiscal<select id="docs-buyer" '+(locked?'disabled':'')+'><option value="">Selecciona la empresa compradora</option>'+config.profiles.filter(p=>p.active!==false).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===selected?'selected':'')+'>'+esc(p.label+' · '+p.rfc)+'</option>').join('')+'</select></label><button class="btn small" type="button" data-buy-fiscal-setup>Configurar datos fiscales</button></section>'; }
  function render(d){
    if(d!==draft||d.workspace!==ERP.workspace)return;
    refreshValidation(d,false);const docs=allDocs(d),p=d.purchase,combined=d.combined,hasFiles=docs.length>0,skus=proposedSkus(d);
-   const warnings=[...new Set([...(combined?.warnings||[]).filter(warning=>!(combined?.blockingWarnings||[]).includes(warning)),...(d.uploadWarnings||[])])];
+   const warnings=[...new Set([...(combined?.warnings||[]).filter(warning=>!(combined?.blockingWarnings||[]).includes(warning)),...(d.uploadWarnings||[])])].filter(w=>!/^No se detectó un UPC/.test(w)||d.lines.some(l=>!state.products.find(p=>p.sku===l.sku)?.upc));
    const existing=d.purchaseId?[]:(state.purchases||[]).filter(x=>p.supplierOrder&&x.supplierOrder===p.supplierOrder);
    const blocked=blockers(d).length;
    const title=(d.mode==='invoice'?'Subir facturación':d.mode==='order'?'Importar orden':'Revisar documentos')+(d.purchaseId?' · '+esc(state.purchases.find(x=>x.id===d.purchaseId)?.number||d.purchaseId):'');
-   showModal('<form id="document-import-form"><div class="docs-modal-head"><div><span class="eyebrow">COMPRAS / LECTURA DOCUMENTAL</span><h2 id="modal-title">'+title+'</h2><p class="modal-subtitle">De tus documentos a una orden lista para recibir.</p></div><span class="docs-workspace">'+(ERP.workspace==='practice'?'Práctica':ERP.workspace==='v43'?'Laboratorio V43':'Operación V28')+'</span></div>'+
-     '<div class="doc-steps"><span class="'+(!hasFiles?'active':'done')+'"><b>1</b> Adjuntar</span><span class="'+(hasFiles?'active':'')+'"><b>2</b> Revisar y relacionar</span><span><b>3</b> Guardar sin recibir</span></div>'+
+   showModal('<form id="document-import-form"><div class="docs-modal-head"><div><span class="eyebrow">COMPRAS / LECTURA DOCUMENTAL</span><h2 id="modal-title">'+title+'</h2><p class="modal-subtitle">La factura respalda lo comprado. Recibir mercancía es un proceso independiente.</p></div><span class="docs-workspace">'+(ERP.workspace==='practice'?'Práctica':ERP.workspace==='v43'?'Laboratorio V43':'Operación V28')+'</span></div>'+
+     fiscalBuyerField(d)+'<div class="doc-steps"><span class="'+(!hasFiles?'active':'done')+'"><b>1</b> Adjuntar</span><span class="'+(hasFiles?'active':'')+'"><b>2</b> Revisar y relacionar</span><span><b>3</b> Guardar sin recibir</span></div>'+
      '<div class="head-actions"><button type="button" class="btn" data-doc-mode="order">Importar orden</button><button type="button" class="btn" data-doc-mode="invoice">Subir facturación</button></div>'+
      '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>'+esc(d.mode==='invoice'?'Subir facturación':'Importar orden')+'</strong><p>'+(d.mode==='invoice'?'Adjunta una o varias facturas. AIMERKA las relacionará con la orden, los productos y actualizará los costos.':'Lee una orden de compra o captura del proveedor para crear automáticamente sus partidas.')+' PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
      '<div id="docs-progress" class="docs-progress" role="status" aria-live="polite">'+esc(d.progress||'')+'</div>'+
@@ -257,7 +261,7 @@
        '<div class="field spacer-top"><label for="docs-notes">Observaciones</label><textarea id="docs-notes" rows="2">'+esc(p.notes||'')+'</textarea></div></section>'+
        '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div>'+(d.mode==='invoice'?'':'<button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button>')+'</div>'+
        (d.mode==='invoice'?'<p class="small-note">Se conservan las '+d.lines.length+' partidas y cantidades de la orden. Revisa arriba su facturación y costos acumulados.</p>':d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
-       '<div class="doc-confirm"><label><input id="docs-reviewed" type="checkbox" '+(d.reviewed?'checked':'')+' required> Confirmé productos, cantidades, documentos e importes. Las unidades entrarán al inventario únicamente al recibirlas en almacén.</label></div>'+
+       '<div class="doc-confirm"><label><input id="docs-reviewed" type="checkbox" '+(d.reviewed?'checked':'')+' required> Confirmé productos, cantidades, importes y datos fiscales del receptor. Guardar facturas no agrega unidades ni cambia las recibidas.</label></div>'+
        '<div id="docs-blockers" class="document-warnings" '+(blocked?'':'hidden')+'>'+blockerPanel(d)+'</div>':'')+
      '<div class="modal-actions docs-sticky-actions"><button class="btn" type="button" data-action="close-modal">Cerrar</button>'+
      (hasFiles?'<button class="btn primary" id="docs-save" type="submit" '+(d.busy||!hasChanges(d)||!d.lines.length||blocked||!d.validation?'disabled':'')+'>'+icon('check')+(d.mode==='invoice'?' Guardar facturación':d.purchaseId?' Guardar documentos':' Registrar orden documental')+'</button>':'')+'</div></form>');
@@ -312,7 +316,7 @@
      const lines=d.lines.map(l=>({id:l.id,sku:l.sku||undefined,newProduct:l.newProduct?{...l.newProduct,name:l.name,costCents:l.unitCostCents??undefined,priceCents:0,
        review:l.unitCostCents==null?'Costo pendiente de confirmar. Artículo creado desde documento.':'Creado desde documento revisado.'}:undefined,
        name:l.name,supplierItem:l.supplierItem,qty:l.qty,unitCostCents:l.unitCostCents,documentIds:l.documentIds}));
-     const purchase=Object.fromEntries(['supplier','supplierOrder','date','shippingStatus','notes','amountCents','lender','instrument','term','firstPaymentDate','sicar','taxInvoice','satReviewed'].filter(key=>d.purchase[key]!==undefined&&!(key==='taxInvoice'&&!d.purchase[key])).map(key=>[key,d.purchase[key]]));
+     const purchase=Object.fromEntries(['buyerCompanyId','supplier','supplierOrder','date','shippingStatus','notes','amountCents','lender','instrument','term','firstPaymentDate','sicar','taxInvoice','satReviewed'].filter(key=>d.purchase[key]!==undefined&&!(key==='taxInvoice'&&!d.purchase[key])).map(key=>[key,d.purchase[key]]));
      const result=await ERP.command('purchase.importDocuments',{mode:d.mode,purchaseId:d.purchaseId||undefined,purchase,lines,documents});
      if(!result.ok)throw new Error(result.error||'No se guardó la importación. Revisa y vuelve a intentar.');
      const id=result.result.purchaseId||result.result.id;get('modal').close();close();if(id)window.op28Detail?.('purchase',id);
@@ -326,6 +330,7 @@
      (docs.length?validationPanel(d)+'<div class="document-grid">'+docs.map(doc=>documentCard(doc,true,d.validation)).join('')+'</div>':'<div class="doc-empty">'+icon('file')+'<p>Conserva aquí la orden del proveedor y sus facturas. Podrás consultarlas también desde cada producto.</p></div>')+'</section>';
  }
  document.addEventListener('change',e=>{
+   if(e.target.id==='docs-buyer'&&draft){capture(draft);draft.reviewed=false;refreshValidation(draft,false);render(draft);return;}
    if(e.target.id==='document-files'){addFiles(e.target.files);return;}
    if(e.target.id==='workspace-picker'){close();return;}
    if(!draft)return;
@@ -376,5 +381,6 @@
  document.addEventListener('drop',e=>{if(e.target.closest('#document-dropzone')){e.preventDefault();addFiles(e.dataTransfer.files);}});
  get('modal')?.addEventListener('close',()=>{if(draft)close();});
  window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};
+ window.PurchaseDocs28.resume=()=>{if(draft)render(draft);};window.PurchaseDocs28.captureCurrent=()=>{if(draft)capture(draft);};
  validator().catch(()=>{});
 })();
