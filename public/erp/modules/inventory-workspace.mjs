@@ -1,4 +1,4 @@
-import {renameProductSkus} from './product-identity.mjs';
+import {renameProductSkus} from './product-identity.mjs?v=20261105-restore-sku';
 const pools=['good','reserved','quarantine','damaged','safety'];
 const key=v=>String(v??'').trim().toUpperCase();
 export function inventoryTimeline(state,product){
@@ -15,7 +15,7 @@ export function previewSicarInventory(state,manifest){
   for(const k of pools)if(Number(p[k]||0)!==Number(r.expectedStock?.[k]||0))fail('El inventario de '+p.name+' cambió desde el cotejo; actualiza el respaldo antes de aplicar.');
   if((r.quantity<Number(p.reserved||0)&&Number(p.reserved||0)>0))fail('El saldo SICAR no cubre las reservas activas de '+p.name+'. Revisa esa diferencia antes de aplicar.');
   if(r.satCode&&!/^\d{8}$/.test(r.satCode))fail('Clave SAT inválida en '+p.name+'.');
-  return {product:p,input:r,from:p.sku,to:r.primaryCode,before:Number(p.good||0),after:r.quantity,delta:r.quantity-Number(p.good||0),negative:r.quantity<0};
+  return {product:p,input:r,from:p.sku,to:p.sku,before:Number(p.good||0),after:r.quantity,delta:r.quantity-Number(p.good||0),negative:r.quantity<0};
  });
  const ownerByCode=new Map();
  for(const p of state.products||[])for(const c of [p.sku,p.upc,p.sellerSku,...(p.skuAliases||[])].filter(Boolean)){const k=key(c);if(!ownerByCode.has(k))ownerByCode.set(k,p.sku);}
@@ -29,7 +29,7 @@ export function importSicarInventory(state,command,ctx){
  const m=command.payload?.manifest;if(state.sicarInventorySnapshot?.sha256===m?.sha256)return {ok:true,duplicate:true,message:'Este archivo SICAR ya se aplicó; no se repitieron ajustes.'};
  const plan=previewSicarInventory(state,m),mapping=renameProductSkus(state,plan.rows.map(r=>({from:r.from,to:r.to})),{...ctx,source:'SICAR'});
  for(const [i,row]of plan.rows.entries()){const p=state.products.find(p=>p.sku===row.to),r=row.input;
-  p.name=r.name;p.good=r.quantity;p.skuAliases=[...new Set([...(p.skuAliases||[]),...r.codes])].filter(c=>key(c)!==key(p.sku));p.skuOrigin='SICAR';p.sicarCode=r.primaryCode;p.stockStatus=r.quantity<0?'Déficit en SICAR':'Cotejado con SICAR';p.updatedAt=ctx.now;
+  p.name=r.name;p.good=r.quantity;p.skuAliases=[...new Set([...(p.skuAliases||[]),...r.codes])].filter(c=>key(c)!==key(p.sku));p.skuOrigin??='AIMERKA';p.sicarCode=r.primaryCode;p.stockStatus=r.quantity<0?'Déficit en SICAR':'Cotejado con SICAR';p.updatedAt=ctx.now;
   p.sicarInventory={quantity:r.quantity,warehouse:'Default',sourceHash:m.sha256,sourceRow:r.sourceRow,capturedAt:m.capturedAt,appliedAt:ctx.now,codes:r.codes,satCode:r.satCode||null,emptyExportVerifiedAsZero:!!r.emptyExportVerifiedAsZero};
   if(r.satCode){p.satCode=r.satCode;p.satCodeSource={source:'SICAR',checkedAt:ctx.now,sourceHash:m.sha256};}
   if(state.warehouseStock){const rows=state.warehouseStock.filter(b=>b.sku===p.sku),others=rows.filter(b=>b.warehouseId!=='principal').reduce((s,b)=>s+Number(b.good||0),0);let principal=rows.find(b=>b.warehouseId==='principal');if(!principal){principal={warehouseId:'principal',sku:p.sku,good:0,reserved:0,quarantine:0,damaged:0,safety:0};state.warehouseStock.push(principal);}principal.good=r.quantity-others;}

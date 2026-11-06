@@ -115,9 +115,9 @@ export function applyInventory(state,action,context={}){
  if(action.type==='product.save'){
    const p=payload.product||payload,existing=payload.originalSku?findProduct(state,payload.originalSku):null;
    const name=text(p.name,250),brand=text(p.brand,100),suppliedSku=p.sku==null?'':String(p.sku),generated=!existing&&!suppliedSku;
-   if(!existing&&suppliedSku&&!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$/.test(suppliedSku))fail('El SKU debe tener hasta 80 letras, números o . _ / -, sin espacios.');
+   if(!existing&&suppliedSku&&!/^[A-Za-z0-9Ññ][A-Za-z0-9Ññ._/+-]{0,79}$/.test(suppliedSku))fail('El SKU debe tener hasta 80 letras, números o . _ / + -, sin espacios.');
    const sku=existing?text(p.sku||existing.sku,80):(suppliedSku?suppliedSku.toUpperCase():generateProductSku({...p,name,brand},state.products)),rawUpc=text(p.upc??existing?.upc,80),costCents=amount(p.costCents,'Costo'),priceCents=amount(p.priceCents||0,'Precio');
-   if(!existing&&!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$/.test(sku))fail('El SKU debe tener hasta 80 letras, números o . _ / -, sin espacios.');
+   if(!existing&&!/^[A-Za-z0-9Ññ][A-Za-z0-9Ññ._/+-]{0,79}$/.test(sku))fail('El SKU debe tener hasta 80 letras, números o . _ / + -, sin espacios.');
    if(!sku||!name||!brand)fail('Descripción y marca son obligatorias; el SKU puede generarse automáticamente.');
    const upc=rawUpc&&(existing?.upc!==rawUpc)?validateProductUpc(rawUpc):rawUpc;
    if(state.products.some(q=>q!==existing&&((existing?normalized(q.sku)===normalized(sku):productCodes(q).some(code=>normalized(code)===normalized(sku)))||upc&&q.upc&&barcodeKey(q.upc)===barcodeKey(upc))))fail('Ese SKU o UPC ya está registrado.');
