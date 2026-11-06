@@ -33,15 +33,16 @@ test('collisions reserve old aliases, external SKUs and barcodes without exceedi
   assert.equal(products[1].sku,'DYSV12M002');
 });
 
-test('new manual identifiers obey the same limit and cannot bypass it using skuGenerated',()=>{
+test('manual identifiers allow provider codes while rejecting whitespace and invalid characters',()=>{
   const state=makeState();
-  for(const sku of ['12345678901','SKU-001','SKU 001',' SKU001','SKU001 ','ÁRT001','ABC_12','ß123']){
+  for(const sku of ['X'.repeat(81),'SKU 001',' SKU001','SKU001 ','ÁRT001','ß123']){
     const before=structuredClone(state);
-    assert.throws(()=>save(state,{sku,skuGenerated:true}),/10 caracteres alfanuméricos/);
+    assert.throws(()=>save(state,{sku,skuGenerated:true}),/hasta 80/);
     assert.deepEqual(state,before);
   }
+  save(state,{sku:'SKU-001_12345678901'});
   const result=save(state,{sku:'abc1234567',skuGenerated:true});
-  assert.equal(result.sku,'ABC1234567');assert.equal(state.products[0].skuGenerated,false);
+  assert.equal(result.sku,'ABC1234567');assert.equal(state.products.find(p=>p.sku==='ABC1234567').skuGenerated,false);
   const auto=save(state,input),product=state.products.find(p=>p.sku===auto.sku);
   assert.equal(product.skuGenerated,true);assert.equal(product.good,0);assert.equal(product.upc,'');
 });

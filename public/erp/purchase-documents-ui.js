@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261105-fiscal').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261105-fiscal').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261105-inventory').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261105-inventory').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -29,7 +29,9 @@
    const prior=d.purchaseId?state.purchases.find(p=>p.id===d.purchaseId):null;
    // Saved purchase identity and deliberate manual references are never replaced
    // to make a different invoice appear compatible.
+   const historicalReference=validationEngine?.purchaseOrderReference(prior);
    if(prior?.supplierOrder){d.orderReferenceMode='existing';return;}
+   if(historicalReference){if(d.orderReferenceMode==='auto')d.purchase.supplierOrder=historicalReference;d.orderReferenceMode='existing';return;}
    const current=String(d.purchase.supplierOrder||''),temporal=parserModule.isTemporalSupplierOrder(current);
    if(d.orderReferenceMode!=='auto'&&!temporal)return;
    const references=documents=>[...new Set(documents.filter(doc=>!referenceNeedsReview(doc.parsed)).map(doc=>doc.parsed?.supplierOrder)
@@ -51,8 +53,8 @@
    const saveButton=get('docs-save');if(saveButton)saveButton.disabled=Boolean(d.busy||!hasChanges(d)||!d.lines.length||blockers(d).length||!d.validation);
    const warning=get('docs-blockers');if(warning){warning.hidden=!blockers(d).length;warning.innerHTML=blockerPanel(d);}
  }
- const checkColor=check=>({matched:'green',mismatch:'red',missing:'amber',duplicate:'amber',unverified:'slate'})[check?.status]||'slate';
- const matchBadge=(check,parsed)=>{if(referenceNeedsReview(parsed))return '<span>'+badge('Referencia por revisar','amber')+'</span>';const label=({matched:'Orden coincidente',mismatch:'No coincide',missing:'Sin referencia',duplicate:'Duplicado',unverified:'Por verificar'})[check?.status]||'Por verificar';return '<span title="'+esc(check?.label||label)+'">'+badge(label,checkColor(check))+'</span>';};
+ const checkColor=check=>({matched:'green',mismatch:'red',missing:'amber',duplicate:'amber',unverified:'slate'})[check?.referenceStatus||check?.status]||'slate';
+ const matchBadge=(check,parsed)=>{if(referenceNeedsReview(parsed))return '<span>'+badge('Referencia por revisar','amber')+'</span>';const label=({matched:'Orden coincidente',mismatch:'No coincide',missing:'Sin referencia',duplicate:'Duplicado',unverified:'Por verificar'})[check?.referenceStatus||check?.status]||'Por verificar';return '<span title="'+esc(check?.referenceLabel||check?.label||label)+'">'+badge(label,checkColor(check))+'</span>';};
  function referenceNotice(parsed){
    const rejected=parsed?.supplierOrderRejectedCandidates||[],pending=referenceNeedsReview(parsed);
    if(!rejected.length&&!pending)return '';
@@ -68,6 +70,11 @@
    const fiscal=report.fiscal;
    const issues=report.issues||[],failed=issues.some(issue=>issue.severity==='error'),warnings=issues.filter(issue=>issue.severity==='warning');
    return '<section class="doc-match-panel '+(failed?'has-errors':'')+'" aria-label="Validación de orden y facturas"><div class="doc-match-heading"><div><span class="small-note">ORDEN DEL PROVEEDOR</span><strong>'+esc(ref||'Pendiente de identificar')+'</strong></div>'+badge(failed?'Requiere corrección':warnings.length?'Revisar avisos':'Documentos compatibles',failed?'red':warnings.length?'amber':'green')+'</div><div class="doc-match-counts"><div><strong>'+Number(summary.orderedQty||0)+'</strong><span>Unidades de la orden</span></div><div><strong>'+Number(summary.receivedQty||0)+'</strong><span>Recibidas · sin cambios</span></div><div><strong>'+Number(summary.invoicedQty||0)+'</strong><span>Facturadas acumuladas</span></div><div class="'+(summary.excessQty?'has-excess':'')+'"><strong>'+Number(summary.excessQty||summary.pendingQty||0)+'</strong><span>'+(summary.excessQty?'Unidades de más':'Pendientes de facturar')+'</span></div>'+(summary.unmatchedInvoiceQty?'<div class="has-excess"><strong>'+summary.unmatchedInvoiceQty+'</strong><span>Sin identificar · revisar artículo</span></div>':'')+'</div><p class="small-note">Se comparan el proveedor, la orden, los artículos, las cantidades y los documentos anteriores y nuevos. '+Number(summary.invoiceCount||0)+' factura(s) revisada(s), sin contar duplicados.</p>'+
+     '<p class="small-note">Facturas coincidentes: '+Number(summary.matchingInvoiceCount||0)+' · Excluidas del cálculo: '+Number(summary.excludedInvoiceCount||0)+'.</p><ul class="doc-batch-summary">'+allDocs(d).map(doc=>{
+       const check=report.documentChecks?.find(row=>row.id===doc.id),p=doc.parsed||{};
+       const removable=d.documents.some(row=>row.id===doc.id)&&!existingDocs(d).some(row=>row.id===doc.id);
+       return '<li data-doc-summary="'+esc(doc.id)+'"><strong>'+esc(doc.name||doc.id)+'</strong> · Folio: '+esc(p.invoiceNumber||'Sin folio')+' · Orden esperada: '+esc(check?.expectedSupplierOrder||ref||'Por confirmar')+' · Orden del archivo: '+esc(check?.supplierOrder||'Sin referencia')+' '+matchBadge(check,p)+(removable?'<button class="btn small" type="button" data-doc-remove="'+esc(doc.id)+'">Quitar este archivo</button>':'')+'</li>';
+     }).join('')+'</ul>'+
      ((report.equivalences||[]).length?'<div class="doc-equivalence-confirm">'+icon('link')+'<span>Equivalencias que se conservarán: '+report.equivalences.map(e=>'<b>'+esc(e.supplierItem)+' → '+esc(e.sku)+'</b>').join(' · ')+'. Se reutilizarán al subir documentos del mismo proveedor.</span></div>':'')+
      (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+
      '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / recibidas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+(line.receivedQty||0)+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo promedio documental calculado con las unidades facturadas. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p>'+(fiscal?'<div class="doc-fiscal-status">'+badge(fiscal.valid?'Datos fiscales coincidentes':'Datos fiscales por corregir',fiscal.valid?'green':'red')+'<p>Empresa: '+esc(fiscal.profile?.legalName||'Por configurar')+' · Uso requerido G01. Este cotejo no consulta la vigencia del CFDI en el SAT.</p></div>':'')+'</section>';
@@ -257,7 +264,7 @@
        ERP.field('docs-order','Orden original del proveedor',p.supplierOrder)+ERP.field('docs-date','Fecha de la orden *',p.date||ERP.today(),'date','required max="'+ERP.today()+'"')+
        ERP.select('docs-shipping','Estado de traslado',['Pendiente','En tránsito'],p.shippingStatus||'En tránsito')+
        ERP.field('docs-total',d.mode==='invoice'?'Total facturado acumulado (MXN)':'Importe total de la compra (MXN)',number(d.mode==='invoice'?d.validation?.invoiceTotalCents:p.amountCents),'number',d.mode==='invoice'?'readonly':'min="0.01" step="0.01" placeholder="Por confirmar"')+
-       '<div class="doc-total-context">'+(combined?.invoiceTotals?.totalCents!=null?'<span>Facturas adjuntas</span><strong>'+money(combined.invoiceTotals.totalCents)+'</strong>':'<span>Puedes registrar la orden sin conocer aún su importe.</span>')+'</div></div><datalist id="docs-suppliers">'+(state.catalogs?.suppliers||[]).map(x=>'<option value="'+esc(typeof x==='string'?x:x.name||'')+'">').join('')+'</datalist>'+
+       '<div class="doc-total-context">'+(d.validation?.invoiceTotalCents!=null?'<span>Facturas coincidentes</span><strong>'+money(d.validation.invoiceTotalCents)+'</strong>':'<span>Puedes registrar la orden sin conocer aún su importe.</span>')+'</div></div><datalist id="docs-suppliers">'+(state.catalogs?.suppliers||[]).map(x=>'<option value="'+esc(typeof x==='string'?x:x.name||'')+'">').join('')+'</datalist>'+
        '<div class="field spacer-top"><label for="docs-notes">Observaciones</label><textarea id="docs-notes" rows="2">'+esc(p.notes||'')+'</textarea></div></section>'+
        '<section class="doc-review-section"><div class="form-section-head"><div><h3>Artículos y equivalencias</h3><span class="small-note">Cantidades ordenadas. Las facturas respaldan estas unidades y no las duplican.</span></div>'+(d.mode==='invoice'?'':'<button type="button" class="btn small" data-doc-add-line>＋ Añadir partida</button>')+'</div>'+
        (d.mode==='invoice'?'<p class="small-note">Se conservan las '+d.lines.length+' partidas y cantidades de la orden. Revisa arriba su facturación y costos acumulados.</p>':d.lines.length?d.lines.map((l,i)=>lineCard(l,i,d,skus)).join(''):'<div class="empty">No se identificaron partidas con suficiente confianza. Revisa el texto extraído o añade la mercancía manualmente.</div>')+'</section>'+
