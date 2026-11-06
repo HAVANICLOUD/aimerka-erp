@@ -1,3 +1,4 @@
+import {canReadFinance} from '../../../../lib/access-control.mjs';
 import { workspaceId, readState } from '../../../../lib/store';
 import { documentBucket, documentId, documentKey } from '../../../../lib/documents';
 import {requestAccess} from '../../../../lib/access';
@@ -9,7 +10,7 @@ export async function GET(request: Request, context: {params: Promise<{id:string
     const access=await requestAccess(request,current);
     if(!access.active)return new Response('Acceso no disponible.',{status:403});
     const financial=(current.state.settlementLedger?.documents||[]).find((row:any)=>row.id===id);
-    if(financial&&!access.permissions.includes('finance'))return new Response('Se requiere permiso de finanzas.',{status:403});
+    if(financial&&!canReadFinance(access))return new Response('Se requiere permiso de finanzas.',{status:403});
     const image=(current.state.products||[]).flatMap((p:any)=>p.images||[]).find((i:any)=>i.id===id);
     const doc = financial||image||(current.state.documents || []).find((row:any)=>row.id===id);
     if (!doc) return new Response('Documento no encontrado en este espacio.',{status:404});

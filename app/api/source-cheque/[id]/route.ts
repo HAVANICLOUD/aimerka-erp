@@ -1,9 +1,10 @@
+import {canReadFinance} from '../../../../lib/access-control.mjs';
 import originals from '../../../../data/source-cheques-v43.json';
-import {requestAccess,assertPermission} from '../../../../lib/access';
+import {requestAccess} from '../../../../lib/access';
 export const dynamic='force-dynamic';
 export async function GET(request:Request,context:{params:Promise<{id:string}>}){
  try{
-  const access=await requestAccess(request);assertPermission(access,'settlement.cheque');
+  const access=await requestAccess(request);if(!canReadFinance(access))throw new Error('Acceso financiero requerido.');
   if(new URL(request.url).searchParams.get('workspace')!=='v43')return new Response('Disponible en Laboratorio V43.',{status:404});
   const id=(await context.params).id,doc=(originals as any)[id];if(!doc)return new Response('Original no disponible.',{status:404});
   const bytes=Uint8Array.from(atob(doc.data),(c:string)=>c.charCodeAt(0));
