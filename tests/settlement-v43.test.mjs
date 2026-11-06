@@ -73,8 +73,8 @@ test('unpaid orders with no cheque and later documentary adjustments stay in mar
 });
 test('V43 pricing calculators use nominal withholding on the VAT-exclusive T1 base and keep other channels unchanged',()=>{
  const s=seed(),config=structuredClone(s.config);config.parameters.t1IncludedVat=.16;
- const rates=resolveCommission(config,{channel:'T1 Comercios'});assert.ok(Math.abs(rates.vatRate-.08/1.16)<1e-12);assert.ok(Math.abs(rates.isrRate-.025/1.16)<1e-12);
- const old=structuredClone(config);delete old.parameters.t1IncludedVat;assert.equal(resolveCommission(old,{channel:'T1 Comercios'}).vatRate,.08);
+ const rates=resolveCommission(config,{channel:'T1 Comercios'});assert.ok(Math.abs(rates.vatRate-.08*(1-rates.rate)/1.16)<1e-12);assert.ok(Math.abs(rates.isrRate-.025*(1-rates.rate)/1.16)<1e-12);
+ const old=structuredClone(config);delete old.parameters.t1IncludedVat;assert.equal(resolveCommission(old,{channel:'T1 Comercios'}).includedVat,.16);
 });
 
 test('Sears Operadora bank origin is recognized alongside GS Tiendas, without changing date or reference',()=>{

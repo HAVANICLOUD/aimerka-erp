@@ -10,6 +10,8 @@ import {quote,recommend,resolveCommission,resolveShipping,shippingSuggestion,res
 // Tests work on detached copies and never open the live store or change the seed.
 const seed=JSON.parse(readFileSync(new URL('../data/seed-v28.json',import.meta.url)));
 const config=JSON.parse(readFileSync(new URL('../data/pricing-config.json',import.meta.url)));
+// Archival V28 contract: preserve its original gross-price withholding reference.
+config.parameters.t1IncludedVat=0;config.parameters.t1RetentionBase='gross_ex_vat';
 const clone=value=>structuredClone(value);
 const fresh=()=>({...clone(seed),config:clone(config)});
 const clock={now:'2026-10-28T06:00:00.000Z',actor:'Contrato de precios V28',workspace:'v28'};

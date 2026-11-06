@@ -5,6 +5,8 @@ import {quote, recommend, compareChannels, resolveCategory, resolveCommission, r
   roundMargin99, roundRegular99, suggestCategory, validateProduct, validateMapping, validateCommission, applyCommissionUpdate} from '../lib/pricing-v28.mjs';
 
 const config = JSON.parse(readFileSync(new URL('../data/pricing-config.json', import.meta.url)));
+// These stored reference outputs describe the original V28 gross-price base.
+config.parameters.t1IncludedVat=0;config.parameters.t1RetentionBase='gross_ex_vat';
 const copy = value => structuredClone(value);
 const close = (actual, expected, tolerance = 1e-8) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} differs from ${expected}`);
 const iphone = {sku:'TEST-IPHONE',upc:'195950638011',name:'Apple iPhone 17 Pro Max 256GB 12GB RAM Azul Profundo',brand:'APPLE',category:'CELULARES SMARTPHONE',

@@ -4,7 +4,7 @@ const D = window.AimerkaDomain;
 const STORAGE_KEY = 'aimerka-concepto-v1';
 const markets = ['Liverpool','Sears','Sanborns','Coppel','Elektra','Tienda Nube','Mercado Libre'];
 const marketColors = {'Liverpool':'#df4d98','Sears':'#d14753','Sanborns':'#789854','Coppel':'#edbf34','Elektra':'#d86857','Tienda Nube':'#4d9aca','Mercado Libre':'#d9b421'};
-const nav = [['dashboard','Resumen','grid'],['orders','Pedidos y ventas','bag'],['inventory','Inventario','box'],['products','Productos','tag'],['pricing','Precios y comisiones','calculator'],['settlements','Conciliación','wallet'],['incidents','Incidencias','alert'],['integrations','Integraciones','plug'],['project','Diseño del proyecto','layers']];
+const nav = [['dashboard','Resumen','grid'],['orders','Pedidos y ventas','bag'],['inventory','Inventario','box'],['products','Productos','tag'],['pricing','Calculadora de precios','calculator'],['settlements','Conciliación','wallet'],['incidents','Incidencias','alert'],['integrations','Integraciones','plug'],['project','Diseño del proyecto','layers']];
 const icons = {
  lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',

@@ -29,12 +29,14 @@ test('Liverpool prioritizes documented refund then cancellation and converts ins
 test('actual V34 cached manual calculator case matches price, payout, profit and cost-based difference',()=>{
  // Read-only workbook reference: CALCULADORA C10/C11/C16/C17,
  // A28/E28, B52/D52, B53/D53 and B55/D55. No macro execution.
- const r=quote(config,{context:'calculadora',cost:8434,marketPrice:12799,channel:'T1 Comercios',shippingType:'Mediano',mode:'tasas',margin:.1,inflation:.2});
+ const historical=structuredClone(config);historical.parameters.t1IncludedVat=0;historical.parameters.t1RetentionBase='gross_ex_vat';
+ const r=quote(historical,{context:'calculadora',cost:8434,marketPrice:12799,channel:'T1 Comercios',shippingType:'Mediano',mode:'tasas',margin:.1,inflation:.2});
  const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
  assert.equal(r.discount.price,14199);assert.equal(r.regular.price,16999);close(r.discount.netPayout,9882.285);close(r.regular.netPayout,11884.285);close(r.discount.profit,1448.285);close(r.regular.profit,3450.285);close(r.discount.costBasedTargetDifference,577.885);
 });
 test('actual V34 UPC reference preserves zero-margin rounding and exact fractional deductions',()=>{
  // RECOMENDADOR_UPC B6/F10/F11 and A21/D21/G21/D49.
- const r=recommend(config,{sku:'REFERENCE34',upc:'195950638011',name:'Apple iPhone 17 Pro Max',category:'CELULARES SMARTPHONE',costCents:2794800,averageCostMxn:27948,priceCents:3099900,shippingType:'Pequeño'},{channel:'T1 Comercios',mode:'tasas',margin:0,inflation:0});
+ const historical=structuredClone(config);historical.parameters.t1IncludedVat=0;historical.parameters.t1RetentionBase='gross_ex_vat';
+ const r=recommend(historical,{sku:'REFERENCE34',upc:'195950638011',name:'Apple iPhone 17 Pro Max',category:'CELULARES SMARTPHONE',costCents:2794800,averageCostMxn:27948,priceCents:3099900,shippingType:'Pequeño'},{channel:'T1 Comercios',mode:'tasas',margin:0,inflation:0});
  assert.equal(r.discount.price,39299);assert.equal(r.regular.price,39299);assert.ok(Math.abs(r.discount.profit-20.785)<1e-8);assert.ok(Math.abs(r.discount.netPayout-27968.785)<1e-8);assert.equal(r.discount.isr,982.475);
 });

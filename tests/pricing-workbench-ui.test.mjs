@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createContext,runInContext} from 'node:vm';
+const source=readFileSync(new URL('../public/erp/pricing-ui.js',import.meta.url),'utf8');
+function harness(){
+  const calls=[],listeners={},elements={};
+  const products=[{sku:'BLANK',upc:'',name:'Sin UPC'},{sku:'REF',upc:'840080527079',name:'Referencia',category:'Audio',averageCostMxn:1000,costCents:100000,priceCents:199900}];
+  const engine={CHANNELS:['T1 Comercios','Coppel'],listCategories:()=>['Todas las categorías'],resolveCategory:()=> 'Todas las categorías',quote:(...args)=>{calls.push(['quote',...args]);return {valid:false,errors:[]};},recommend:(...args)=>{calls.push(['recommend',...args]);return {valid:false,errors:[]};},compareChannels:(...args)=>{calls.push(['compare',...args]);return [];}};
+  const context=createContext({state:{products,config:{parameters:{},elektraMsi:[]}},window:{ERP:{engines:{pricing:engine}}},document:{addEventListener:(name,fn)=>{listeners[name]=fn;},getElementById:id=>elements[id]||null},pricingPage:()=>'',renderers:{},nav:[],esc:value=>String(value??''),money:value=>`$${value/100}`,badge:value=>String(value),icon:()=>'<svg></svg>',render(){calls.push(['render']);}});
+  runInContext(source,context);
+  return {run:code=>runInContext(code,context),calls,listeners,elements,products};
+}
+test('empty UPC never matches a blank catalogue UPC; rendering and clearing preserve choices',()=>{
+  const h=harness();assert.equal(h.run("price28FindProduct('')"),undefined);assert.equal(h.run("price28FindProduct('  ')"),undefined);
+  assert.equal(h.run("price28Forms.calculadora.cost"),'');
+  h.run("price28Tab='recomendador';price28Forms.recomendador.t1CommissionMode='inferred14';price28Forms.recomendador.t1RetentionBase='gross_ex_vat';price28Forms.recomendador.mode='manual_precios';price28Form()");
+  assert.equal(h.run('price28Forms.recomendador.productKey'),'');
+  h.run("price28Forms.recomendador.productKey='REF';price28Clear();price28Form()");
+  assert.equal(h.run('price28Forms.recomendador.productKey'),'');assert.equal(h.run('price28Forms.recomendador.mode'),'manual_precios');
+  assert.equal(h.run('price28Input().t1CommissionMode'),'inferred14');assert.equal(h.run('price28Input().t1RetentionBase'),'gross_ex_vat');
+  assert.ok(!source.includes('price28ReferenceUPC')); assert.equal(h.products.length,2);
+});
+test('manual, UPC and compare routes pass both T1 controls; configured fallback is honored',()=>{
+  const h=harness();
+  assert.equal(h.run('price28Input().t1CommissionMode'),'configured');assert.equal(h.run('price28Input().t1RetentionBase'),'after_commission_ex_vat');
+  h.run("state.config.parameters.t1RetentionBase='gross_ex_vat'");assert.equal(h.run('price28Input().t1RetentionBase'),'gross_ex_vat');
+  for(const tab of ['calculadora','cotizador','recomendador','comparar']){
+    h.run(`price28Tab='${tab}';Object.assign(price28Forms[price28Tab],{productKey:'REF',t1CommissionMode:'inferred14',t1RetentionBase:'after_commission_ex_vat'});price28Calculate()`);
+    const call=h.calls.at(-1),input=call.at(-1);assert.equal(input.t1CommissionMode,'inferred14');assert.equal(input.t1RetentionBase,'after_commission_ex_vat');
+    assert.equal(call[0],tab==='comparar'?'compare':tab==='recomendador'?'recommend':'quote');
+  }
+});
+test('cost and UPC clearing stay editable without restoring an example',()=>{
+  const h=harness();assert.equal(h.run('price28Forms.calculadora.cost'),'');
+  h.listeners.input({target:{dataset:{price28Field:'cost'},value:''}});assert.equal(h.run('price28Input().cost'),null);
+  h.listeners.input({target:{dataset:{price28Field:'cost'},value:'1200'}});assert.equal(h.run('price28Input().cost'),1200);
+  h.run("price28Tab='recomendador';price28Forms.recomendador.productKey='840080527079'");assert.equal(h.run('price28Forms.recomendador.productKey'),'840080527079');
+  h.elements['price28-product-info']={};h.elements['price28-results']={};
+  h.listeners.input({target:{dataset:{price28Field:'productKey'},value:''}});
+  assert.match(h.elements['price28-product-info'].innerHTML,/pendiente de seleccionar/);assert.match(h.elements['price28-results'].innerHTML,/Selecciona un producto/);
+});
+test('nominal tax rates, monetary base and effective coefficients have distinct labels',()=>{
+  const h=harness();h.run(`globalThis.result={valid:true,status:'RENTABLE',channel:'T1 Comercios',withholdingBaseMode:'after_commission_ex_vat',commissionSource:'inferred14',commissionRate:.14,includedVat:.16,nominalVatRate:.08,nominalIsrRate:.025,vatRate:.05931,isrRate:.01853,discount:{price:2000,priceExVat:1724.14,commissionExVat:241.38,withholdingBase:1482.76,vat:118.62,isr:37.07,profit:300,netPayout:1300,margin:.15},regular:{price:2200}}`);
+  const html=h.run('price28Result(result)');assert.match(html,/Base = \(P − comisión\) \/ \(1 \+ IVA\)/);assert.match(html,/14% inferido · simulación/);assert.match(html,/Retención IVA \(8% sobre base\)/);assert.match(html,/Retención ISR \(2.5% sobre base\)/);assert.match(html,/Depósito estimado/);assert.match(html,/Base de retención/);
+  assert.match(h.run("price28Forms.calculadora.t1CommissionMode='inferred14';price28T1Controls(price28Forms.calculadora)"),/comisión inferida/);
+  assert.match(h.run("price28Forms.calculadora.channel='Coppel';price28T1Controls(price28Forms.calculadora)"),/^$/);
+});
+test('settings, saved scenario and publication draft actions remain wired',()=>{
+  const h=harness();assert.equal(h.run('price28SettingTabs.length'),9);
+  for(const action of ['pricing.scenario.save','pricing.publication.prepare','config.pricing.save','config.commission.save','config.mapping.save'])assert.ok(source.includes(action));
+  assert.match(h.run('price28Saved()'),/Escenarios guardados/);
+});

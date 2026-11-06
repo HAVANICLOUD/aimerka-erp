@@ -3,12 +3,12 @@ import * as inventoryWorkspace from './modules/inventory-workspace.mjs?v=2026110
 import * as purchaseCatalogs from './modules/purchase-catalogs.mjs?v=20261105-fiscal';
 import * as purchases from './modules/purchase-workspace.mjs?v=20261105-fiscal';
 import * as payments from './modules/payment-reconciliation.mjs?v=20261105-payment-differences';
-import * as pricing from './modules/pricing-v28.mjs?v=20261104-v43';
+import * as pricing from './modules/pricing-v28.mjs?v=20261106-pricing-v43';
 import * as warehouses from './modules/warehouses.mjs';
 import * as payouts from './modules/payout-schedules.mjs';
 import * as settlements from './modules/settlement-documents.mjs?v=20261105-payment-differences';
 import * as operations from './modules/operations-v28.mjs?v=20261029-documents';
-import * as reconciliation from './modules/reconciliation-v28.mjs?v=20261104-v43';
+import * as reconciliation from './modules/reconciliation-v28.mjs?v=20261106-pricing-v43';
 import * as inventory from './modules/inventory-v28.mjs?v=20261105-restore-sku';
 ERP.engines={productIdentity,inventoryWorkspace,purchaseCatalogs,purchases,payments,pricing,operations,reconciliation,inventory,warehouses,payouts,settlements};
 D.available=inventory.available;D.orderTotal=inventory.orderTotal;D.expectedNet=inventory.expectedNet;
