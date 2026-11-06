@@ -1,9 +1,9 @@
-/** Opt-in local API smoke test. Only writes/restores a note in workspace practice. */
+/** Opt-in local API smoke test. Only writes/restores a note in the local operative workspace. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const base=new URL(process.argv[2]||'http://localhost:4173');
 if(!['localhost','127.0.0.1','terminal.local'].includes(base.hostname))throw new Error('This test is restricted to the local preview.');
-const workspace='practice',id='qa-note-'+crypto.randomUUID(),marker='QA persistencia '+id;
+const workspace='v43',id='qa-note-'+crypto.randomUUID(),marker='QA persistencia '+id;
 const result={workspace,startedAt:new Date().toISOString(),assertions:[]};
 async function get(){const res=await fetch(new URL('/api/state?workspace='+workspace,base),{cache:'no-store',signal:AbortSignal.timeout(20000)});assert.equal(res.status,200);return res.json();}
 async function post(command){const res=await fetch(new URL('/api/action',base),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command),signal:AbortSignal.timeout(20000)});return {status:res.status,body:await res.json()};}

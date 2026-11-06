@@ -1,3 +1,4 @@
+import {currentWorkspaceWrite} from '../../../lib/workspace-policy.mjs';
 import {readState,workspaceId,priorAction,hashInput,commitState,createSeed} from '../../../lib/store';
 import {applyCommand} from '../../../lib/commands.mjs';
 import {verifyDocuments} from '../../../lib/documents';
@@ -11,6 +12,7 @@ export async function POST(request:Request){
     if(!request.headers.get('content-type')?.includes('application/json'))return Response.json({error:'Se requiere JSON.'},{status:415});
     const command=await request.json();
     if(typeof command.id!=='string'||command.id.length<8||command.id.length>160||typeof command.type!=='string')return Response.json({error:'La operación requiere un identificador válido.'},{status:400});
+    if(!currentWorkspaceWrite(command.workspace,command.type))return Response.json({error:'Este espacio fue retirado. Recarga AIMERKA para trabajar con los datos compartidos actuales.'},{status:409});
     const id=workspaceId(command.workspace),inputHash=await hashInput({type:command.type,payload:command.payload||{}});
     const current=await readState(id),access=await requestAccess(request,current);
     try{assertPermission(access,command.type);}catch(error:any){return Response.json({error:error.message},{status:403});}

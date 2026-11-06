@@ -7,7 +7,8 @@ export async function POST(request: Request) {
   try {
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return Response.json({error:'Origen de solicitud no válido.'},{status:403});
-    const workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
+    if(new URL(request.url).searchParams.get('workspace')!=='v43')return Response.json({error:'Recarga AIMERKA para adjuntar documentos en la operación compartida.'},{status:409});
+    const workspace = workspaceId('v43');
     const purpose=new URL(request.url).searchParams.get('purpose');
     const access=await requestAccess(request);try{assertPermission(access,purpose==='settlement'?'settlement.cheque':purpose==='image'?'product.save':'purchase.importDocuments');}catch(error:any){return Response.json({error:error.message},{status:403});}
     if (!request.headers.get('content-type')?.includes('multipart/form-data')) return Response.json({error:'Adjunta un archivo PDF, PNG o JPG.'},{status:415});

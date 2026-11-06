@@ -1,3 +1,4 @@
+import {resolveWorkspace} from './workspace-policy.mjs';
 import { env } from 'cloudflare:workers';
 import { splitState, joinState, diffFragments } from './state-codec.mjs';
 import seed from '../data/seed-v28.json';
@@ -8,7 +9,7 @@ import recoverySnapshot from '../data/recovery-v43-revision3.json';
 import {planV43Recovery,v43RecoveryWrites} from './v43-recovery.mjs';
 
 export function database(){if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
-export function workspaceId(value:string|null|undefined){if(value==='v43'||value==='practice')return value;if(!value||value==='v28')return 'v28';throw new Error('Espacio de trabajo inválido.');}
+export const workspaceId=resolveWorkspace;
 export function createSeed(id:string){
   if(id==='v43')return structuredClone(seed43);
   if(id==='v28'){const state:any=structuredClone(seed);state.config=structuredClone(pricingConfig);return state;}
@@ -62,4 +63,11 @@ export async function commitState(id:string,revision:number,before:any,after:any
   const response=await db.batch(statements);
   if(response[0].meta.changes!==1)return null;
   return {workspace:id,revision:next,updatedAt:now,state:after,result};
+}
+
+// Retired datasets are not exposed. Their existing team policy remains a single
+// internal security record, independent of the operative inventory and sales.
+export async function readTeamPolicy(){
+ const batch=await database().batch([database().prepare('SELECT revision FROM erp_workspaces WHERE id=?').bind('v28'),database().prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? AND name=? ORDER BY part').bind('v28','security')]);
+ return {revision:Number((batch[0].results[0] as any)?.revision||0),state:joinState(batch[1].results)};
 }

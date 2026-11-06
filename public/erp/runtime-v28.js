@@ -1,9 +1,10 @@
 'use strict';
 const ERP={
- workspace:localStorage.getItem('aimerka-workspace-v28')||'v28',revision:null,engines:{},ready:false,busy:false,lastCommand:null,updatedAt:null,
- async reload(){
+ workspace:'v43',revision:null,engines:{},ready:false,busy:false,lastCommand:null,updatedAt:null,
+ async reload(options={}){
    const response=await fetch('/api/state?workspace='+encodeURIComponent(this.workspace),{cache:'no-store'}),data=await response.json();
    if(!response.ok)throw new Error(data.error||'No se pudo cargar la operación.');
+   if(options.passive&&(this.busy||this.hasOpenDraft?.()||data.revision<this.revision))return {...data,skipped:true};
    state=data.state;this.access=data.access;this.revision=data.revision;this.updatedAt=data.updatedAt;this.ready=true;render();return data;
  },
  async command(type,payload={},options={}){
@@ -30,23 +31,23 @@ window.ERP=ERP;
 const legacyViews={dashboard,orders:ordersPage,inventory:inventoryPage,products:productsPage,pricing:pricingPage,settlements:settlementsPage,incidents:incidentsPage,integrations:integrationsPage,project:projectPage};
 const navDefinitions=[['dashboard','Resumen','grid','OPERACIÓN'],['orders','Pedidos y ventas','bag'],['inventory','Inventario','box'],['products','Productos','tag'],['purchases','Compras y mercancía','truck'],['expenses','Gastos y abonos','wallet'],['calendar','Calendario de pagos','clock'],['pricing','Precios y comisiones','calculator','CONTROL COMERCIAL'],['settlements','Conciliación y lotes','wallet'],['incidents','Incidencias','alert'],['statistics','Estadísticas','arrowup'],['bestsellers','Más vendidos','arrowup'],['configuration','Reglas y tarifas','layers','MI ESPACIO'],['catalogs','Catálogos','tag'],['audit','Bitácora y respaldo','clock'],['integrations','Integraciones','plug'],['project','Alcance V28','shield']];
 nav.splice(0,nav.length,...navDefinitions.map(([a,b,c])=>[a,b,c]));
-sidebar=function(){document.getElementById('sidebar').innerHTML=`<div class="brand-row"><a class="brand" href="#dashboard" aria-label="AiMerka, ir al resumen"><img class="brand-logo" src="/erp/assets/aimerka-logo.png" alt="AiMerka" width="2048" height="462"><span class="brand-caption">ECOMMERCE ERP</span></a><button class="icon-button mobile-menu-close" type="button" data-ui-close-menu aria-label="Cerrar menú">${icon('close')}</button></div><div class="workspace-picker"><label for="workspace-picker">ESPACIO DE TRABAJO</label><select id="workspace-picker"><option value="v28" ${ERP.workspace==='v28'?'selected':''}>HAVANI · datos V28</option><option value="practice" ${ERP.workspace==='practice'?'selected':''}>Práctica · datos ficticios</option></select><small>${ERP.workspace==='v28'?'Copia operativa del archivo':'Prueba los flujos con libertad'}</small></div>${navDefinitions.map(([id,label,ic,group])=>`${group?'<div class="nav-group-label">'+group+'</div>':''}<button class="nav-item ${view===id?'active':''}" data-view="${id}" ${view===id?'aria-current="page"':''}>${icon(ic)}<span>${label}</span>${id==='orders'?'<span class="nav-count">'+state.orders.length+'</span>':''}</button>`).join('')}<div class="sidebar-bottom"><div class="pilot-card"><div class="pilot-top">${icon('shield')} AIMERKA · V28</div><p>Cada pedido, producto y pago en su lugar.</p><button data-v28="guide">Explorar el ERP ↗</button></div><div class="workspace"><div class="workspace-icon">HT</div><div><strong>HAVANI Technologies</strong><small>Acceso privado</small></div></div></div>`;};
+sidebar=function(){document.getElementById('sidebar').innerHTML=`<div class="brand-row"><a class="brand" href="#dashboard" aria-label="AiMerka, ir al resumen"><img class="brand-logo" src="/erp/assets/aimerka-logo.png" alt="AiMerka" width="2048" height="462"><span class="brand-caption">ECOMMERCE ERP</span></a><button class="icon-button mobile-menu-close" type="button" data-ui-close-menu aria-label="Cerrar menú">${icon('close')}</button></div><div class="workspace-picker"><span class="eyebrow">ERP COMPARTIDO</span><strong style="display:block;margin-top:8px">AIMERKA</strong><small>Una sola operación para todo el equipo</small></div>${navDefinitions.map(([id,label,ic,group])=>`${group?'<div class="nav-group-label">'+group+'</div>':''}<button class="nav-item ${view===id?'active':''}" data-view="${id}" ${view===id?'aria-current="page"':''}>${icon(ic)}<span>${label}</span>${id==='orders'?'<span class="nav-count">'+state.orders.length+'</span>':''}</button>`).join('')}<div class="sidebar-bottom"><div class="pilot-card"><div class="pilot-top">${icon('shield')} AIMERKA · OPERACIÓN</div><p>Cada pedido, producto y pago en su lugar.</p></div><div class="workspace"><div class="workspace-icon">HT</div><div><strong>HAVANI Technologies</strong><small>Acceso privado</small></div></div></div>`;};
 const oldRender=render;
 render=function(){
  if(!ERP.ready)return;
  oldRender();
- const pill=document.querySelector('.demo-pill');if(pill)pill.innerHTML=`<span></span>${ERP.workspace==='v28'?'Datos V28':'Práctica'}`;
- document.querySelector('.app-footer').innerHTML=`<span>AiMerka · Operación V28</span><span>Versión de datos ${ERP.revision} · Guardado en servidor · APIs por conectar</span>`;
+ const pill=document.querySelector('.demo-pill');if(pill)pill.innerHTML=`<span></span>ERP compartido`;
+ document.querySelector('.app-footer').innerHTML=`<span>AiMerka · ERP compartido</span><span>Versión de datos ${ERP.revision} · Guardado en servidor · APIs por conectar</span>`;
  if(!document.getElementById('save-status')){const s=document.createElement('span');s.id='save-status';s.className='save-status saved';s.textContent='Guardado';document.querySelector('.topbar').insertBefore(s,document.querySelector('.demo-pill'));}
 };
 persist=function(){toast('Utiliza Guardar en el formulario para registrar los cambios en el servidor.',true);};
 primaryNew=function(){return `<button class="btn primary" data-v28="sale-new">${icon('plus')} Registrar venta</button>`;};
 execute=async function(type,id,extra={}){const map={ship:'sale.ship',deliver:'sale.deliver',cancel:'sale.cancel',refund:'sale.refund',receive_return:'sale.return_receive',restock:'sale.return_restock',reject_return:'sale.return_reject',return_request:'sale.return_request'};return ERP.command(map[type]||type,{orderId:id,...extra});};
 function nullMoney(value){return value===null||value===undefined?'<span class="muted">Sin informar</span>':money(value);}
-function datasetNote(){return ERP.workspace==='v28'?'Datos importados de V28. Los registros históricos conservan su procedencia.':'Espacio de práctica con datos ficticios, separado de V28.';}
+function datasetNote(){return 'Datos compartidos de AIMERKA. Todos los usuarios consultan la misma operación.';}
 function pageTabs(tabs,current,attr){return `<div class="tabs">${tabs.map(([id,label])=>`<button class="tab ${id===current?'active':''}" ${attr}="${esc(id)}">${esc(label)}</button>`).join('')}</div>`;}
 
-document.addEventListener('change',async e=>{if(e.target.id!=='workspace-picker')return;if(ERP.busy||!ERP.ready){e.target.value=ERP.workspace;return;}const previous=ERP.workspace;ERP.workspace=e.target.value;ERP.ready=false;ERP.lastCommand=null;e.target.disabled=true;window.Price28?.discardDrafts();try{closeDrawer();document.getElementById('modal').close();document.getElementById('main').innerHTML='<div class="loading-state"><div class="loader"></div><h2>Cargando espacio de trabajo…</h2></div>';await ERP.reload();localStorage.setItem('aimerka-workspace-v28',ERP.workspace);toast('Espacio de trabajo cargado.');}catch(error){ERP.workspace=previous;ERP.ready=true;render();toast(error.message,true);}});
+
 // Intercept only mutations from the original prototype. Its calculator and
 // operational concepts remain available; changes now go through the server.
 document.addEventListener('click',async e=>{

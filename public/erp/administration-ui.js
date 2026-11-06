@@ -46,9 +46,9 @@ async function adminTeamCommand(type,payload){
  if(ERP.busy)return {ok:false,error:'Espera a que termine el guardado actual.'};
  ERP.busy=true;ERP.setStatus('Guardando equipo…','saving');
  try{
-  const currentResponse=await fetch('/api/state?workspace=v28',{cache:'no-store'}),current=await currentResponse.json();if(!currentResponse.ok)throw new Error(current.error||'No se pudo cargar la configuración del equipo.');
-  const command={id:ERP.makeId(),type,payload,workspace:'v28',revision:current.revision};
-  const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)}),data=await response.json();if(!response.ok)throw new Error(data.error||'No se pudo guardar el equipo.');
+  const currentResponse=await fetch('/api/team',{cache:'no-store'}),current=await currentResponse.json();if(!currentResponse.ok)throw new Error(current.error||'No se pudo cargar la configuración del equipo.');
+  const command={id:ERP.makeId(),type,payload,revision:current.revision};
+  const response=await fetch('/api/team',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)}),data=await response.json();if(!response.ok)throw new Error(data.error||'No se pudo guardar el equipo.');
   await ERP.reload();ERP.setStatus('Guardado','saved');toast(data.result?.message||'Equipo actualizado.');return {ok:true,result:data.result};
  }catch(error){ERP.setStatus('No se guardó · reintentar','error');return {ok:false,error:error.message};}finally{ERP.busy=false;}
 }
