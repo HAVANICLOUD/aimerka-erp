@@ -245,7 +245,7 @@ function purchaseInput(state,payload,today,prior) {
     if (typeof item.qty !== 'number' || !Number.isFinite(item.qty) || item.qty <= 0) fail('La cantidad de mercancía debe ser positiva.');
     const unitCostCents = item.unitCostCents == null ? null : item.unitCostCents;
     if (unitCostCents != null && !validMoney(unitCostCents)) fail('El costo unitario no puede ser negativo ni contener fracciones de centavo.');
-    const totalCents = unitCostCents == null ? null : Math.round(item.qty*unitCostCents);
+    const totalCents = previous?.sourceTotalCents!=null&&previous.qty===item.qty&&previous.unitCostCents===unitCostCents?previous.totalCents:unitCostCents == null ? null : Math.round(item.qty*unitCostCents);
     if (totalCents != null && !validMoney(totalCents)) fail('El importe de una partida excede el límite permitido.');
     const skuOrUpc = text(item.skuOrUpc||item.sku||item.upc);
     if ((previous?.receivedQty||0) > 0) {

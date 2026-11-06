@@ -1,4 +1,4 @@
-import * as purchases from './modules/purchase-workspace.mjs?v=20261105-purchasing';
+import * as purchases from './modules/purchase-workspace.mjs?v=20261105-sicar-history';
 import * as payments from './modules/payment-reconciliation.mjs?v=20261105-payment-differences';
 import * as pricing from './modules/pricing-v28.mjs?v=20261104-v43';
 import * as warehouses from './modules/warehouses.mjs';
