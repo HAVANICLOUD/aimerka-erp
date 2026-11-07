@@ -1,7 +1,8 @@
 /**
- * AIMERKA V43 — pricing workbook rules, plus the requested T1 withholding-base update.
+ * AIMERKA — workbook pricing with separate commercial-margin and cash-flow objectives.
  * Money entering/leaving these calculation functions is MXN (not cents).
  * Product state uses integer cents; recommend() is the explicit adapter.
+ * Withholding always reduces cash; its pass-through choice changes the pricing objective only.
  * These functions never publish prices or change inventory.
  */
 export const CHANNELS = ['T1 Comercios', 'Coppel', 'Mercado Libre', 'Liverpool', 'Tienda Nube', 'Elektra'];
@@ -86,6 +87,20 @@ export function parseMsi(value) {
   return match ? Number(match[1]) : null;
 }
 
+/** Pricing-only assumptions. Historical settlements and saved scenarios keep their own snapshots. */
+export function withholdingProfiles(config = {}) {
+  return CHANNELS.map(channel=>{
+    const saved=(config.pricingWithholding||[]).find(r=>r.channel===channel);
+    return {...{channel,baseMode:channel==='Tienda Nube'?'none':'gross_ex_vat',includedVat:channel==='T1 Comercios'?Number(config.parameters?.t1IncludedVat??.16):.16,vatRate:Number(config.parameters?.vatWithholding??.08),isrRate:Number(config.parameters?.incomeWithholding??.025)},...saved};
+  });
+}
+export function validateWithholdingProfiles(rows){
+  if(!Array.isArray(rows)||rows.length!==CHANNELS.length)throw Error('Configura una regla de retenciones por canal.');
+  const seen=new Set();for(const r of rows){if(!CHANNELS.includes(r.channel)||seen.has(r.channel))throw Error('Canal fiscal inválido o repetido.');seen.add(r.channel);
+    if(!['gross_ex_vat','sale_gross','none'].includes(r.baseMode))throw Error('Base fiscal de precios inválida.');
+    for(const k of ['includedVat','vatRate','isrRate'])if(typeof r[k]!=='number'||!Number.isFinite(r[k])||r[k]<0||r[k]>=1)throw Error('IVA y retenciones deben estar entre 0% y menos de 100%.');
+  }return clone(rows);
+}
 export function resolveCommission(config, input = {}) {
   const channel = canonicalChannel(input.channel);
   const errors = [];
@@ -126,22 +141,25 @@ export function resolveCommission(config, input = {}) {
     if(t1CommissionMode==='inferred14')baseRate=.14;
   }
   rate = baseRate + msiRate;
-  if (channel !== 'Tienda Nube') {
+  if (channel !== 'Tienda Nube'&&!(config.pricingWithholding||[]).some(r=>r.channel===channel)) {
     if (!numeric(config.parameters?.vatWithholding)) errors.push(issue('vatRate', 'Falta configurar la retención IVA.'));
     if (!numeric(config.parameters?.incomeWithholding)) errors.push(issue('isrRate', 'Falta configurar la retención ISR.'));
   }
-  const isT1=channel==='T1 Comercios',includedVat=isT1?Number(config.parameters?.t1IncludedVat??.16):0;
-  const withholdingBaseMode=isT1?(input.t1RetentionBase||config.parameters?.t1RetentionBase||'after_commission_ex_vat'):(channel==='Tienda Nube'?'none':'sale_gross');
-  if(isT1&&!['after_commission_ex_vat','gross_ex_vat'].includes(withholdingBaseMode))errors.push(issue('t1RetentionBase','Selecciona una base de retenciones T1 válida.'));
-  if(!Number.isFinite(includedVat)||includedVat<0||includedVat>=1)errors.push(issue('vatRate','Revisa el IVA incluido para la base de retenciones T1.'));
-  const nominalVatRate=channel==='Tienda Nube'?0:Number(config.parameters?.vatWithholding);
-  const nominalIsrRate=channel==='Tienda Nube'?0:Number(config.parameters?.incomeWithholding);
+  const isT1=channel==='T1 Comercios',profile=withholdingProfiles(config).find(r=>r.channel===channel);
+  const withholdingBaseMode=isT1&&present(input.t1RetentionBase)?input.t1RetentionBase:profile.baseMode;
+  const includedVat=withholdingBaseMode==='sale_gross'?0:Number(profile.includedVat);
+  if(!['after_commission_ex_vat','gross_ex_vat','sale_gross','none'].includes(withholdingBaseMode))errors.push(issue('withholdingBase','Selecciona una base de retenciones válida.'));
+  if(!Number.isFinite(includedVat)||includedVat<0||includedVat>=1)errors.push(issue('vatRate','Revisa el IVA incluido en el precio.'));
+  const retentionTreatment=input.retentionTreatment||'pass_through';
+  if(!['pass_through','no_pass_through'].includes(retentionTreatment))errors.push(issue('retentionTreatment','Selecciona cómo trasladar las retenciones al precio.'));
+  const nominalVatRate=withholdingBaseMode==='none'?0:Number(profile.vatRate);
+  const nominalIsrRate=withholdingBaseMode==='none'?0:Number(profile.isrRate);
   const taxMultiplier=(withholdingBaseMode==='after_commission_ex_vat'?1-rate:1)/(1+includedVat);
   const vatRate=nominalVatRate*taxMultiplier,isrRate=nominalIsrRate*taxMultiplier;
   for (const [name, value] of [['commission', baseRate], ['msi', msiRate], ['commission', rate], ['vatRate', vatRate], ['isrRate', isrRate],['vatRate',nominalVatRate],['isrRate',nominalIsrRate]]) {
     if (!Number.isFinite(value) || value < 0 || value >= 1) errors.push(issue(name, 'Las tasas configuradas deben estar entre 0% y menos de 100%.'));
   }
-  return {valid: !errors.length, errors, channel, category, baseRate, msiRate, rate, vatRate, isrRate, path, configuredCommissionRate,withholdingBaseMode,includedVat,nominalVatRate,nominalIsrRate,t1CommissionMode,commissionSource:isT1&&t1CommissionMode==='inferred14'?'Escenario 14% · referencia inferida en conciliación':'Comisión configurada',context:'Calculadora V43'};
+  return {valid: !errors.length, errors, channel, category, baseRate, msiRate, rate, vatRate, isrRate, path, configuredCommissionRate,withholdingBaseMode,includedVat,nominalVatRate,nominalIsrRate,retentionTreatment,t1CommissionMode,commissionSource:isT1&&t1CommissionMode==='inferred14'?'Escenario 14% · referencia inferida en conciliación':'Comisión configurada',context:'Calculadora V43'};
 }
 
 export function pricePolicy(config = {}) {
@@ -178,17 +196,19 @@ function breakdown(price, cost, shipping, rate, targetMargin) {
   const vat=withholdingBase*rate.nominalVatRate,isr=withholdingBase*rate.nominalIsrRate;
   const deductions = commission + vat + isr + shipping;
   const netPayout = price - deductions, profit = netPayout - cost;
-  return {price, cost, shipping, commission, vat, isr, deductions, netPayout, profit, withholdingBase,priceExVat,commissionExVat, margin: price ? profit / price : 0,
-    targetProfit: price * targetMargin, targetDifference: profit - price * targetMargin,
-    costBasedTargetDifference: profit - (cost + shipping) * targetMargin};
+  const commercialProfit=price-commission-shipping-cost,objectiveProfit=rate.retentionTreatment==='no_pass_through'?commercialProfit:profit;
+  const withholdingTotal=vat+isr,marketplacePayout=price-commission-withholdingTotal;
+  return {price, cost, shipping, commission, vat, isr, deductions, netPayout, profit, cashProfit:profit,commercialProfit,objectiveProfit,objectiveMargin:price?objectiveProfit/price:0,withholdingTotal,marketplacePayout, withholdingBase,priceExVat,commissionExVat, margin: price ? profit / price : 0,
+    targetProfit: price * targetMargin, targetDifference: objectiveProfit - price * targetMargin,
+    costBasedTargetDifference: objectiveProfit - (cost + shipping) * targetMargin};
 }
 
 function decision(result, marketPrice, context, zeroCommission, priceType = 'descuento') {
   if (!result) return 'REVISAR MARGEN Y COMISIONES';
   if (zeroCommission) return 'FALTA CONFIGURAR COMISIÓN';
-  if (result.profit < 0) return 'PÉRDIDA';
+  if ((result.objectiveProfit??result.profit) < 0) return 'PÉRDIDA';
   if ((marketPrice > 0 || context === 'recomendador') && result.price > marketPrice) return context === 'calculadora' ? `REVISAR: ${priceType} supera mercado` : 'SUPERA MERCADO';
-  if (result.profit + 0.005 < result.targetProfit) return context === 'calculadora' ? 'REVISAR: utilidad baja' : 'REVISAR UTILIDAD';
+  if ((result.objectiveProfit??result.profit) + 0.005 < result.targetProfit) return context === 'calculadora' ? 'REVISAR: utilidad baja' : 'REVISAR UTILIDAD';
   if (marketPrice <= 0) return 'PUBLICAR: revisar mercado';
   return context === 'calculadora' ? 'PUBLICAR: cumple utilidad' : 'PUBLICAR';
 }
@@ -238,7 +258,7 @@ function run(config, input, product = null, includeComparisons = true) {
   if (errors.length) return invalid(errors, {channel: rates.channel, category, context, mode, inputs: clone(input)});
   if (rates.rate === 0 && rates.channel !== 'Tienda Nube') warnings.push('V28 muestra FALTA CONFIGURAR COMISIÓN cuando la tasa total es cero.');
   const shippingAmount = shipping.amount, costTotal = cost + shippingAmount;
-  let factor = 1 - rates.rate - rates.vatRate - rates.isrRate;
+  let factor = 1 - rates.rate - (rates.retentionTreatment==='pass_through'?rates.vatRate+rates.isrRate:0);
   let discountPrice, regularPrice, competitive = null;
   if (mode === 'competitivo') {
     if (marketPrice <= 0 || factor <= 0 || (rates.rate === 0 && rates.channel !== 'Tienda Nube')) return invalid([issue('marketPrice', 'No se puede calcular un precio competitivo con mercado y tasas incompletas.')], {channel: rates.channel, category, context, mode});
@@ -260,7 +280,7 @@ function run(config, input, product = null, includeComparisons = true) {
         // TN therefore reselects its band from the regular manual price (CALCULADORA C11).
         rates = resolveCommission(config, {...input, category, referencePrice: regularPrice});
         if (!rates.valid) return invalid(rates.errors, {channel: rates.channel, category, context, mode});
-        factor = 1 - rates.rate - rates.vatRate - rates.isrRate;
+        factor = 1 - rates.rate - (rates.retentionTreatment==='pass_through'?rates.vatRate+rates.isrRate:0);
       }
     }
     margin = discountPrice === null ? 0 : factor - costTotal / discountPrice;
@@ -288,15 +308,18 @@ function run(config, input, product = null, includeComparisons = true) {
     if (regular && context === 'recomendador') regular.decision = regular.price > marketPrice ? 'SUPERA MERCADO' : 'PRECIO COMPETITIVO CON UTILIDAD';
   }
   if (context === 'cotizador' && discount) {
-    status = discount.profit < 0 ? 'PÉRDIDA: revisa costo, comisión y precio.' : discount.price > marketPrice ? 'NO COMPITE: el precio sugerido supera el mercado.' : 'VIABLE: precio dentro del mercado y utilidad positiva.';
-    if (Math.abs(discount.profit) < 0.005) status = 'PUNTO DE EQUILIBRIO: no hay utilidad positiva.';
+    status = discount.objectiveProfit < 0 ? 'PÉRDIDA: revisa costo, comisión y precio.' : discount.price > marketPrice ? 'NO COMPITE: el precio sugerido supera el mercado.' : 'VIABLE: precio dentro del mercado y utilidad positiva.';
+    if (Math.abs(discount.objectiveProfit) < 0.005) status = 'PUNTO DE EQUILIBRIO: no hay utilidad positiva.';
   }
+  if(rates.retentionTreatment==='no_pass_through')warnings.push('Las retenciones siguen reduciendo el depósito. El margen objetivo se mide antes de retenciones; acreditarlas depende de tu situación fiscal y no implica devolución inmediata.');
+  if(discount?.cashProfit<0&&discount?.objectiveProfit>=0)warnings.push('Disponible de caja negativo después de costo y envío. Este precio depende de financiar o acreditar las retenciones.');
   const result = {valid: true, errors: [], warnings, channel: rates.channel, category: rates.category, context, mode, cost, costTotal,
     shipping: shippingAmount, shippingDetails: shipping, commissionRate: rates.rate, baseCommissionRate: rates.baseRate,
-    withholdingBaseMode:rates.withholdingBaseMode,includedVat:rates.includedVat,nominalVatRate:rates.nominalVatRate,nominalIsrRate:rates.nominalIsrRate,commissionSource:rates.commissionSource,configuredCommissionRate:rates.configuredCommissionRate,t1CommissionMode:rates.t1CommissionMode,msiRate: rates.msiRate, vatRate: rates.vatRate, isrRate: rates.isrRate, margin, inflation, factor, marketPrice,
+    retentionTreatment:rates.retentionTreatment,objectiveBasis:rates.retentionTreatment==='pass_through'?'cash_after_withholding':'commercial_before_withholding',cashFactor:1-rates.rate-rates.vatRate-rates.isrRate,withholdingBaseMode:rates.withholdingBaseMode,includedVat:rates.includedVat,nominalVatRate:rates.nominalVatRate,nominalIsrRate:rates.nominalIsrRate,commissionSource:rates.commissionSource,configuredCommissionRate:rates.configuredCommissionRate,t1CommissionMode:rates.t1CommissionMode,msiRate: rates.msiRate, vatRate: rates.vatRate, isrRate: rates.isrRate, margin, inflation, factor, marketPrice,
     theoreticalPrice: factor - margin > 0 ? costTotal / (factor - margin) : null,
     discount, regular, status, competitive, pricePolicy:policy, transfer: rates.channel === 'Tienda Nube' ? transferResult(discount, cost, shippingAmount, margin, context,policy) : null,
     mlComparison: null, inputs: clone(input), ratePath: rates.path, source: `V43 · ${context === 'recomendador' ? 'RECOMENDADOR_UPC' : 'CALCULADORA / COTIZADOR'}`};
+  if(includeComparisons&&discount){const otherTreatment=rates.retentionTreatment==='pass_through'?'no_pass_through':'pass_through',other=run(config,{...input,retentionTreatment:otherTreatment},product,false);result.retentionComparison={pass_through:rates.retentionTreatment==='pass_through'?discount:other.discount,no_pass_through:rates.retentionTreatment==='no_pass_through'?discount:other.discount};}
   if (includeComparisons && rates.channel === 'Mercado Libre') result.mlComparison = {
     classic: run(config, {...input, mlType: 'CLASICA', comparisonTargetMargin: margin}, product, false),
     premium: run(config, {...input, mlType: 'PREMIUM', comparisonTargetMargin: margin}, product, false)

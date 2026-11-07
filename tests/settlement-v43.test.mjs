@@ -71,9 +71,9 @@ test('unpaid orders with no cheque and later documentary adjustments stay in mar
  apply(s,'cheque',read('SEARS_32798'));bank(s,'OCTUBRE');const o=s.orders.find(o=>o.id==='V000996');assert.equal(pendingBalanceCents(o,s.products,s.config),0);
  s.settlementLedger.cheques.push({id:'Sears|99999',market:'Sears',number:'99999',date:'2026-10-28',totalCents:10000,status:'documented',lines:[{orderId:o.id,orderNumber:o.number,documentNumber:'ADJ1',code:'SI',amountCents:10000}]});reconcileLedger(s);assert.equal(o.reconciliation.status,'Conciliación parcial');assert.equal(pendingBalanceCents(o,s.products,s.config),10000);
 });
-test('V43 pricing calculators use nominal withholding on the VAT-exclusive T1 base and keep other channels unchanged',()=>{
+test('Pricing calculators exclude VAT before commission; settlement ledger stays independent',()=>{
  const s=seed(),config=structuredClone(s.config);config.parameters.t1IncludedVat=.16;
- const rates=resolveCommission(config,{channel:'T1 Comercios'});assert.ok(Math.abs(rates.vatRate-.08*(1-rates.rate)/1.16)<1e-12);assert.ok(Math.abs(rates.isrRate-.025*(1-rates.rate)/1.16)<1e-12);
+ const rates=resolveCommission(config,{channel:'T1 Comercios'});assert.ok(Math.abs(rates.vatRate-.08/1.16)<1e-12);assert.ok(Math.abs(rates.isrRate-.025/1.16)<1e-12);
  const old=structuredClone(config);delete old.parameters.t1IncludedVat;assert.equal(resolveCommission(old,{channel:'T1 Comercios'}).includedVat,.16);
 });
 
