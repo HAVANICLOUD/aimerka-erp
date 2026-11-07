@@ -20,6 +20,7 @@ export async function GET(request: Request, context: {params: Promise<{id:string
       'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',
       'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(doc.name || 'Documento'),
       'Content-Length':String(object.size)});
+    if((object.httpMetadata?.contentType||doc.mime)==='application/xml'){headers.set('Content-Disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(doc.name||'retencion.xml'));headers.set('Content-Security-Policy',"default-src 'none'; sandbox");}
     return new Response(object.body,{headers});
   } catch(error:any) { return Response.json({error:error.message || 'No se pudo consultar el archivo.'},{status:422}); }
 }

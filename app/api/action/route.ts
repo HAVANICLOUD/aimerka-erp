@@ -1,7 +1,7 @@
 import {currentWorkspaceWrite} from '../../../lib/workspace-policy.mjs';
 import {readState,workspaceId,priorAction,hashInput,commitState,createSeed} from '../../../lib/store';
 import {applyCommand} from '../../../lib/commands.mjs';
-import {verifyDocuments} from '../../../lib/documents';
+import {verifyDocuments,documentBucket,documentKey} from '../../../lib/documents';
 import {requestAccess,assertPermission,OWNER_EMAIL,visibleState} from '../../../lib/access';
 import {parseBankStatement} from '../../../lib/settlement-documents.mjs';
 export const dynamic='force-dynamic';
@@ -22,6 +22,17 @@ export async function POST(request:Request){
     const next=structuredClone(current.state),actor=access.email;
     const financial=['settlement.cheque','settlement.statement'].includes(command.type);
     const verifiedDocuments=command.type==='purchase.importDocuments'?await verifyDocuments(id,command.payload?.documents):financial?await verifyDocuments(id,[{id:command.payload?.documentId}]):undefined;
+    let verifiedRetentions;
+    if(command.type==='settlement.retention.import'){
+      const rows=command.payload?.certificates;if(!Array.isArray(rows)||!rows.length||rows.length>6)throw new Error('Importa entre 1 y 6 certificados por lote.');
+      const files=await verifyDocuments(id,rows.flatMap((r:any)=>[{id:r.xmlId},...(r.pdfId?[{id:r.pdfId}]:[])]));
+      verifiedRetentions=await Promise.all(rows.map(async(r:any)=>{
+        const xmlDocument=files.find((d:any)=>d.id===r.xmlId),pdfDocument=r.pdfId?files.find((d:any)=>d.id===r.pdfId):undefined;
+        if(xmlDocument?.mime!=='application/xml'||pdfDocument&&pdfDocument.mime!=='application/pdf')throw new Error('Relaciona el XML fiscal y su PDF original.');
+        const object=await documentBucket().get(documentKey(id,r.xmlId));if(!object)throw new Error('El XML original no está disponible.');
+        return {xml:await object.text(),xmlDocument,pdfDocument,satStatus:r.satStatus||'No verificado'};
+      }));
+    }
     let accountHash;
     let verifiedImages;
     if(command.type==='product.save'&&command.payload?.product?.images){
@@ -31,7 +42,7 @@ export async function POST(request:Request){
       if(verifiedImages.some((image:any)=>!['image/jpeg','image/png'].includes(image.mime)))throw new Error('La galería solo admite imágenes JPG y PNG.');
     }
     if(command.type==='settlement.statement'){const parsed=parseBankStatement(command.payload?.text,current.state.config.bankReconciliation);accountHash=await hashInput(parsed.account);}
-    const result=applyCommand(next,command,{workspace:id,requireFiscalValidation:true,now:new Date().toISOString(),actor,ownerEmail:OWNER_EMAIL,verifiedDocuments,verifiedImages,accountHash,createPractice:()=>createSeed('practice')});
+    const result=applyCommand(next,command,{workspace:id,requireFiscalValidation:true,now:new Date().toISOString(),actor,ownerEmail:OWNER_EMAIL,verifiedDocuments,verifiedRetentions,verifiedImages,accountHash,createPractice:()=>createSeed('practice')});
     if(result?.ok===false)return Response.json({error:result.message,result},{status:422});
     const saved=await commitState(id,current.revision,current.state,next,command,result,actor,inputHash);
     if(!saved)return Response.json({error:'La operación coincidió con otro guardado. Revisa la versión actual y vuelve a intentar.',...visibleState(await readState(id),access)},{status:409});
