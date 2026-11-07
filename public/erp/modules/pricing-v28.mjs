@@ -191,14 +191,14 @@ export function roundRegular99(discount, inflation, p={step:100,ending:99}) {
 
 function breakdown(price, cost, shipping, rate, targetMargin) {
   if (price === null) return null;
-  const commission=price*rate.rate,priceExVat=price/(1+rate.includedVat),commissionExVat=commission/(1+rate.includedVat);
+  const baseCommission=price*rate.baseRate,financing=price*rate.msiRate,commission=price*rate.rate,priceExVat=price/(1+rate.includedVat),commissionExVat=commission/(1+rate.includedVat);
   const withholdingBase=rate.withholdingBaseMode==='none'?0:rate.withholdingBaseMode==='after_commission_ex_vat'?priceExVat-commissionExVat:priceExVat;
   const vat=withholdingBase*rate.nominalVatRate,isr=withholdingBase*rate.nominalIsrRate;
   const deductions = commission + vat + isr + shipping;
   const netPayout = price - deductions, profit = netPayout - cost;
   const commercialProfit=price-commission-shipping-cost,objectiveProfit=rate.retentionTreatment==='no_pass_through'?commercialProfit:profit;
   const withholdingTotal=vat+isr,marketplacePayout=price-commission-withholdingTotal;
-  return {price, cost, shipping, commission, vat, isr, deductions, netPayout, profit, cashProfit:profit,commercialProfit,objectiveProfit,objectiveMargin:price?objectiveProfit/price:0,withholdingTotal,marketplacePayout, withholdingBase,priceExVat,commissionExVat, margin: price ? profit / price : 0,
+  return {price, cost, shipping, baseCommission, financing, commission, vat, isr, deductions, netPayout, profit, cashProfit:profit,commercialProfit,objectiveProfit,objectiveMargin:price?objectiveProfit/price:0,withholdingTotal,marketplacePayout, withholdingBase,priceExVat,commissionExVat, margin: price ? profit / price : 0,
     targetProfit: price * targetMargin, targetDifference: objectiveProfit - price * targetMargin,
     costBasedTargetDifference: objectiveProfit - (cost + shipping) * targetMargin};
 }
@@ -344,6 +344,28 @@ export function recommend(config, product, input = {}) {
 
 export function compareChannels(config, product, input = {}) {
   return CHANNELS.map(channel => recommend(config, product, {...input, channel}));
+}
+
+/** Side-by-side MSI costs: identical sale price, cost, shipping and tax policy in every row.
+ * Recommended prices are a separate scenario and may rise to preserve the target margin.
+ * Never writes to products, configuration or prepared publication proposals.
+ */
+export function compareElektraMsi(config, input = {}, product = null) {
+  const calculate=msi=>product?recommend(config,product,{...input,channel:'Elektra',msi}):quote(config,{...input,channel:'Elektra',msi});
+  const selected=calculate(input.msi||'Sin MSI');
+  if(!selected.valid||!selected.discount)return {valid:false,errors:selected.errors||[],rows:[]};
+  const explicit=present(input.msiComparisonPrice);
+  if(explicit&&(!numeric(input.msiComparisonPrice)||Number(input.msiComparisonPrice)<=0))return {valid:false,errors:[issue('msiComparisonPrice','El precio común para comparar MSI debe ser mayor a cero.')],rows:[]};
+  const useMarket=!['precios','competitivo'].includes(selected.mode)&&selected.marketPrice>0;
+  const referencePrice=explicit?Number(input.msiComparisonPrice):useMarket?selected.marketPrice:selected.discount.price;
+  const rows=(config.elektraMsi||[]).map(plan=>{
+    const result=calculate(plan.label),rates=resolveCommission(config,{...input,channel:'Elektra',category:selected.category,referencePrice,msi:plan.label});
+    if(!rates.valid)return {label:plan.label,valid:false,errors:rates.errors};
+    const fixed=breakdown(referencePrice,selected.cost,selected.shipping,rates,0);
+    return {label:plan.label,months:parseMsi(plan.label),selected:parseMsi(plan.label)===parseMsi(input.msi||'Sin MSI'),valid:true,baseRate:rates.baseRate,msiRate:rates.msiRate,totalRate:rates.rate,
+      fixed,recommended:result.discount,regular:result.regular,status:result.status};
+  });
+  return {valid:true,rows,referencePrice,referenceSource:explicit?'manual':useMarket?'market':'quoted',mode:selected.mode,category:selected.category,retentionTreatment:selected.retentionTreatment};
 }
 
 function normalizedTitle(value) {
