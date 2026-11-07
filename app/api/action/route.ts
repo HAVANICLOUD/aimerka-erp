@@ -4,6 +4,7 @@ import {applyCommand} from '../../../lib/commands.mjs';
 import {verifyDocuments,documentBucket,documentKey} from '../../../lib/documents';
 import {requestAccess,assertPermission,OWNER_EMAIL,visibleState} from '../../../lib/access';
 import {parseBankStatement} from '../../../lib/settlement-documents.mjs';
+import {satCatalogues} from '../../../lib/sat-catalogues';
 export const dynamic='force-dynamic';
 export async function POST(request:Request){
   try{
@@ -42,7 +43,7 @@ export async function POST(request:Request){
       if(verifiedImages.some((image:any)=>!['image/jpeg','image/png'].includes(image.mime)))throw new Error('La galería solo admite imágenes JPG y PNG.');
     }
     if(command.type==='settlement.statement'){const parsed=parseBankStatement(command.payload?.text,current.state.config.bankReconciliation);accountHash=await hashInput(parsed.account);}
-    const result=applyCommand(next,command,{workspace:id,requireFiscalValidation:true,now:new Date().toISOString(),actor,ownerEmail:OWNER_EMAIL,verifiedDocuments,verifiedRetentions,verifiedImages,accountHash,createPractice:()=>createSeed('practice')});
+    const result=applyCommand(next,command,{workspace:id,requireFiscalValidation:true,satCatalogues,now:new Date().toISOString(),actor,ownerEmail:OWNER_EMAIL,verifiedDocuments,verifiedRetentions,verifiedImages,accountHash,createPractice:()=>createSeed('practice')});
     if(result?.ok===false)return Response.json({error:result.message,result},{status:422});
     const saved=await commitState(id,current.revision,current.state,next,command,result,actor,inputHash);
     if(!saved)return Response.json({error:'La operación coincidió con otro guardado. Revisa la versión actual y vuelve a intentar.',...visibleState(await readState(id),access)},{status:409});

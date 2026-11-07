@@ -6,7 +6,8 @@ import ts from 'typescript';
 import {applyInventory} from '../lib/inventory-v28.mjs';
 const units=JSON.parse(readFileSync(new URL('../data/sat-units.json',import.meta.url)));
 const products=JSON.parse(readFileSync(new URL('../data/sat-products.json',import.meta.url)));
-const ctx={now:'2026-11-07T12:00:00Z',actor:'QA',workspace:'v43'};
+const satCatalogues=[products,units].map(catalogue=>new Map(catalogue.rows.map(row=>[String(row[0]).toUpperCase(),row])));
+const ctx={now:'2026-11-07T12:00:00Z',actor:'QA',workspace:'v43',requireFiscalValidation:true,satCatalogues};
 const state=()=>({products:[],orders:[],purchases:[],events:[],movements:[],config:{}});
 const save=(s,p,originalSku,extra={})=>applyInventory(s,{id:'test',type:'product.save',payload:{originalSku,product:{name:'Producto',brand:'Marca',costCents:100,priceCents:200,...p}}},{...ctx,...extra});
 
@@ -31,6 +32,14 @@ test('server canonicalizes descriptions, rejects unknown selections, and saves n
   const before=structuredClone(s);assert.throws(()=>save(s,{sku:'BAD',...product}),/SAT vigente/);assert.deepEqual(s,before);
  }
  const before=structuredClone(s);assert.throws(()=>save(s,{sku:'FUTURE',unitSat:'H87'},undefined,{now:'2021-01-01'}),/SAT vigente/);assert.deepEqual(s,before);
+});
+
+test('server fails closed without trusted catalogues and ignores payload catalogue overrides',()=>{
+ const s=state(),before=structuredClone(s);
+ assert.throws(()=>save(s,{sku:'NO-CATALOGUE',unitSat:'H87'},undefined,{satCatalogues:undefined}),/catálogo SAT no está disponible/);
+ assert.deepEqual(s,before);
+ assert.throws(()=>save(s,{sku:'FORGED',unitSat:'ZZZ',satCatalogues:[{},{}]}),/SAT vigente/);
+ assert.deepEqual(s,before);
 });
 
 test('every currently valid SAT unit saves with canonical casing, including Xyv',()=>{
