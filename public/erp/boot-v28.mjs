@@ -4,7 +4,7 @@ import * as inventoryWorkspace from './modules/inventory-workspace.mjs?v=2026110
 import * as purchaseCatalogs from './modules/purchase-catalogs.mjs?v=20261105-fiscal';
 import * as purchases from './modules/purchase-workspace.mjs?v=20261105-fiscal';
 import * as payments from './modules/payment-reconciliation.mjs?v=20261106-sat';
-import * as pricing from './modules/pricing-v28.mjs?v=20261106-competitivo-v2';
+import * as pricing from './modules/pricing-v28.mjs?v=20261107-studio-v1';
 import * as warehouses from './modules/warehouses.mjs';
 import * as payouts from './modules/payout-schedules.mjs';
 import * as settlements from './modules/settlement-documents.mjs?v=20261105-payment-differences';

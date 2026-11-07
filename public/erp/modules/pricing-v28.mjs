@@ -352,34 +352,73 @@ function normalizedTitle(value) {
 export function productFamily(title) {
   title = normalizedTitle(title);
   const families = [
-    ['accesorios','cable|adaptador|correa|funda|cargador|accesorio'], ['controles','control|dualsense|joystick|mando'],
-    ['telefonia','iphone|celular|smartphone|telefonia|telefono'], ['tabletas','ipad|tableta|tablet|galaxy tab'],
-    ['audifonos','airpods|audifono|headphone|earbud|buds| beats solo| beats studio'], ['bocinas','bocina|homepod|altavoz|echo|beats pill'],
-    ['relojes','apple watch|smartwatch|reloj|galaxy watch'], ['laptops','macbook|laptop|notebook|portatil'],
-    ['computo','imac|mac mini|mac studio|computadora|computo'], ['consolas','consola|playstation|xbox|nintendo'],
-    ['perfumes','perfume|fragancia'], ['cabello','supersonic|airwrap|airstrait|secadora|alisador'],
-    ['ventilacion','ventilador|purificador'], ['aspiradoras','aspiradora|vacuum']
+    ['accesorios','cables?|conectores?|adaptadores?|adaptador|correas?|fundas?|cases?|carcasas?|cargadores?|cargador|accesorios?|teclados?|keyboard|magic keyboard|lapices? opticos?|lapiz optico|apple pencil|stylus|mouse|mouses|protectores?|protector|micas?|soportes?'],
+    ['controles','controles?|control|dualsense|joysticks?|mandos?'],
+    ['telefonia','iphone|celulares?|smartphones?|telefonia|telefonos?'], ['tabletas','ipad|tabletas?|tablets?|galaxy tab'],
+    ['audifonos','airpods|audifonos?|headphones?|earbuds?|buds|beats solo|beats studio'], ['bocinas','bocinas?|homepod|altavoces|altavoz|echo|beats pill'],
+    ['relojes','apple watch|smartwatch|smartwatches|relojes|reloj|galaxy watch'], ['laptops','macbook|laptops?|notebooks?|portatil|portatiles'],
+    ['computo','imac|mac mini|mac studio|computadoras?|computo|pc de escritorio'], ['consolas','consolas?|playstation|xbox|nintendo'],
+    ['perfumes','perfumes?|perfumeria|fragancias?'], ['cabello','supersonic|airwrap|airstrait|secadoras?|alisadores?|alisador|cabello'],
+    ['ventilacion','ventiladores?|ventilador|purificadores?|purificador'], ['aspiradoras','aspiradoras?|vacuum']
   ];
-  return families.find(([, terms]) => terms.split('|').some(term => title.includes(term)))?.[0] || '';
+  return families.find(([, terms]) => new RegExp(`\\b(?:${terms})\\b`).test(title))?.[0] || '';
+}
+
+// Accessory types must not borrow the category of the device they fit.
+function suggestionFamily(title) {
+  const family = productFamily(title);
+  if (family !== 'accesorios') return family;
+  const value = normalizedTitle(title);
+  if (/\b(teclados?|keyboard)\b/.test(value)) return 'accesorios:teclados';
+  if (/\b(apple pencil|lapiz optico|lapices opticos|stylus)\b/.test(value)) return 'accesorios:lapices';
+  if (/\b(mouse|mouses)\b/.test(value)) return 'accesorios:mouse';
+  if (/\b(cargadores?|cargador|adaptadores? de carga|adaptador de carga)\b/.test(value)) return 'accesorios:cargadores';
+  if (/\b(cables?|conectores?|adaptadores?|adaptador)\b/.test(value)) return 'accesorios:cables';
+  if (/\b(fundas?|cases?|carcasas?)\b/.test(value)) return 'accesorios:fundas';
+  if (/\b(soportes?)\b/.test(value)) return 'accesorios:soportes';
+  return 'accesorios';
+}
+
+/** Omit channel for inventory categories. Suggestions are proposals; never mutate products/config. */
+export function categorySuggestion(config, title, channel, products = []) {
+  channel = canonicalChannel(channel);
+  const inventory = !channel;
+  const categories = inventory ? (config.categoryMappings ?? []).map(row => row.category) : listCategories(config, channel);
+  const family = suggestionFamily(title);
+  const result = (category = '', source = 'none', reason = 'Sin coincidencia configurada inequívoca.') =>
+    ({category, family, channel: channel || null, source, reason, requiresReview: true});
+  if (text(title).length < 3) return result();
+  if (['T1 Comercios', 'Tienda Nube'].includes(channel)) return result(categories[0] || '', 'channel', 'El canal usa una categoría general.');
+  const configured = candidate => categories.find(category => equal(category, candidate)) || '';
+  const unique = candidates => [...new Set(candidates.filter(Boolean))];
+  if (family) {
+    const rows = (config.categoryMappings ?? []).filter(row => suggestionFamily(row.category) === family);
+    const candidates = unique(rows.map(row => configured(inventory ? row.category : channelValue(row.channels, channel))));
+    if (candidates.length === 1) return result(candidates[0], 'title-mapping', 'Familia del título y mapeo configurado.');
+    const direct = unique(categories.filter(category => suggestionFamily(category) === family));
+    if (!candidates.length && direct.length === 1) return result(direct[0], 'title-category', 'Familia del título y categoría configurada.');
+  }
+  // Use only explicit catalogue assignments, not resolveCategory's general fallback.
+  const words = normalizedTitle(title).trim().split(/\s+/).filter(word => word.length >= 3 && !['apple','samsung','dyson','para','con'].includes(word));
+  let best = 0, matches = [];
+  for (const product of products) {
+    if (suggestionFamily(product.name) !== family) continue;
+    const mapping = (config.categoryMappings ?? []).find(row => equal(row.category, product.category));
+    const candidate = configured(inventory ? product.category : channelValue(product.categoryOverrides, channel) && !equal(channelValue(product.categoryOverrides, channel), 'Automático')
+      ? channelValue(product.categoryOverrides, channel) : channelValue(mapping?.channels, channel) || channelValue(product.categories, channel));
+    if (!candidate || ['general','todas las categorías'].includes(key(candidate))) continue;
+    const normalized = normalizedTitle(product.name);
+    const score = words.filter(word => normalized.includes(` ${word} `)).length;
+    if (score < 2) continue;
+    if (score > best) {best = score; matches = [candidate];}
+    else if (score === best) matches.push(candidate);
+  }
+  const candidates = unique(matches);
+  return candidates.length === 1 ? result(candidates[0], 'catalogue', 'Coincidencia de título en el catálogo; requiere revisión.') : result();
 }
 
 export function suggestCategory(config, title, channel, products = []) {
-  if (text(title).length < 3) return '';
-  channel = canonicalChannel(channel);
-  const categories = listCategories(config, channel);
-  if (['T1 Comercios', 'Tienda Nube'].includes(channel)) return categories[0] || '';
-  const family = productFamily(title), words = normalizedTitle(title).trim().split(' ');
-  let best = 0, suggestion = '';
-  for (const product of products) {
-    const candidate = resolveCategory(config, product, channel);
-    if (!categories.some(category => equal(category, candidate))) continue;
-    const normalized = normalizedTitle(product.name);
-    if (family && productFamily(normalized) !== family) continue;
-    let score = family ? 3 : 0;
-    for (const word of words) if (word.length >= 3 && !['apple','samsung','dyson'].includes(word) && normalized.includes(` ${word} `)) score += 2;
-    if (score >= 4 && score > best) {best = score; suggestion = candidate;}
-  }
-  return suggestion || (family ? categories.find(category => productFamily(category) === family) || '' : '');
+  return categorySuggestion(config, title, channel, products).category;
 }
 
 export function validateProduct(config, product, existingProducts = [], previousProduct = null) {
