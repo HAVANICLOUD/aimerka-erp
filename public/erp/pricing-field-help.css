@@ -1,0 +1,136 @@
+/* Local to the pricing capture form; help stays in flow inside clipped panels. */
+#price28-form .price28-help-field {
+  --price28-help-tint: #f0f5ff;
+  --price28-help-border: #9eb8e5;
+  --price28-help-ink: #315b94;
+  min-width: 0;
+}
+#price28-form .price28-help-money {
+  --price28-help-tint: #f3f2ff;
+  --price28-help-border: #b7ace5;
+  --price28-help-ink: #594591;
+}
+#price28-form .price28-help-shipping {
+  --price28-help-tint: #eef7fb;
+  --price28-help-border: #9dbfda;
+  --price28-help-ink: #2c617e;
+}
+#price28-form .price28-help-rates,
+#price28-form .price28-help-rules {
+  --price28-help-tint: #f7f2ff;
+  --price28-help-border: #c2ace4;
+  --price28-help-ink: #65428e;
+}
+#price28-form .price28-help-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0;
+  padding-bottom: 7px;
+  min-width: 0;
+}
+#price28-form .price28-help-heading .price28-help-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #344967;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#price28-form .price28-help-vector {
+  display: inline-flex;
+  flex: none;
+  padding: 5px;
+  border-radius: 8px;
+  color: var(--price28-help-ink);
+  background: var(--price28-help-tint);
+}
+#price28-form .price28-help-vector svg { width: 18px; height: 18px; }
+#price28-form .price28-fill-control {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  padding: 12px 14px;
+  border: 2px solid var(--price28-help-border);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff, var(--price28-help-tint));
+  box-shadow: 0 3px 7px #273c6a0c, inset 0 1px 0 #fff;
+  color: #243956;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+#price28-form select.price28-fill-control { padding-inline-end: 30px; cursor: pointer; }
+#price28-form .price28-fill-control:hover { border-color: var(--price28-help-ink); }
+#price28-form .price28-fill-control:focus {
+  outline: 3px solid #294d9b;
+  outline-offset: 2px;
+  border-color: #294d9b;
+  background: #fff;
+  box-shadow: 0 0 0 5px #e4ebff;
+}
+#price28-form .price28-fill-control::placeholder { color: #657590; opacity: 1; font-weight: 400; }
+#price28-form .price28-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--price28-help-border);
+  border-radius: 50%;
+  background: var(--price28-help-tint);
+  color: var(--price28-help-ink);
+  box-shadow: none;
+  font: 700 14px/1 Georgia, serif;
+  text-transform: none;
+  cursor: help;
+}
+#price28-form .price28-help-trigger:hover,
+#price28-form .price28-help-trigger[aria-expanded="true"] { background: #e7eafa; border-color: #615298; color: #383477; }
+#price28-form .price28-help-trigger:focus-visible { outline: 3px solid #294d9b; outline-offset: 2px; }
+/* In-flow help wraps within its own column, even at the form/panel edges. */
+#price28-form .price28-field-tooltip {
+  position: static;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 9px;
+  padding: 11px 13px;
+  border: 1px solid #c6cbea;
+  border-inline-start: 3px solid #7861ad;
+  border-radius: 9px;
+  background: #f2f3ff;
+  color: #344363;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.65;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#price28-form .price28-field-tooltip[hidden] { display: none; }
+#price28-form .price28-help-field > small { font-size: 12px; line-height: 1.6; }
+#price28-form .price28-read-control { background: #f4f5f8; color: #627084; box-shadow: none; cursor: default; }
+@media (max-width: 480px) {
+  #price28-form .price28-help-heading { gap: 6px; }
+  #price28-form .price28-help-trigger { flex-basis: 36px; width: 36px; height: 36px; }
+  #price28-form .price28-fill-control { min-height: 50px; font-size: 16px; }
+  #price28-form .price28-search-row .price28-fill-control { flex-basis: 100%; }
+}
+/* Keep long labels and SKU entry readable in the narrow comparison column. */
+#price28-form{container-type:inline-size}
+@container (max-width:390px){
+ #price28-form .price28-help-field{grid-column:1/-1}
+ #price28-form .price28-search-row .price28-fill-control{flex-basis:100%}
+ #price28-form .price28-search-row .btn{flex:1;justify-content:center}
+}
