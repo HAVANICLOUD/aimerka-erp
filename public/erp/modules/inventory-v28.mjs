@@ -1,4 +1,24 @@
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
+// The shared engine also ships to browsers; catalogue data is loaded only on the server.
+const satCatalogues=typeof window==='undefined'?await Promise.all([
+ import('../data/sat-products.json',{with:{type:'json'}}),
+ import('../data/sat-units.json',{with:{type:'json'}})
+]).then(modules=>modules.map(module=>new Map(module.default.rows.map(row=>[String(row[0]).toUpperCase(),row])))):null;
+function validateProductSat(state,p,existing,now) {
+ const selected={};
+ for(const [index,key,description] of [[0,'satCode','satDescription'],[1,'unitSat','unitSatDescription']]){
+  if(!(key in p))continue;
+  const code=String(p[key]??'').trim(),previous=String(existing?.[key]??'');
+  // Unchanged historical selections are retained even if no longer in the current catalogue.
+  if(existing&&code===previous){if(!(key in existing))continue;selected[key]=existing[key];const row=satCatalogues?.[index].get(code.toUpperCase());if(row)selected[description]=row[1];else if(description in existing)selected[description]=existing[description];continue;}
+  if(!code){selected[key]='';selected[description]='';continue;}
+  const row=satCatalogues?.[index].get(code.toUpperCase()),today=String(now||new Date().toISOString()).slice(0,10);
+  if(index===0&&!/^\d{8}$/.test(code)||index===1&&!/^[A-Za-z0-9]{2,3}$/.test(code)||satCatalogues&&(!row||(row[3]&&row[3]>today)||(row[4]&&row[4]<today)))throw new Error(index===0?'Selecciona una clave de producto SAT vigente del catálogo.':'Selecciona una unidad SAT vigente del catálogo.');
+  selected[key]=row?row[0]:code;if(row)selected[description]=row[1];
+ }
+ if(!existing&&state.config?.productCatalog?.requireSatUnit&&!selected.unitSat)throw new Error('Selecciona la unidad de venta SAT para registrar el producto.');
+ return selected;
+}
 const clone=v=>structuredClone(v);
 const fail=message=>{throw new Error(message);};
 const amount=(value,label='Importe')=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<0)fail(label+' debe expresarse en centavos y no puede ser negativo.');return n;};
@@ -128,12 +148,13 @@ export function applyInventory(state,action,context={}){
    let exactCost=p.averageCostMxn;
    if(existing&&existing.costCents!==costCents&&exactCost===existing.averageCostMxn)exactCost=costCents/100;
    if(exactCost!=null&&(!Number.isFinite(exactCost)||exactCost<0||Math.round(exactCost*100)!==costCents))fail('El costo promedio exacto no coincide con el importe en centavos.');
-   const fields=['category','department','generalCategory','commercialDepartment','satCode','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity','description','manufacturerPart','condition','unitSat','countryOfOrigin','material'];
+   const satSelection=validateProductSat(state,p,existing,ctx.now);
+   const fields=['category','department','generalCategory','commercialDepartment','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity','description','manufacturerPart','condition','countryOfOrigin','material'];
    let imageUrl=existing?.imageUrl||'';if('imageUrl' in p){imageUrl=text(p.imageUrl,2000);if(imageUrl){let valid=imageUrl.startsWith('/')&&!imageUrl.startsWith('//');try{const u=new URL(imageUrl);valid=u.protocol==='https:'&&!u.username&&!u.password;}catch{}if(!valid)fail('La imagen debe usar una ruta del sitio o una URL HTTPS.');}}
    let supplierCodes=existing?.supplierCodes||[];
    if('supplierCodes' in p){if(!Array.isArray(p.supplierCodes)||p.supplierCodes.length>100)fail('Las equivalencias de proveedor no son válidas.');supplierCodes=p.supplierCodes.map(row=>({supplier:text(row.supplier,250),item:text(row.item,100),name:text(row.name,250)}));if(supplierCodes.some(row=>!row.supplier||!row.item))fail('Cada equivalencia necesita proveedor y número de artículo.');if(supplierCodes.some(row=>state.products.some(q=>q!==existing&&(q.supplierCodes||[]).some(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item)))))fail('Ese artículo del proveedor ya está asociado a otro producto.');assertSupplierCodes(state,sku,supplierCodes);supplierCodes=supplierCodes.filter((row,i,rows)=>rows.findIndex(other=>normalized(other.supplier)===normalized(row.supplier)&&normalized(other.item)===normalized(row.item))===i);}
    const base=existing?clone(existing):{sku,upc,good:0,reserved:0,quarantine:0,damaged:0,safety:0,minStock:3,icon:'box',source:'AIMERKA',sourceStock:null,categories:{},categoryOverrides:{}};
-   Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??generated});for(const f of fields)if(f in p)base[f]=text(p[f],300);
+   Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??generated});for(const f of fields)if(f in p)base[f]=text(p[f],300);Object.assign(base,satSelection);
    if(p.categoryOverrides)base.categoryOverrides=Object.fromEntries(Object.entries(p.categoryOverrides).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.categories)base.categories=Object.fromEntries(Object.entries(p.categories).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.images){
@@ -146,10 +167,10 @@ export function applyInventory(state,action,context={}){
     });
     if(new Set(base.images.map(i=>i.id)).size!==base.images.length)fail('No repitas la misma imagen.');
     if(base.images.length){const principal=base.images.find(i=>i.primary)||base.images[0];base.images.forEach(i=>i.primary=i.id===principal.id);base.imageUrl=principal.url;}
-    else base.imageUrl='';
+    else base.imageUrl=imageUrl;
    }
-   if(p.dimensions){const d={};for(const k of ['weightKg','heightCm','widthCm','lengthCm']){const n=Number(p.dimensions[k]);if(!Number.isFinite(n)||n<0||n>100000)fail('Revisa peso y dimensiones.');d[k]=n;}base.dimensions=d;}
-   if(p.channelIdentifiers){const allowed=['Sears','Sanborns','T1 Comercios','Liverpool','Elektra','Coppel','Mercado Libre','Tienda Nube'];base.channelIdentifiers=Object.fromEntries(Object.entries(p.channelIdentifiers).map(([k,v])=>{if(!allowed.includes(k))fail('Canal no reconocido.');return [k,{sellerSku:text(v.sellerSku,100),publicationId:text(v.publicationId,100),variantId:text(v.variantId,100)}];}));}
+   if(p.dimensions){const d={...(base.dimensions||{})};for(const k of ['weightKg','heightCm','widthCm','lengthCm']){const n=Number(p.dimensions[k]);if(!Number.isFinite(n)||n<0||n>100000)fail('Revisa peso y dimensiones.');d[k]=n;}base.dimensions=d;}
+   if(p.channelIdentifiers){const allowed=['Sears','Sanborns','T1 Comercios','Liverpool','Elektra','Coppel','Mercado Libre','Tienda Nube'];base.channelIdentifiers={...(base.channelIdentifiers||{}),...Object.fromEntries(Object.entries(p.channelIdentifiers).map(([k,v])=>{if(!allowed.includes(k))fail('Canal no reconocido.');const identifiers={...(base.channelIdentifiers?.[k]||{})};for(const key of ['sellerSku','publicationId','variantId'])if(key in v)identifiers[key]=text(v[key],100);return [k,identifiers];}))};}
    for(const f of ['safety','minStock'])if(f in p){base[f]=amount(p[f],f);}
    if(exactCost!=null){base.averageCostMxn=exactCost;base.sourceCost=exactCost;}
    else if(!existing||existing.costCents!==costCents){base.averageCostMxn=costCents/100;base.sourceCost=costCents/100;}

@@ -1,0 +1,18 @@
+.competition-pricing{box-sizing:border-box;width:min(760px,94vw);max-height:90vh;overflow:auto;border:1px solid #cbd5e1;border-radius:18px;padding:24px;background:#fff;color:#172033;box-shadow:0 24px 80px #0f172a40;font:14px/1.5 system-ui,sans-serif}
+.competition-pricing::backdrop{background:#0f172a88}
+.competition-pricing [hidden]{display:none!important}
+.competition-pricing-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.competition-pricing h2{margin:0;font-size:22px}.competition-pricing h3{font-size:16px;margin:12px 0 6px}
+.competition-pricing button{cursor:pointer;min-height:42px;padding:9px 14px;border:1px solid #1e40af;border-radius:9px;background:#1e40af;color:white;font:inherit}
+.competition-pricing button:disabled{opacity:.55;cursor:wait}.competition-pricing button:focus-visible,.competition-pricing a:focus-visible,.competition-pricing input:focus-visible{outline:3px solid #60a5fa;outline-offset:3px}
+.competition-pricing a{color:#1e40af;overflow-wrap:anywhere;text-decoration:underline}
+.competition-pricing-status{padding:12px;border-radius:9px;background:#eff6ff}.competition-pricing-error{color:#9f1239}
+.competition-pricing-links{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 22px}
+.competition-pricing-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin-top:14px}
+.competition-pricing-card,.competition-pricing-selection{padding:16px;border:1px solid #cbd5e1;border-radius:12px;overflow-wrap:anywhere}.competition-pricing-card p{margin:8px 0}
+.competition-pricing-manual{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid #cbd5e1;padding-top:14px}
+.competition-pricing-manual h3,.competition-pricing-manual p,.competition-pricing-manual button{grid-column:1/-1}.competition-pricing-manual label{display:flex;flex-direction:column;gap:5px}
+.competition-pricing input{box-sizing:border-box;min-width:0;width:100%;border:1px solid #94a3b8;border-radius:8px;padding:10px;background:white;color:#172033;font:inherit}
+.competition-pricing-selection{margin-top:18px;background:#f8fafc}.competition-pricing-selection button{display:block;margin-top:12px}
+.competition-pricing-setup{margin:14px 0;padding:12px;border:1px solid #cbd5e1;border-radius:9px}.competition-pricing-setup summary{cursor:pointer;font-weight:600}.competition-pricing-setup li{margin:8px 0}
+@media(max-width:520px){.competition-pricing{padding:16px}.competition-pricing-manual{grid-template-columns:1fr}.competition-pricing-header{align-items:flex-start}}

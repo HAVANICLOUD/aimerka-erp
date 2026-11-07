@@ -146,3 +146,21 @@ dialog:has(#pt29-product-form){width:760px}
   .pt29-document{gap:9px;padding:12px 10px}
   .pt29-document-icon{width:29px;height:35px}
 }
+
+/* Product media and a single searchable field for each SAT selection. */
+.catalog43-media-first{margin-top:0;padding:18px;border:1px solid #d6e4ec;border-radius:14px;background:#f8fbfd}
+.catalog43-media-first h3{margin-top:0}.catalog43-media-first .catalog43-upload{cursor:pointer;background:#fff}
+.catalog43-media-first .catalog43-upload input{display:block;font:inherit;padding:10px 0}
+.catalog43-media-first .catalog43-gallery{flex-wrap:wrap;overflow:visible}
+.catalog43-media-first .catalog43-photo{flex:0 0 135px;min-width:0}
+.catalog43-media-first .catalog43-photo img{display:block;width:117px;height:110px;object-fit:contain}
+.catalog43-media-first .catalog43-photo small{margin:6px 0;max-width:120px}
+.catalog43-media-first [aria-pressed="true"]{background:#dff3e8;color:#155d43}
+.catalog43-url summary{cursor:pointer;font-size:13px}.catalog43-url .field{margin-top:10px}
+.pt29-sat-field [role="listbox"]{max-height:250px;overflow:auto;border:1px solid #c8d8e2;border-radius:10px;background:#fff}
+.pt29-sat-field [role="listbox"][hidden]{display:none}
+.pt29-sat-field .sat-result{display:flex;gap:12px;text-align:left;width:100%;padding:12px;border:0;border-bottom:1px solid #e7edf1;background:#fff;color:#213b4b;cursor:pointer}
+.pt29-sat-field .sat-result:hover,.pt29-sat-field .sat-result:focus-visible{background:#eaf4fa;outline:2px solid #6198bb;outline-offset:-2px}
+.pt29-sat-field .sat-result strong{min-width:75px}.pt29-sat-field [data-sat-status]{min-height:16px}
+@media(max-width:600px){.catalog43-media-first{padding:12px}.catalog43-media-first .catalog43-photo{flex-basis:calc(50% - 6px)}.catalog43-media-first .catalog43-photo img{width:100%}}
+.catalog43-upload input::file-selector-button{padding:11px 16px;border:0;border-radius:9px;background:#4f46e5;color:white;font-weight:650;cursor:pointer;margin-right:10px}.catalog43-upload input{font:inherit;color:#6b7d98;max-width:100%;font-size:12px}.catalog43-upload{background:linear-gradient(135deg,#f7f6ff,#f4faff)}
