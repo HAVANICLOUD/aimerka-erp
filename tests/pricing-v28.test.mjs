@@ -22,13 +22,13 @@ test('CALCULADORA V28 matches stored reference prices and deduction amounts', ()
   assert.equal(r.status,'REVISAR: descuento supera mercado');
 });
 
-test('RECOMENDADOR V28 matches saved UPC reference, and competitive refuses above tolerance', () => {
+test('Saved automatic V28 reference is preserved; competitive shows market loss without raising price', () => {
   const r = recommend(config,iphone,{channel:'T1 Comercios',mode:'automatico',margin:0});
   assert.equal(r.valid,true); assert.equal(r.discount.price,39299); assert.equal(r.regular.price,39299);
   close(r.discount.profit,20.785); close(r.discount.netPayout,27968.785); close(r.discount.margin,.0005288938649838468);
   const competitive = recommend(config,iphone,{channel:'T1 Comercios',mode:'competitivo'});
-  assert.equal(competitive.discount,null); assert.equal(competitive.competitive.minimumProfitable,39299);
-  close(competitive.competitive.maximumAllowed,31928.97);
+  assert.equal(competitive.discount.price,30999);assert.ok(competitive.discount.profit<0);assert.match(competitive.status,/PÉRDIDA/);assert.equal(competitive.competitive.minimumProfitable,39299);
+  close(competitive.competitive.maximumAllowed,30999);
 });
 
 test('blank shipping uses V28 B tariff; explicit zero stays zero; invalid manual value fails', () => {
@@ -83,12 +83,12 @@ test('manual-price TN cotizador uses regular price band; UPC uses market price b
   assert.equal(u.discount.price,12999); assert.equal(u.regular.price,14999);
 });
 
-test('UPC competitive tolerance and Cotizador strict market limit remain distinct', () => {
+test('UPC and Cotizador keep competitive market price even below cash break-even', () => {
   const product={...iphone,costCents:100000,priceCents:156900};
   const u=recommend(config,product,{channel:'T1 Comercios',mode:'competitivo'});
-  assert.equal(u.discount.price,1599); assert.match(u.status,/TOLERANCIA/); assert.ok(u.discount.profit>0);
+  assert.equal(u.discount.price,1499);assert.ok(u.discount.profit<0);assert.match(u.status,/CAJA NEGATIVA/);assert.equal(u.competitive.minimumCash,1599);
   const q=quote(config,{cost:1000,marketPrice:1569,channel:'T1 Comercios',shippingType:'Pequeño',mode:'competitivo'});
-  assert.equal(q.discount,null); assert.match(q.status,/NO SE PUEDE COMPETIR/);
+  assert.equal(q.discount.price,1499);assert.ok(q.discount.profit<0);assert.match(q.status,/CAJA NEGATIVA/);
 });
 
 test('99 rounding uses margin proximity and enforces a higher regular step when inflated', () => {
