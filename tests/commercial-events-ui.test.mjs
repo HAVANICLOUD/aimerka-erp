@@ -264,3 +264,65 @@ test('all buttons and dropdowns contain decorative inline SVG icons', async () =
   assert.match(html, /fill="#ef6b68" opacity="1"/); assert.match(html, /fill="#62cf94" opacity="0\.18"/);
   assert.equal((h.html().match(/<select\b/g) || []).length, (h.html().match(/class="ce-select-wrap"/g) || []).length);
 });
+
+test('product headers show exact-average and registered commercial costs in every view without changing state', async () => {
+  const products = [
+    { sku: 'A', averageCostMxn: 123.456789, costCents: 98765 },
+    { sku: 'B', costCents: 45678 },
+    { sku: 'C', averageCostMxn: 0, costCents: 12345 },
+    { sku: 'D', averageCostMxn: 999, costCents: 99900, costStatus: 'Por confirmar' },
+    { sku: 'E' }
+  ];
+  const h = harness({ products, rows: products.map(p => ({ ...row(p.sku), costCents: 77777, averageCostMxn: 777 })) });
+  const before = plain(h.data);
+  h.api.open('e1'); await h.api.calculate();
+  for (const view of ['list', 'cards', 'matrix']) {
+    await h.click('view', { ceView: view });
+    const headers = [...h.html().matchAll(/<header class="ce-product-header">([\s\S]*?)<\/header>/g)].map(m => m[1]);
+    for (const [index, average, commercial] of [[0, '$123.46', '$987.65'], [1, '$456.78', '$456.78'], [2, '$0.00', '$123.45'], [3, 'Por confirmar', 'Por confirmar'], [4, '—', '—']]) {
+      assert.ok(headers[index].includes(`Costo promedio: <strong>${average}</strong>`));
+      assert.ok(headers[index].includes(`Costo comercial configurado: <strong>${commercial}</strong>`));
+      assert.match(headers[index], /title="Costo registrado en ficha comercial; puede coincidir con el promedio"/);
+    }
+    assert.equal((headers[3].match(/ce-cost-pending/g) || []).length, 2);
+    assert.doesNotMatch(headers[3], /\$999/);
+  }
+  assert.deepEqual(h.data, before);
+  assert.equal(h.calls.length, 0);
+});
+
+test('matrix tracks only visible channels (7/2/1), retains reasons and original selection targets', async () => {
+  const markets = ['Sears', 'Sanborns', 'Coppel', 'Mercado Libre', 'Liverpool', 'Tienda Nube', 'Elektra'];
+  const reason = '<revisar> ' + 'referencia-sin-espacios'.repeat(60);
+  const rows = markets.map((market, i) => ({ ...row('A', i < 2 ? 'green' : i === 2 ? 'amber' : 'red'), market, reason, warnings: ['Aviso & revisión'] }));
+  const h = harness({ rows }); h.api.open('e1'); await h.api.calculate();
+  await h.click('view', { ceView: 'matrix' });
+  for (const [filter, count, indices] of [['all', 7, [0, 1, 2, 3, 4, 5, 6]], ['green', 2, [0, 1]], ['amber', 1, [2]], ['all', 7, [0, 1, 2, 3, 4, 5, 6]]]) {
+    await h.click('filter', { ceFilter: filter });
+    assert.match(h.html(), /tabindex="0" role="region" aria-label="Comparación horizontal por marketplace"/);
+    const matrix = h.html().match(/<table class="ce-matrix"[\s\S]*?<\/table>/)[0];
+    assert.match(matrix, new RegExp(`style="--ce-market-count:${count}"`));
+    assert.equal((matrix.match(/scope="col"/g) || []).length, count);
+    assert.deepEqual([...matrix.matchAll(/data-ce-row="(\d+)"/g)].map(m => +m[1]), indices);
+    assert.equal((matrix.match(/&lt;revisar&gt;/g) || []).length, count);
+    assert.ok(matrix.includes('Aviso &amp; revisión'));
+  }
+  const actions = h.html().match(/<div class="ce-selection-actions"[\s\S]*?<\/div>/)[0];
+  assert.match(actions, /role="group" aria-label="Selección de precios"/);
+  assert.match(actions, /data-ce-action="greens"/); assert.match(actions, /data-ce-action="none"/);
+  await h.click('none'); assert.match(h.html(), /0 seleccionadas/);
+  await h.click('greens'); assert.match(h.html(), /2 seleccionadas/);
+  await h.api.apply();
+  assert.deepEqual(h.calls[0].payload.targets, [{ sku: 'A', market: 'Sears' }, { sku: 'A', market: 'Sanborns' }]);
+});
+
+test('evaluation omits exact repeated warnings and those already in reason, preserving unique escaped warnings', async () => {
+  const warning = 'Por debajo del margen objetivo configurado.';
+  const h = harness({ rows: [{ ...row('A', 'amber'), reason: `El margen de caja está por debajo del mínimo configurado. ${warning}`, warnings: [warning, warning, 'Revisar <referencia>', 'Revisar <referencia>', 'Otro aviso'] }] });
+  h.api.open('e1'); await h.api.calculate();
+  for (const view of ['list', 'cards', 'matrix']) {
+    await h.click('view', { ceView: view });
+    const reason = h.html().match(/class="ce-evaluation-reason">([^<]*)/)[1];
+    assert.equal(reason, `El margen de caja está por debajo del mínimo configurado. ${warning} · Revisar &lt;referencia&gt; · Otro aviso`);
+  }
+});

@@ -50,5 +50,7 @@ export function revealProductsWithStock(state,command,ctx={}){
   if(discontinuationEligibility(state,p).eligible){if(isDiscontinued(p))p.status='INACTIVO';continue;}
   p.status=p.lifecycle?.previousStatus==='INACTIVO'?'INACTIVO':'OK';
   record(state,p,{...command,id:command.id+'-reveal-'+p.sku,type:'inventory.product.autoReactivate',payload:{reason:'Entrada o corrección física: '+command.type}},ctx,'Producto visible nuevamente por un movimiento físico: '+p.sku+'.',{discontinued:false,hidden:false,reactivatedAt:ctx.now});
+  const queued=(state.stockSyncQueue||[]).find(row=>row.sku===p.sku);
+  if(queued)queued.availableQty=p.status==='INACTIVO'?0:Math.max(0,Number(p.good||0)-Number(p.reserved||0)-Number(p.safety||0));
  }
 }

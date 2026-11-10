@@ -23,6 +23,16 @@ test('default excludes hidden but badges visible discontinued; archive includes 
  assert.deepEqual(skus(ui.filterProducts()),['A','A-1','B']);assert.match(ui.render(),/Descontinuado/);assert.doesNotMatch(ui.render(),/data-iw-row="C"/);
  ui.model.filter='archived';assert.deepEqual(skus(ui.filterProducts()),['B','C']);assert.match(ui.render(),/Oculto/);assert.deepEqual(state,before);
 });
+test('Sin stock includes physical zero only, not reserved stock or negative deficits, and respects hidden records',()=>{
+ const {ui,state}=setup(),before=structuredClone(state);
+ state.products.push({sku:'POS',name:'Reservado',good:3,reserved:3},{sku:'NEG',name:'Déficit',good:-2},{sku:'EMPTY',name:'Vacío',good:0,safety:1},{sku:'UNKNOWN',name:'Sin saldo'});
+ const afterSetup=structuredClone(state);ui.model.filter='zero';
+ assert.deepEqual(skus(ui.filterProducts()),['A','A-1','B','EMPTY']);
+ assert.match(ui.render(),/value="zero" selected>Sin stock/);
+ assert.match(ui.render(),/class="iw-filter-control"[\s\S]*aria-label="Filtrar inventario"/);
+ ui.model.query='EMPTY';assert.deepEqual(skus(ui.filterProducts()),['EMPTY']);
+ assert.deepEqual(state,afterSetup);assert.deepEqual(state.orders,before.orders);
+});
 test('openProduct routes SKU and UPC, resets page and filter, focuses archived row and never adjusts inventory',()=>{
  const {ui,state,calls,nodes}=setup(),before=structuredClone(state);ui.model.page=9;ui.model.filter='negative';
  ui.openProduct('0099');assert.equal(ui.model.query,'0099');assert.equal(nodes['iw-query'].value,'0099');assert.equal(ui.model.filter,'archived');assert.equal(ui.model.page,1);assert.equal(ui.model.highlight,'C');assert.deepEqual(skus(ui.filterProducts()),['C']);

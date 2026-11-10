@@ -1,0 +1,44 @@
+/* Shared AIMERKA identity. Operational signals retain their semantic colors. */
+:root{--blue:#2850ec;--violet:#7135ed;--teal:#00acd8;--navy:#101f49;--bg:#f3f5fc;--border:#dee4f3;--shadow:0 4px 18px #263d8010}
+body{background:var(--bg)}
+.sidebar{background:#101f49;border-right:1px solid #223761;scrollbar-color:#435781 #101f49;color:#f1f5ff}
+.sidebar .brand{background:#fff;padding:12px 10px;border-radius:12px;margin-left:3px;margin-right:3px;box-shadow:0 5px 18px #030d252b}
+.sidebar .brand-logo{width:100%;max-width:190px;margin:auto}
+.sidebar .brand-caption{color:#52658c;font-size:9px;letter-spacing:2px;margin-top:7px;text-align:center}
+.sidebar .nav-group-label{color:#a8bbdd;font-size:10px;font-weight:750;letter-spacing:1.4px}
+.sidebar .nav-item{color:#e5edff;font-weight:600;border:1px solid transparent}
+.sidebar .nav-item>.icon{color:#92b6ff;stroke-width:2;width:19px;height:19px}
+.sidebar .nav-item:hover{color:#fff;background:#203967;transform:none;border-color:#365185}
+.sidebar .nav-item.active{color:#fff;background:#3545a9;border-color:#5365ce;box-shadow:inset 3px 0 #21c8e6,0 3px 9px #060e2824;font-weight:750}
+.sidebar .nav-item.active>.icon{color:#83edff;stroke-width:2.2}
+.sidebar .nav-item .nav-count{color:#e8f2ff;background:#344c7a}
+.sidebar .nav-item.active .nav-count{color:#fff;background:#5367c7}
+.sidebar .workspace-picker{color:#f1f6ff;background:#1b3057;border-color:#344c76}
+.sidebar .workspace-picker .eyebrow{color:#8fd8ef}
+.sidebar .workspace-picker small{color:#c1d0ea}
+.sidebar .pilot-card{background:#1b3057;border-color:#344c76;color:#eaf1ff}
+.sidebar .pilot-card p{color:#c0cfe7}
+.sidebar .pilot-top>.icon{color:#8fe3f3}
+.sidebar .workspace{border-color:#35486b}
+.sidebar .workspace strong{color:#f0f4ff}
+.sidebar .workspace small{color:#b5c6e4}
+.sidebar .workspace-icon{background:#2b4270;color:#b7eaff;border-color:#425b89}
+.sidebar .mobile-menu-close{color:#deedff}
+.sidebar .mobile-menu-close:hover{background:#314a78}
+.topbar{border-bottom:2px solid #dce2f8;box-shadow:0 2px 12px #263d8007}
+.breadcrumb strong{color:#273f84}
+.global-search{background:#f0f3fd;border-color:#dce3f8}
+.btn.primary{background:#3152d9;border-color:#3152d9;box-shadow:0 3px 9px #3152d921;color:#fff}
+.btn.primary:hover:not(:disabled){background:#2643b9;border-color:#2643b9}
+.eyebrow{color:#5751ac}
+.commercial-events{--ce-ink:#223556;--ce-muted:#5f6f89;--ce-line:#dce2f1;--ce-accent:#4057cb;--ce-soft:#eef0fc}
+.ce-calendar-event{background:#edf0fe;border-left-color:#7062d8;color:#3c468a}
+.ce-today{background:#f0f2fe}
+.ce-market.is-selected{background:#eef1ff;border-color:#9eace6}
+.ce-editor legend svg{color:#6055bd}
+.ce-button.ce-primary:hover:not(:disabled){background:#3045ac}
+.ce-field input,.ce-field select{background:#f8f9ff;border-color:#cad3ed}
+.commercial-events .ce-selection-actions{background:#e5eaff;border-color:#98a8e0;box-shadow:0 2px 6px #314b9b16}
+.commercial-events .ce-selection-actions .ce-button{color:#30469e;font-weight:750}
+.commercial-events .ce-selection-actions .ce-button+.ce-button{border-left-color:#98a8e0}
+@media print{.sidebar{background:#fff;color:#17223b}.sidebar .nav-item{color:#17223b}}

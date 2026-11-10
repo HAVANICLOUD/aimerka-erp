@@ -129,11 +129,11 @@
   function inventoryMini(p) {
     const labels = [['good','Físico'],['reserved','Reserva'],['quarantine','Inspección'],['damaged','No vendible'],['safety','Seguridad'],['available','Disponible']];
     const available = row => window.ERP?.engines?.inventory?.available?.(row) ?? (typeof D !== 'undefined' ? D.available(row) : null);
-    const cells = row => labels.map(([key])=>{const value=key==='available'?available(row):row[key]||0;return `<td>${value==null?'—':Number(value).toLocaleString('es-MX')}</td>`;}).join('');
+    const balance = (row, name) => `<section class="pcs-mini-balance"><h4>${escape(name)}</h4><dl class="pcs-mini-grid">${labels.map(([key,label])=>{const value=key==='available'?available(row):row[key]||0;return `<div data-pcs-pool="${key}"><dt>${inventoryIcon(key)}<span>${label}</span></dt><dd>${value==null?'—':Number(value).toLocaleString('es-MX')}</dd></div>`;}).join('')}</dl></section>`;
     const provider = window.ERP?.engines?.warehouses;
     const balances = provider?.warehouseBalances ? provider.warehouseBalances(data()) : data().warehouseStock;
     const rows = balances?.filter(row=>row.sku===p.sku);
-    return `<p>Consulta de existencias · SKU ${escape(p.sku)} · UPC ${escape(p.upc || 'Pendiente')}</p><div class="pcs-mini-scroll"><table><caption>Existencias por producto y almacén · solo lectura</caption><thead><tr><th>Almacén</th>${labels.map(([key,label])=>`<th scope="col"><span class="pcs-pool-heading">${inventoryIcon(key)}<span>${label}</span></span></th>`).join('')}</tr></thead><tbody><tr><th>Total</th>${cells(p)}</tr>${rows?.map(row=>`<tr><th>${escape(warehouses().find(w=>w.id===row.warehouseId)?.name||row.warehouseId)}</th>${cells(row)}</tr>`).join('')||''}</tbody></table></div><button type="button" class="btn small" data-pcs-inventory-jump="${escape(p.sku)}">${inventoryIcon('jump')}Consultar en módulo Inventario</button>`;
+    return `<p>Consulta de existencias · SKU ${escape(p.sku)} · UPC ${escape(p.upc || 'Pendiente')}</p><p class="pcs-mini-caption">Existencias por producto y almacén · solo lectura</p>${balance(p,'Total')}${rows?.map(row=>balance(row,warehouses().find(w=>w.id===row.warehouseId)?.name||row.warehouseId)).join('')||''}<button type="button" class="btn small" data-pcs-inventory-jump="${escape(p.sku)}">${inventoryIcon('jump')}Consultar en módulo Inventario</button>`;
   }
   function showProfile(sku = openSku, market = profileMarket) {
     const p = getProduct(sku), panel = document.getElementById('pt29-history-panel');

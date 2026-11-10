@@ -207,8 +207,11 @@ test('inline mini reads all pools and warehouse balances without commands or sta
   s.warehouses=[{id:'west',name:'Poniente'}];s.warehouseStock=[{sku:'A',warehouseId:'west',good:12,reserved:2,quarantine:3,damaged:4,safety:1}];
   Object.assign(s.products[0],{good:12,reserved:2,quarantine:3,damaged:4,safety:1});s.movements=[{sku:'A',delta:12}];const before=structuredClone(s);
   const html=studio.inventoryMini(s.products[0]);for(const text of ['Físico','Reserva','Inspección','No vendible','Seguridad','Disponible','Poniente','001234567890'])assert.ok(html.includes(text));
-  assert.match(html,/<td>9<\/td>/);assert.match(html,/data-pcs-inventory-jump="A"/);
-  const headings=[...html.matchAll(/<th scope="col">(.*?)<\/th>/g)];assert.equal(headings.length,6);
+  assert.match(html,/<dd>9<\/dd>/);assert.match(html,/data-pcs-inventory-jump="A"/);
+  const headings=[...html.matchAll(/<dt>(.*?)<\/dt>/g)];assert.equal(headings.length,12);
+  assert.equal((html.match(/<dl class="pcs-mini-grid">/g)||[]).length,2);
+  for(const key of ['good','reserved','quarantine','damaged','safety','available'])assert.equal((html.match(new RegExp(`data-pcs-pool="${key}"`,'g'))||[]).length,2);
+  assert.doesNotMatch(html,/<table|pcs-mini-scroll/);
   for(const [,heading] of headings)assert.match(heading,/<svg[^>]*aria-hidden="true"[^>]*>[\s\S]+<\/svg>/);
   assert.match(html, /data-pcs-inventory-jump="A"><svg[^>]*aria-hidden="true"[^>]*>[\s\S]+<\/svg>Consultar en módulo Inventario<\/button>/);
   const panel={hidden:true,innerHTML:''},toggle=button({pcsInventoryToggle:'A'});toggle.setAttribute=(key,value)=>toggle[key]=value;
