@@ -27,6 +27,10 @@ body{background:var(--bg)}
 .sidebar .mobile-menu-close:hover{background:#314a78}
 .topbar{border-bottom:2px solid #dce2f8;box-shadow:0 2px 12px #263d8007}
 .breadcrumb strong{color:#273f84}
+.erp-global-clock{flex-shrink:0;font-size:10px;font-variant-numeric:tabular-nums;color:#50648c;background:#edf1fc;border:1px solid #d9e1f5;border-radius:7px;padding:5px 7px;white-space:nowrap}
+body[data-view="dashboard"] .erp-global-clock{display:none}
+.topbar .global-search{min-width:130px;flex:1 1 230px;max-width:290px}
+@media(max-width:1100px){.topbar{gap:10px}.topbar .nav-shortcut{display:none}}
 .global-search{background:#f0f3fd;border-color:#dce3f8}
 .btn.primary{background:#3152d9;border-color:#3152d9;box-shadow:0 3px 9px #3152d921;color:#fff}
 .btn.primary:hover:not(:disabled){background:#2643b9;border-color:#2643b9}

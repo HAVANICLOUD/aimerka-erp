@@ -1,0 +1,59 @@
+/* The original ISO date input stays in the DOM, with its ID, form name,
+   attributes and handlers intact. Its native picker is the trailing control. */
+.erp-date-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+.erp-date-control > .erp-date-proxy {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-right: 2.8rem;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.erp-date-control > .erp-date-calendar {
+  position: absolute;
+  right: 0;
+  width: 2.5rem;
+  text-align: center;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+.erp-date-control > input[type="date"] {
+  position: absolute !important;
+  inset: 0 0 0 auto !important;
+  width: 2.5rem !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer;
+}
+.erp-date-control > input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.erp-date-control:focus-within {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.erp-date-control > .erp-date-proxy[aria-invalid="true"] {
+  border-color: #b42318;
+}
+.erp-date-control:has(> input:disabled) > .erp-date-calendar {
+  opacity: .45;
+}
+[data-erp-clock] { font-variant-numeric: tabular-nums; }

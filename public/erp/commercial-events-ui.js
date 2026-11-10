@@ -27,6 +27,9 @@
     const event = events().find(e => e.id === id);
     draft = event ? JSON.parse(canonical(event)) : blank(); savedJSON = event ? canonical(event) : '';
     scope = draft.selection.skus.length ? 'selected' : 'all'; search = ''; invalidate(); redraw();
+    const editor = document.getElementById('commercial-events-form');
+    editor?.scrollIntoView?.({block:'start',behavior:'instant'});
+    editor?.querySelector?.('[data-ce-field="name"]')?.focus?.({preventScroll:true});
   }
   function dirty() { return !!draft && canonical(draft) !== savedJSON; }
   function redraw() {
@@ -95,7 +98,7 @@
     return `<div class="ce-reference-note">${glyph('search')} Referencias capturadas manualmente. El proveedor de búsqueda externa no está configurado para consultas masivas. El cálculo no certifica el precio más barato del mercado.</div>${draft.rules.marketReferences.map((r, i) => `<div class="ce-reference" data-ce-reference="${i}">${input('SKU', `ref.${i}.sku`, r.sku, 'text', 'required')}${select('Marketplace', `ref.${i}.market`, r.market, markets.map(m => [m, m]))}${input('Precio de contado MXN', `ref.${i}.price`, r.price, 'number', 'required min="0.01" step="0.01"')}${input('Tienda', `ref.${i}.store`, r.store, 'text', 'required')}${input('URL de referencia', `ref.${i}.url`, r.url, 'url', 'required')}${button('remove-reference', 'Quitar', `data-ce-index="${i}"`)}${window.CompetitionPricing?.open ? button('lookup-reference', 'Buscar / revisar referencia', `data-ce-index="${i}"`) : ''}</div>`).join('')}${button('add-reference', '+ Agregar referencia manual')}`;
   }
   function form() {
-    if (!draft) return `<section class="ce-panel ce-empty">${glyph('calendar')}<h2>Prepara tu próxima campaña</h2><p>Define fechas, productos y marketplaces; revisa los precios antes de guardarlos.</p>${button('new', '+ Crear campaña', 'class="ce-primary"')}</section>`;
+    if (!draft) return `<section class="ce-panel ce-empty">${glyph('calendar')}<h2>Prepara tu próxima campaña</h2><p>Define fechas, productos y marketplaces; revisa los precios antes de guardarlos.</p>${button('new', 'Crear campaña', 'class="ce-primary"')}</section>`;
     const s = draft.selection, r = draft.rules, products = selectableProducts(), brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), departments = [...new Set(products.map(p => p.department).filter(Boolean))].sort();
     const warehouses = window.ERP?.engines?.warehouses?.warehouses?.(state) || (state.warehouses?.length ? state.warehouses : [{ id: 'principal', name: 'Almacén principal' }]);
     const warehouseOptions = warehouses.map(w => typeof w === 'string' ? [w, w] : [w.id, w.name || w.label || w.id]);
@@ -121,8 +124,8 @@
     const averageMxn = p?.averageCostMxn ?? (Number.isFinite(p?.costCents) ? p.costCents / 100 : null);
     const pending = p?.costStatus === 'Por confirmar';
     const average = pending ? 'Por confirmar' : amount(Number.isFinite(averageMxn) ? Math.round(averageMxn * 100) : null);
-    const commercial = pending ? 'Por confirmar' : amount(p?.costCents);
-    return `<header class="ce-product-header">${productImage(p)}<div><h3>${escape(p?.name || group.sku)}</h3><div class="ce-product-meta"><span>${glyph('tag')}SKU ${escape(group.sku)}</span><span>${glyph('barcode')}UPC ${escape(p?.upc || '—')}</span><span>${glyph('box')}Físico vendible: ${physical ?? '—'}</span><span>${glyph('stock')}Disponible: ${Number.isFinite(available) ? available : '—'}</span><span class="ce-product-cost${pending ? ' ce-cost-pending' : ''}">${glyph('calculator')}Costo promedio: <strong>${average}</strong></span><span class="ce-product-cost${pending ? ' ce-cost-pending' : ''}" title="Costo registrado en ficha comercial; puede coincidir con el promedio">${glyph('tag')}Costo comercial configurado: <strong>${commercial}</strong></span></div></div></header>`;
+    const generalPrice = amount(p?.priceCents);
+    return `<header class="ce-product-header">${productImage(p)}<div><h3>${escape(p?.name || group.sku)}</h3><div class="ce-product-meta"><span>${glyph('tag')}SKU ${escape(group.sku)}</span><span>${glyph('barcode')}UPC ${escape(p?.upc || '—')}</span><span>${glyph('box')}Físico vendible: ${physical ?? '—'}</span><span>${glyph('stock')}Disponible: ${Number.isFinite(available) ? available : '—'}</span><span class="ce-product-cost${pending ? ' ce-cost-pending' : ''}">${glyph('calculator')}Costo promedio: <strong>${average}</strong></span><span class="ce-product-cost" title="Precio general registrado en la ficha del producto">${glyph('tag')}Precio general: <strong>${generalPrice}</strong></span></div></div></header>`;
   }
   function rowSelection(r, index) {
     const k = key(r);
@@ -163,12 +166,12 @@
   function historyHTML() {
     const runs = state.commercialEventRuns || [];
     return `<section class="ce-panel ce-history"><header><div><span class="ce-eyebrow">TRAZABILIDAD</span><h2>Historial de precios guardados</h2></div><span class="ce-pill">${runs.length} aplicaciones registradas</span></header>${runs.length ? `<div class="ce-table-scroll"><table><thead><tr><th>Campaña</th><th>Fecha · Ciudad de México</th><th>Responsable</th><th>Precios</th><th>Estado</th></tr></thead><tbody>${runs.map(run => {
-      const date = new Date(run.date), label = Number.isNaN(+date) ? run.date || 'Sin fecha' : new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'medium', timeStyle: 'short' }).format(date);
+      const date = new Date(run.date), label = Number.isNaN(+date) ? run.date || 'Sin fecha' : (window.ERPDate?.datetime?.(run.date) || new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).format(date));
       return `<tr><td><strong>${escape(run.event?.name || events().find(e => e.id === run.eventId)?.name || run.eventId)}</strong><small>${escape(run.id)}</small></td><td>${escape(label)}</td><td>${escape(run.actor || '—')}</td><td>${(run.targets || []).length}</td><td>Guardado virtual · pendiente de envío</td></tr>`;
     }).join('')}</tbody></table></div>` : '<p class="ce-help">Aún no se han guardado precios de campaña. Las aplicaciones registradas aparecerán aquí.</p>'}</section>`;
   }
   function pageHTML() {
-    return `<section class="commercial-events" aria-busy="${busy}"><header class="ce-hero"><div><span class="ce-eyebrow">COMERCIAL / EVENTOS</span><h1>Campañas que llegan a tiempo.</h1><p>Planea el calendario, define tu alcance y prepara precios por marketplace.</p></div>${button('new', '+ Nueva campaña')}</header><div class="ce-planning">${calendar()}<aside class="ce-panel ce-agenda"><h2>Campañas guardadas <span>${events().length}</span></h2>${events().map(e => `<button type="button" data-ce-edit="${escape(e.id)}" class="ce-agenda-event">${glyph('calendar')}<strong>${escape(e.name)}</strong><span>${escape(e.startDate || 'Sin inicio')} → ${escape(e.endDate || 'Sin cierre')}</span><small>${status(e)} · ${(e.markets || []).length} canales</small></button>`).join('') || '<p>Aún no hay campañas. Crea una con las fechas de tu equipo.</p>'}</aside></div>${form()}<div class="ce-feedback" aria-live="polite">${error ? `<p class="ce-error" role="alert">${escape(error)}</p>` : ''}${notice ? `<p class="ce-notice" role="status">${escape(notice)}</p>` : ''}</div>${previewHTML()}${historyHTML()}</section>`;
+    return `<section class="commercial-events" aria-busy="${busy}"><header class="ce-hero"><div><span class="ce-eyebrow">COMERCIAL / EVENTOS</span><h1>Campañas que llegan a tiempo.</h1><p>Planea el calendario, define tu alcance y prepara precios por marketplace.</p></div>${button('new', 'Nueva campaña')}</header><div class="ce-planning">${calendar()}<aside class="ce-panel ce-agenda"><h2>Campañas guardadas <span>${events().length}</span></h2>${events().map(e => `<button type="button" data-ce-edit="${escape(e.id)}" class="ce-agenda-event">${glyph('calendar')}<strong>${escape(e.name)}</strong><span>${escape(e.startDate || 'Sin inicio')} → ${escape(e.endDate || 'Sin cierre')}</span><small>${status(e)} · ${(e.markets || []).length} canales</small></button>`).join('') || '<p>Aún no hay campañas. Crea una con las fechas de tu equipo.</p>'}</aside></div>${form()}<div class="ce-feedback" aria-live="polite">${error ? `<p class="ce-error" role="alert">${escape(error)}</p>` : ''}${notice ? `<p class="ce-notice" role="status">${escape(notice)}</p>` : ''}</div>${previewHTML()}${historyHTML()}</section>`;
   }
   function validate() {
     if (!draft || !draft.name.trim()) throw new Error('Escribe el nombre de la campaña.');

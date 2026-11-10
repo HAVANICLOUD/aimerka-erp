@@ -27,7 +27,7 @@ function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 
   const click = async (action, extra = {}) => listeners.click({ target: { closest: () => ({ dataset: { ceAction: action, ...extra } }) } });
   const change = (dataset, value = '', checked = false, type = 'text') => listeners.change({ target: { dataset, value, checked, type } });
   const field = (path, value, type = 'text') => change({ ceField: path }, value, type === 'checkbox' && value, type);
-  return { api, data, calls, click, change, field, listeners, html: () => api.render(), fingerprint: v => { fingerprint = v; }, fail: v => { fail = v; }, failPreview: v => { failPreview = v; } };
+  return { context, api, data, calls, click, change, field, listeners, html: () => api.render(), fingerprint: v => { fingerprint = v; }, fail: v => { fail = v; }, failPreview: v => { failPreview = v; } };
 }
 
 test('registers renderer without nav or state writes; names never auto-fill official dates', () => {
@@ -265,12 +265,12 @@ test('all buttons and dropdowns contain decorative inline SVG icons', async () =
   assert.equal((h.html().match(/<select\b/g) || []).length, (h.html().match(/class="ce-select-wrap"/g) || []).length);
 });
 
-test('product headers show exact-average and registered commercial costs in every view without changing state', async () => {
+test('product headers show inventory average and general sale price in every view without changing state', async () => {
   const products = [
-    { sku: 'A', averageCostMxn: 123.456789, costCents: 98765 },
-    { sku: 'B', costCents: 45678 },
-    { sku: 'C', averageCostMxn: 0, costCents: 12345 },
-    { sku: 'D', averageCostMxn: 999, costCents: 99900, costStatus: 'Por confirmar' },
+    { sku: 'A', averageCostMxn: 123.456789, costCents: 98765, priceCents: 234500 },
+    { sku: 'B', costCents: 45678, priceCents: 89900 },
+    { sku: 'C', averageCostMxn: 0, costCents: 12345, priceCents: 0 },
+    { sku: 'D', averageCostMxn: 999, costCents: 99900, costStatus: 'Por confirmar', priceCents: 199900 },
     { sku: 'E' }
   ];
   const h = harness({ products, rows: products.map(p => ({ ...row(p.sku), costCents: 77777, averageCostMxn: 777 })) });
@@ -279,13 +279,13 @@ test('product headers show exact-average and registered commercial costs in ever
   for (const view of ['list', 'cards', 'matrix']) {
     await h.click('view', { ceView: view });
     const headers = [...h.html().matchAll(/<header class="ce-product-header">([\s\S]*?)<\/header>/g)].map(m => m[1]);
-    for (const [index, average, commercial] of [[0, '$123.46', '$987.65'], [1, '$456.78', '$456.78'], [2, '$0.00', '$123.45'], [3, 'Por confirmar', 'Por confirmar'], [4, '—', '—']]) {
+    for (const [index, average, general] of [[0, '$123.46', '$2345.00'], [1, '$456.78', '$899.00'], [2, '$0.00', '$0.00'], [3, 'Por confirmar', '$1999.00'], [4, '—', '—']]) {
       assert.ok(headers[index].includes(`Costo promedio: <strong>${average}</strong>`));
-      assert.ok(headers[index].includes(`Costo comercial configurado: <strong>${commercial}</strong>`));
-      assert.match(headers[index], /title="Costo registrado en ficha comercial; puede coincidir con el promedio"/);
+      assert.ok(headers[index].includes(`Precio general: <strong>${general}</strong>`));
+      assert.match(headers[index], /title="Precio general registrado en la ficha del producto"/);
     }
-    assert.equal((headers[3].match(/ce-cost-pending/g) || []).length, 2);
-    assert.doesNotMatch(headers[3], /\$999/);
+    assert.equal((headers[3].match(/ce-cost-pending/g) || []).length, 1);
+    assert.doesNotMatch(headers[3], /Costo comercial/);
   }
   assert.deepEqual(h.data, before);
   assert.equal(h.calls.length, 0);
@@ -326,3 +326,9 @@ test('evaluation omits exact repeated warnings and those already in reason, pres
     assert.equal(reason, `El margen de caja está por debajo del mínimo configurado. ${warning} · Revisar &lt;referencia&gt; · Otro aviso`);
   }
 });
+
+ test('new campaign buttons contain one vector plus and reveal and focus the editor without saving',async()=>{
+ const h=harness({saved:false}),actions=[];h.context.document.getElementById=id=>id==='commercial-events-form'?{scrollIntoView:o=>actions.push(['scroll',o.block]),querySelector:()=>({focus:o=>actions.push(['focus',o.preventScroll])})}:null;
+ assert.match(h.html(),/>Nueva campaña<\/button>/);assert.match(h.html(),/>Crear campaña<\/button>/);assert.doesNotMatch(h.html(),/\+ (Nueva|Crear) campaña/);
+ await h.click('new');assert.deepEqual(actions,[['scroll','start'],['focus',true]]);assert.match(h.html(),/id="commercial-events-form"/);assert.equal(h.calls.length,0);
+ });

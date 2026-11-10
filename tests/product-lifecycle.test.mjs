@@ -26,7 +26,7 @@ test('each nonzero physical pool, reservation, deficit and offsetting warehouse 
  const s=state();s.warehouseStock=[{warehouseId:'a',sku:'ABC',good:2},{warehouseId:'b',sku:'ABC',good:-2}];const before=structuredClone(s);assert.throws(()=>run(s,'inventory.product.discontinue',{hide:true}),/almacenes/);assert.deepEqual(s,before);
 });
 test('lifecycle validates reason, flags, missing SKU and protects the dedicated reactivation path',()=>{
- for(const payload of [{reason:''},{hide:'true'},{reason:'x'.repeat(1001)},{sku:'missing'}]){const s=state(),before=structuredClone(s);assert.throws(()=>run(s,'inventory.product.discontinue',payload));assert.deepEqual(s,before);}
+ for(const payload of [{hide:'true'},{reason:'x'.repeat(1001)},{sku:'missing'}]){const s=state(),before=structuredClone(s);assert.throws(()=>run(s,'inventory.product.discontinue',payload));assert.deepEqual(s,before);}
  const s=state();assert.throws(()=>run(s,'inventory.product.visibility',{hidden:true}),/descontinuados/);run(s,'inventory.product.discontinue',{hide:true});
  const before=structuredClone(s);for(const status of ['OK',undefined])assert.throws(()=>run(s,'product.save',{originalSku:'ABC',product:{...s.products[0],status}}),/Reactiva/);assert.deepEqual(s,before);
 });
@@ -50,3 +50,5 @@ test('a new physical receipt reveals the archived product and recalculates its p
 test('only inventory permission can retire, hide, and reactivate products',()=>{
  for(const type of ['inventory.product.discontinue','inventory.product.visibility','inventory.product.reactivate']){assert.equal(permissionFor(type),'inventory');for(const permissions of [[],['pricing'],['finance_read']])assert.throws(()=>assertPermission({active:true,permissions},type));assert.doesNotThrow(()=>assertPermission({active:true,permissions:['inventory']},type));}
 });
+
+test('retirement accepts omitted or blank optional comments without losing history',()=>{for(const reason of [undefined,'']){const s=state();const before=structuredClone(s);run(s,'inventory.product.discontinue',{reason,hide:true});assert.equal(isHidden(s.products[0]),true);assert.deepEqual(s.orders,before.orders);assert.equal(s.products[0].lifecycle.history.at(-1).reason,'');}});

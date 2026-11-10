@@ -59,3 +59,9 @@ test('busy guard prevents duplicate submission and keeps controls disabled until
  const {emit,context}=setup();let resolve,count=0;context.ERP.command=()=>{count++;return new Promise(r=>resolve=r);};const f=form();
  const pending=emit('submit',f);assert.equal(f.submit.disabled,true);assert.equal(f.reason.disabled,true);await emit('submit',f);assert.equal(count,1);resolve({ok:false,error:'Reintentar'});await pending;assert.equal(f.reason.disabled,false);assert.equal(f.reason.value,'Conservar motivo');
 });
+
+test('inventory filters follow operational order and retirement comments are optional',async()=>{
+ const {ui,nodes,emit,calls}=setup();const html=ui.render();const values=[...html.match(/<select id="iw-filter"[\s\S]*?<\/select>/)[0].matchAll(/<option value="([^"]+)"/g)].map(m=>m[1]);assert.deepEqual(values,['all','available','zero','negative','sat','archived']);
+ ui.lifecycleForm('A','discontinue');assert.match(nodes.modal.innerHTML,/Comentarios <small>Opcional/);assert.doesNotMatch(nodes.modal.innerHTML,/Motivo obligatorio|textarea[^>]*required/);assert.match(nodes.modal.innerHTML,/Ocultar de los catálogos operativos/);
+ const f=form();f.reason.value='';await emit('submit',f);assert.equal(calls.find(c=>c[0]==='command')[2].reason,'');
+});
