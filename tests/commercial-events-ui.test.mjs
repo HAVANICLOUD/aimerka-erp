@@ -4,17 +4,18 @@ import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 import * as commercialEvents from '../lib/commercial-events.mjs';
 import * as warehouses from '../lib/warehouses.mjs';
+import * as inventory from '../lib/inventory-v28.mjs';
 
 const source = readFileSync(new URL('../public/erp/commercial-events-ui.js', import.meta.url), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
 const campaign = overrides => ({ id: 'e1', name: 'Navidad', startDate: '2026-12-01', endDate: '2026-12-25', markets: ['Sears', 'Coppel'], selection: { brands: [], departments: [], skus: [], warehouseId: '', onlyPublished: false }, rules: { mode: 'margin', margin: .1, discount: .1, retentionTreatment: 'pass_through', t1CommissionMode: 'configured', mlType: 'CLASICA', msi: 'Sin MSI', marketReferences: [] }, ...overrides });
 const row = (sku, color = 'green', valid = true) => ({ sku, name: 'Producto ' + sku, brand: 'Marca', department: 'Audio', market: 'Sears', valid, traffic: { color, reason: color }, regularCents: 199900, discountCents: 179900, actualMargin: .12, targetMargin: .1, result: { discount: { cashProfit: 100, commercialProfit: 150, withholdingTotal: 50, objectiveMargin: .12 } } });
-function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 'red'), row('D', 'green', false)], real = false, date = '2026-11-11T03:00:00Z', products } = {}) {
+function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 'red'), row('D', 'green', false)], real = false, date = '2026-11-11T03:00:00Z', products, lifecycle } = {}) {
   const listeners = {}, calls = [], data = { config: {}, products: products || [{ sku: 'A', upc: '12345', name: 'Audífonos', brand: 'Marca', department: 'Audio', imageUrl: 'javascript:alert(1)' }], commercialEvents: saved ? [campaign()] : [], commercialEventRuns: [] };
   let fingerprint = 'fp1', fail = '', failPreview = false;
   const engine = real ? commercialEvents : { eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
   class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [date])); } }
-  const ERP = { engines: { commercialEvents: engine, warehouses }, async command(type, payload) {
+  const ERP = { engines: { commercialEvents: engine, warehouses, inventory, productLifecycle: lifecycle }, async command(type, payload) {
     calls.push({ type, payload: plain(payload) }); if (fail) return { ok: false, error: { message: fail } };
     if (real) return commercialEvents.commercialEventCommand(data, { id: 'cmd' + calls.length, type, payload: structuredClone(payload) }, { now: '2026-11-10T18:00:00Z', actor: 'QA' });
     if (type === 'pricing.event.save') { const event = { ...plain(payload.event), id: payload.event.id || 'new-event' }; data.commercialEvents = [...data.commercialEvents.filter(e => e.id !== event.id), event]; return { ok: true, result: { id: event.id, eventId: event.id } }; }
@@ -148,4 +149,118 @@ test('calendar clearly explains manual price application without implying schedu
   const h = harness();
   assert.match(h.html(), /El calendario organiza la vigencia; guardar fechas no cambia ni restaura precios automáticamente\. Aplica la selección cuando corresponda\./);
   assert.doesNotMatch(h.html(), /Programada/);
+});
+
+
+test('groups noncontiguous channels by whole product, takes metadata from inventory, and keeps SKU hue', async () => {
+  const rows = Array.from({ length: 51 }, (_, i) => row('P' + i));
+  rows.push({ ...row('P0'), market: 'Coppel', name: 'DO NOT USE RESULT NAME', upc: 'WRONG', good: 999 });
+  const h = harness({ rows, products: [{ sku: 'P0', name: 'Inventario real', upc: 'UPC-REAL', good: 20, reserved: 3, safety: 2, imageUrl: '/erp/product.png' }] });
+  h.api.open('e1'); await h.api.calculate();
+  const html = h.html();
+  assert.equal((html.match(/data-ce-product=/g) || []).length, 50);
+  assert.equal((html.match(/data-ce-row=/g) || []).length, 51);
+  assert.match(html, /data-ce-row="51"/); assert.doesNotMatch(html, /data-ce-row="50"/);
+  assert.match(html, /Inventario real/); assert.match(html, /UPC UPC-REAL/);
+  assert.match(html, /Físico vendible: 20/); assert.match(html, /Disponible: 15/);
+  assert.doesNotMatch(html, /DO NOT USE RESULT NAME|UPC WRONG|Físico vendible: 999/);
+  const hue = html.match(/ce-product-group (ce-hue-\d)" data-ce-product="P0"/)[1];
+  await h.click('view', { ceView: 'cards' });
+  assert.match(h.html(), new RegExp(`ce-product-group ${hue}" data-ce-product="P0"`));
+  assert.equal((h.html().match(/class="ce-channel-card"/g) || []).length, 51);
+  await h.click('next-page'); assert.match(h.html(), /Página 2 de 2/);
+  assert.equal((h.html().match(/data-ce-row=/g) || []).length, 1); assert.match(h.html(), /data-ce-row="50"/);
+});
+
+test('signal filters keep global counts, original indices, checked targets and risk acceptance across views and pages', async () => {
+  const rows = Array.from({ length: 52 }, (_, i) => row('P' + i));
+  rows[1] = row('P1', 'red'); rows[50] = row('P50', 'yellow'); rows[51] = row('P51', 'red');
+  const h = harness({ rows }); h.api.open('e1'); await h.api.calculate(); await h.click('none');
+  await h.click('filter', { ceFilter: 'red' });
+  assert.match(h.html(), /data-ce-filter="red" aria-pressed="true"/);
+  assert.match(h.html(), /49 verdes/); assert.match(h.html(), /1 amarillos/); assert.match(h.html(), /2 rojos/); assert.match(h.html(), /52 todos/);
+  assert.match(h.html(), /data-ce-row="51"/); assert.doesNotMatch(h.html(), /data-ce-row="0"/);
+  h.change({ ceAck: '51' }, '', true, 'checkbox'); h.change({ ceRow: '51' }, '', true, 'checkbox');
+  await h.click('view', { ceView: 'cards' }); assert.match(h.html(), /data-ce-ack="51" checked/);
+  await h.click('filter', { ceFilter: 'all' }); await h.click('next-page');
+  assert.match(h.html(), /data-ce-row="51"[^>]*checked/); assert.match(h.html(), /data-ce-ack="51" checked/);
+  await h.click('view', { ceView: 'matrix' }); assert.match(h.html(), /class="ce-matrix"/);
+  assert.match(h.html(), /data-ce-row="51"[^>]*checked/);
+  await h.click('filter', { ceFilter: 'amber' });
+  h.change({ ceRow: '50' }, '', true, 'checkbox');
+  await h.api.apply();
+  assert.deepEqual(h.calls[0].payload.targets, [{ sku: 'P50', market: 'Sears' }, { sku: 'P51', market: 'Sears' }]);
+  assert.deepEqual(h.calls[0].payload.riskAcknowledgedTargets, [{ sku: 'P51', market: 'Sears' }]);
+});
+
+test('empty red filter retains global counts and global greens action despite no visible rows', async () => {
+  const h = harness({ rows: [row('A'), row('B'), row('C', 'yellow'), row('D', 'green', false)] });
+  h.api.open('e1'); await h.api.calculate(); await h.click('none'); await h.click('filter', { ceFilter: 'red' });
+  assert.match(h.html(), /No hay resultados/); assert.match(h.html(), /3 verdes/); assert.match(h.html(), /0 rojos/);
+  assert.equal((h.html().match(/data-ce-row=/g) || []).length, 0);
+  await h.click('greens'); assert.match(h.html(), /2 seleccionadas/); await h.api.apply();
+  assert.deepEqual(h.calls[0].payload.targets, [{ sku: 'A', market: 'Sears' }, { sku: 'B', market: 'Sears' }]);
+});
+
+test('matrix compares channels inside one product with real economics, signal and shared controls', async () => {
+  const h = harness({ rows: [row('A'), { ...row('A', 'red'), market: 'Coppel' }] });
+  h.api.open('e1'); await h.api.calculate(); await h.click('view', { ceView: 'matrix' });
+  const html = h.html();
+  assert.equal((html.match(/data-ce-product=/g) || []).length, 1);
+  assert.equal((html.match(/scope="col"/g) || []).length, 2);
+  assert.match(html, /Sears/); assert.match(html, /Coppel/);
+  for (const text of ['Regular', 'Campaña', 'Disponible de caja', 'Utilidad comercial', 'Retenciones', 'Margen / objetivo', '$100.00', '$150.00', '$50.00', 'Rojo · riesgo']) assert.ok(html.includes(text), text);
+  h.change({ ceRow: '1' }, '', true, 'checkbox'); assert.match(h.html(), /Acepta explícitamente/);
+  h.change({ ceAck: '1' }, '', true, 'checkbox'); h.change({ ceRow: '1' }, '', true, 'checkbox');
+  await h.click('view', { ceView: 'list' }); assert.match(h.html(), /data-ce-row="1"[^>]*checked/);
+  h.change({ ceAck: '1' }, '', false, 'checkbox'); await h.click('view', { ceView: 'cards' });
+  assert.doesNotMatch(h.html(), /data-ce-row="1"[^>]*checked/);
+});
+
+test('unsafe images and metadata stay escaped in every view; broken safe images fall back to vector', async () => {
+  for (const imageUrl of ['javascript:alert(1)', 'data:image/svg+xml,evil', '//evil.test/a', '/\\evil.test/a', '/\nevil.test/a', 'http://evil.test/a']) {
+    const evil = '<img src=x onerror=alert(1)>';
+    const h = harness({ rows: [row('A')], products: [{ sku: 'A', name: evil, upc: evil, imageUrl }] });
+    h.api.open('e1'); await h.api.calculate();
+    for (const view of ['list', 'cards', 'matrix']) {
+      await h.click('view', { ceView: view }); assert.doesNotMatch(h.html(), /<img\b/); assert.match(h.html(), /&lt;img/); assert.match(h.html(), /ce-product-image/);
+    }
+  }
+  const h = harness({ products: [{ sku: 'A', name: 'Safe', imageUrl: 'https://images.example/a.png?x="bad"' }] });
+  h.api.open('e1'); await h.api.calculate(); assert.match(h.html(), /src="https:\/\/images.example\/a.png\?x=&quot;bad&quot;"/);
+  h.data.products[0].images = [{ url: '/erp/secondary.png' }, { url: '/erp/primary.png', primary: true }];
+  assert.match(h.html(), /src="\/erp\/primary.png"/); assert.doesNotMatch(h.html(), /src="https:\/\/images.example/);
+  h.data.products[0].images[1].url = 'javascript:alert(1)';
+  assert.match(h.html(), /src="https:\/\/images.example/); assert.doesNotMatch(h.html(), /src="javascript:/);
+  let removed = false; h.listeners.error({ target: { dataset: { ceImage: '' }, remove() { removed = true; } } }); assert.ok(removed);
+});
+
+test('new campaign pickers and brand/department choices respect lifecycle without removing historical results', async () => {
+  const products = [{ sku: 'A', name: 'Visible', brand: 'Active brand', department: 'Active dept' }, { sku: 'H', name: 'Hidden', brand: 'Hidden brand', department: 'Hidden dept', hidden: true }, { sku: 'X', name: 'Discontinued', brand: 'Old brand', department: 'Old dept', discontinued: true }];
+  const h = harness({ products, rows: [row('H')], lifecycle: { commerciallySelectable: p => !p.hidden && !p.discontinued } });
+  h.api.open(); h.change({ ceScope: 'selected' });
+  assert.match(h.html(), /data-ce-array="selection.skus" value="A"/);
+  assert.doesNotMatch(h.html(), /data-ce-array="selection.skus" value="(?:H|X)"|Hidden brand|Hidden dept|Old brand|Old dept/);
+  h.data.products[1].good = 10; h.data.products[1].lifecycle = { hidden: true, discontinued: true };
+  h.api.open('e1'); await h.api.calculate(); assert.match(h.html(), /data-ce-product="H"/);
+  assert.match(h.html(), /Físico vendible: 10/); assert.match(h.html(), /Disponible: 0/);
+  h.data.commercialEventRuns.push({ id: 'archived-run', eventId: 'e1', targets: [{ sku: 'H', market: 'Sears' }] });
+  assert.match(h.html(), /archived-run/);
+});
+
+test('all buttons and dropdowns contain decorative inline SVG icons', async () => {
+  const h = harness(); h.api.open('e1'); await h.api.calculate();
+  for (const match of h.html().matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)) assert.match(match[1], /<svg[^>]*aria-hidden="true"/);
+  const html = h.html();
+  for (const wrapper of html.matchAll(/<span class="ce-select-wrap">([\s\S]*?)<\/select>/g)) {
+    assert.match(wrapper[1], /ce-select-leading/); assert.match(wrapper[1], /ce-select-chevron/);
+    assert.equal((wrapper[1].match(/<svg\b/g) || []).length, 2);
+  }
+  assert.match(html, /data-ce-preset="[^"]+"><svg[^>]*>[\s\S]*?<path d="M4 5h16/);
+  for (const light of html.matchAll(/<svg class="ce-icon ce-traffic-light"[^>]*>([\s\S]*?)<\/svg>/g)) {
+    assert.match(light[1], /<rect[^>]*fill="#263b43"/);
+    assert.equal((light[1].match(/<circle/g) || []).length, 3);
+  }
+  assert.match(html, /fill="#ef6b68" opacity="1"/); assert.match(html, /fill="#62cf94" opacity="0\.18"/);
+  assert.equal((h.html().match(/<select\b/g) || []).length, (h.html().match(/class="ce-select-wrap"/g) || []).length);
 });

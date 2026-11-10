@@ -229,7 +229,7 @@
      field('qty','Unidades ordenadas *',line.qty,'number','min="'+Math.max(1,line.receivedQty||0)+'" step="1" required')+
      field('cost','Costo unitario final (MXN)',number(line.unitCostCents),'number','min="0" step="0.01" placeholder="Por confirmar"')+
      '<div class="field doc-product-field"><label>Relacionar con inventario *<select data-doc-field="sku" required '+readonly+'><option value="">Selecciona el artículo correcto</option>'+
-     state.products.map(p=>'<option value="'+esc(p.sku)+'" '+(selected===p.sku?'selected':'')+'>'+esc(p.name+' · '+p.sku+(p.upc?' · '+p.upc:''))+'</option>').join('')+
+     state.products.filter(p=>!p.lifecycle?.hidden&&!p.lifecycle?.discontinued||p.sku===selected).map(p=>'<option value="'+esc(p.sku)+'" '+(selected===p.sku?'selected':'')+'>'+esc(p.name+' · '+p.sku+(p.upc?' · '+p.upc:''))+'</option>').join('')+
      '<option value="__new__" '+(selected==='__new__'?'selected':'')+'>＋ Crear producto y generar SKU interno</option></select></label></div></div>';
    if(!selected&&line.match?.candidates?.length)html+='<div class="small-note">Posibles coincidencias: '+line.match.candidates.slice(0,3).map(x=>esc(x.name||x.sku)).join(' · ')+'. Confirma el modelo antes de asignarlo.</div>';
    if(line.newProduct){

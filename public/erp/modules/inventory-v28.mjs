@@ -1,4 +1,5 @@
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
+import {commerciallySelectable} from './product-lifecycle.mjs';
 // The browser shares this engine. Only the server supplies trusted catalogue maps.
 function validateProductSat(state,p,existing,now,{satCatalogues,requireFiscalValidation}={}) {
  const selected={};
@@ -74,7 +75,7 @@ function queueStock(state,product,ctx,reference) {
  const row={id:'stock-'+product.sku,sku:product.sku,upc:product.upc||'',availableQty:available(product),status:'awaiting_connection',updatedAt:ctx.now,reference:text(reference,160)};
  if(existing)Object.assign(existing,row);else queue.push(row);
 }
-export function available(p){return p.status==='INACTIVO'?0:Math.max(0,Number(p.good||0)-Number(p.reserved||0)-Number(p.safety||0));}
+export function available(p){return !commerciallySelectable(p)?0:Math.max(0,Number(p.good||0)-Number(p.reserved||0)-Number(p.safety||0));}
 export function orderTotal(o){return Number.isSafeInteger(o.totalCents)?o.totalCents:(o.items?.length?o.items.reduce((s,l)=>s+l.totalCents,0)+(o.shippingChargedCents||0):(o.qty||0)*(o.unitPriceCents||0));}
 export function orderItems(o){return o.items?.length?o.items:(o.sku?[{id:o.id+'-1',sku:o.sku,qty:o.qty,unitPriceCents:o.unitPriceCents,totalCents:o.qty*o.unitPriceCents}]:[]);}
 export function expectedNet(o){if(o.reconciliation?.estimate?.netCents!=null)return o.reconciliation.estimate.netCents;if(o.stockMode==='historical')return null;const gross=orderTotal(o);return gross-Math.round(gross*(o.commissionBps||0)/10000)-Math.round(gross*(o.msiBps||0)/10000)-(o.shippingCents||0)-(o.withholdingCents||0);}

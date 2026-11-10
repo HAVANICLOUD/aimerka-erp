@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {available} from '../lib/inventory-v28.mjs';
 import {listingStatus, channelPrice} from '../lib/product-prices.mjs';
 
 const source = fs.readFileSync(new URL('../public/erp/product-catalog-studio.js', import.meta.url), 'utf8');
@@ -16,7 +17,7 @@ function setup(overrides = {}) {
   const document={addEventListener:(type,fn)=>(listeners[type]??=[]).push(fn),getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[]};
   const context={state:s,renderers:{inventory,products:()=>''},productsPage:()=>'',document,Intl,console,
     ProductTrace28:{show(...args){calls.push(['show',...args]);return 'drawer-result';},form(...args){calls.push(['edit',...args]);}},
-    ERP:{engines:{productPrices:{listingStatus,channelPrice}},async command(...args){calls.push(['command',...args]);return {ok:true};}},
+    ERP:{engines:{inventory:{available},productPrices:{listingStatus,channelPrice}},async command(...args){calls.push(['command',...args]);return {ok:true};}},
     Price28:{openProduct(...args){calls.push(['quote',...args]);}},
     ProductChannels:{strip:p=>`<div class="existing-strip">${p.sku}</div>`},
     MarketUI:{logo:m=>`<svg aria-label="${m}"></svg>`}};
@@ -142,12 +143,15 @@ test('central dimensions are separate read-only references and profile text limi
   assert.match(html,/name="title"[^>]+maxlength="250"/);assert.match(html,/name="description"[^>]+maxlength="10000"/);
   assert.deepEqual(s,before);
 });
-test('commercial drawer context replaces only adjust action, leaves Inventory context untouched',()=>{
-  const {studio,context,document}=setup();const classes={},adjust={outerHTML:'Original adjust'};
-  const detail={classList:{toggle(key,value){classes[key]=value;}},querySelector:()=>adjust};
+test('every drawer context gets an inline inventory toggle without replacing history or adjust in Inventory',()=>{
+  const {studio,context,document}=setup();const classes={},adjust={outerHTML:'Original adjust'},insertions=[];
+  const actions={querySelector:()=>adjust,insertAdjacentHTML:(where,html)=>insertions.push([where,html])};
+  const detail={classList:{toggle(key,value){classes[key]=value;}},querySelector:selector=>selector==='.pt29-detail-actions'?actions:null};
   document.querySelector=selector=>selector==='#drawer .pt29-tabs'?{insertAdjacentHTML(){}}:selector==='#drawer .pt29-product-detail'?detail:null;
-  context.view='products';studio.decorate('A');assert.equal(classes['pcs-commercial-detail'],true);assert.match(adjust.outerHTML,/data-view="inventory">Consultar inventario/);
+  context.view='products';studio.decorate('A');assert.equal(classes['pcs-commercial-detail'],true);assert.match(adjust.outerHTML,/data-pcs-inventory-toggle="A"/);assert.doesNotMatch(adjust.outerHTML,/data-view/);
   context.view='inventory';adjust.outerHTML='Original adjust';studio.decorate('A');assert.equal(classes['pcs-commercial-detail'],false);assert.equal(adjust.outerHTML,'Original adjust');
+  assert.ok(insertions.some(([,html])=>html.includes('pcs-inventory-mini')));
+  assert.ok(insertions.some(([,html])=>html.includes('data-pcs-inventory-toggle')));
 });
 test('generic channel attributes render escaped editable rows and reject duplicate, partial or excessive values',()=>{
   const {studio,s}=setup();s.products[0].channelProfiles={Sears:{attributes:[{name:'Material',value:'Acero <pulido>'}]}};
@@ -188,4 +192,29 @@ test('packaging attributes round-trip through rendered inputs without fallback, 
     assert.deepEqual(plain(studio.profilePayload(form).profile.attributes),packaging);
     assert.deepEqual(s,before);
   }
+});
+
+test('lifecycle visibility and archive filters preserve identities, prices and publication uncertainty',()=>{
+  const {studio,s}=setup();s.products[0].lifecycle={discontinued:true,hidden:false};s.products[1].lifecycle={discontinued:true,hidden:true};
+  s.movements=[{sku:'A',delta:3}];s.orders=[{sku:'B'}];const before=structuredClone(s);
+  assert.deepEqual(plain(studio.filterProducts(s)).map(p=>p.sku),['A','C','D']);
+  assert.match(studio.render(),/Descontinuado/);assert.match(studio.render(),/001234567890/);assert.match(studio.render(),/\$250\.00/);
+  studio.setFilters({lifecycle:'archived'});assert.deepEqual(plain(studio.filterProducts(s)).map(p=>p.sku),['A','B']);
+  assert.match(studio.render(),/Oculto/);assert.deepEqual(s,before);
+});
+test('inline mini reads all pools and warehouse balances without commands or state changes',async()=>{
+  const {studio,s,context,calls,emit,document}=setup();
+  s.warehouses=[{id:'west',name:'Poniente'}];s.warehouseStock=[{sku:'A',warehouseId:'west',good:12,reserved:2,quarantine:3,damaged:4,safety:1}];
+  Object.assign(s.products[0],{good:12,reserved:2,quarantine:3,damaged:4,safety:1});s.movements=[{sku:'A',delta:12}];const before=structuredClone(s);
+  const html=studio.inventoryMini(s.products[0]);for(const text of ['Físico','Reserva','Inspección','No vendible','Seguridad','Disponible','Poniente','001234567890'])assert.ok(html.includes(text));
+  assert.match(html,/<td>9<\/td>/);assert.match(html,/data-pcs-inventory-jump="A"/);
+  const headings=[...html.matchAll(/<th scope="col">(.*?)<\/th>/g)];assert.equal(headings.length,6);
+  for(const [,heading] of headings)assert.match(heading,/<svg[^>]*aria-hidden="true"[^>]*>[\s\S]+<\/svg>/);
+  assert.match(html, /data-pcs-inventory-jump="A"><svg[^>]*aria-hidden="true"[^>]*>[\s\S]+<\/svg>Consultar en módulo Inventario<\/button>/);
+  const panel={hidden:true,innerHTML:''},toggle=button({pcsInventoryToggle:'A'});toggle.setAttribute=(key,value)=>toggle[key]=value;
+  document.getElementById=id=>id==='pcs-inventory-mini'?panel:null;
+  await emit('click',toggle);assert.equal(panel.hidden,false);assert.equal(toggle['aria-expanded'],'true');
+  await emit('click',toggle);assert.equal(panel.hidden,true);
+  context.InventoryWorkspace={openProduct:sku=>calls.push(['jump',sku])};await emit('click',button({pcsInventoryJump:'A'}));
+  assert.deepEqual(calls,[['jump','A']]);assert.deepEqual(s,before);
 });
