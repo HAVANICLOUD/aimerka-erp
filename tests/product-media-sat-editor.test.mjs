@@ -8,18 +8,20 @@ const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('"','&quot;').repl
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 function satHarness(code=''){
- const handlers={},requests=[],timers=new Map(),values={unitSat:{value:code},unitSatDescription:{value:''}},out={hidden:true,innerHTML:'',querySelectorAll(){return [];}},status={textContent:''};
- const box={querySelector(s){return s==='[role="listbox"]'?out:s==='[data-sat-status]'?status:input;}};
+ const handlers={},requests=[],timers=new Map(),values={unitSat:{value:code},unitSatDescription:{value:''}},out={hidden:true,innerHTML:'',querySelectorAll(){return [];}},status={textContent:''},retry={hidden:true};
+ const box={querySelector(s){return s==='[role="listbox"]'?out:s==='[data-sat-status]'?status:s==='[data-sat-retry]'?retry:input;}};
  const input={value:code,dataset:{satInput:'unitSat',satKind:'units'},attrs:{},setAttribute(k,v){this.attrs[k]=v;},setCustomValidity(v){this.validity=v;},focus(){this.focused=true;},closest(s){return s==='form'?form:box;}};
  const form={dataset:{original:code?'LEGACY':''},isConnected:true,elements:{namedItem(k){return values[k];}},querySelectorAll(){return [input];},closest(){return {addEventListener(type,fn){form.close=fn;}};}};
  const context={esc,URL,AbortController,clearTimeout(id){timers.delete(id);},setTimeout(fn){const id=timers.size+1;timers.set(id,fn);return id;},state:{config:{},products:[]},ERP:{workspace:'v43',engines:{}},renderers:{},window:{},c28ProductForm:null,productDetails:null,document:{addEventListener(type,handler){(handlers[type]??=[]).push(handler);}},fetch(url,options){const d=deferred();requests.push({url,options,...d});return d.promise;}};
  vm.runInNewContext(traceSource.replace('  c28ProductForm=showProductForm;','  window.hooks={satField,initSatFields,lookupSat,selectSat,validateSatFields};\n  c28ProductForm=showProductForm;'),context);
  const hooks=context.window.hooks;
- return {hooks,input,form,values,out,status,requests,context,
+ return {hooks,input,form,values,out,status,retry,requests,context,
+  focus(){for(const handler of handlers.focusin||[])handler({target:input});},
+  retryClick(){const button={closest:()=>box};for(const handler of handlers.click||[])handler({target:{closest:s=>s==='[data-sat-retry]'?button:null}});},
   init(){hooks.initSatFields(form);},
   type(value){input.value=value;for(const handler of handlers.input||[])handler({target:input});},
   debounce(){const callbacks=[...timers.values()];timers.clear();callbacks.forEach(fn=>fn());},
-  async reply(n,results,ok=true){requests[n].resolve({ok,json:async()=>({results,error:ok?undefined:'Sin conexión'})});await flush();}
+  async reply(n,results,ok=true){requests[n].resolve({ok,status:ok?200:503,json:async()=>({results,error:ok?undefined:'Sin conexión'})});await flush();}
  };
 }
 
@@ -50,6 +52,52 @@ test('closing, opening another form, and switching workspace suppress late repli
   await h.reply(0,[{code:'H87',description:'Pieza'}]);assert.equal(h.out.hidden,true,action);assert.equal(h.values.unitSat.value,'');
  }
  const h=satHarness('legacy piece');h.init();await h.reply(0,[]);assert.equal(h.values.unitSat.value,'legacy piece');assert.equal(h.input.value,'legacy piece');assert.match(h.status.textContent,/anterior conservado/);
+});
+
+
+test('empty focus opens suggestions without assigning any unit, including after clearing',async()=>{
+ const h=satHarness();h.init();h.focus();assert.match(h.requests[0].url,/browse=1/);
+ h.focus();assert.equal(h.requests.length,1);
+ await h.reply(0,[{code:'H87',description:'Pieza'},{code:'E48',description:'Unidad de servicio'}]);
+ assert.equal(h.out.hidden,false);assert.equal(h.values.unitSat.value,'');assert.equal(h.input.value,'');
+ h.hooks.selectSat(h.input,0);assert.equal(h.values.unitSat.value,'H87');
+ h.type('');h.debounce();await h.reply(1,[{code:'H87',description:'Pieza'}]);assert.equal(h.values.unitSat.value,'');
+});
+
+test('lookup failure offers retry, preserves original selection, and malformed data cannot select',async()=>{
+ const h=satHarness('H87');h.init();await h.reply(0,[],false);
+ assert.equal(h.values.unitSat.value,'H87');assert.equal(h.input.value,'H87');assert.equal(h.retry.hidden,false);assert.match(h.status.textContent,/conservado/);
+ h.retryClick();assert.match(h.requests[1].url,/code=H87/);await h.reply(1,[{code:'H87',description:'Pieza'}]);assert.equal(h.retry.hidden,true);
+ h.type('pieza');h.debounce();await h.reply(2,[{code:'H87'}]);assert.equal(h.retry.hidden,false);assert.equal(h.out.hidden,true);
+ h.hooks.selectSat(h.input,0);assert.equal(h.values.unitSat.value,'');assert.equal(h.input.value,'pieza');
+ h.retryClick();await h.reply(3,[{code:'H87',description:'Pieza'}]);h.hooks.selectSat(h.input,99);assert.equal(h.values.unitSat.value,'');
+ h.context.ERP.workspace='other';h.hooks.selectSat(h.input,0);assert.equal(h.values.unitSat.value,'');
+});
+
+test('HTTP access errors, invalid JSON and timeout expose recoverable failures',async()=>{
+ for(const scenario of ['access','json','timeout']){
+  const h=satHarness();h.init();h.type('pieza');h.debounce();
+  if(scenario==='timeout')h.debounce(); // A transport may ignore abort and never settle.
+  else h.requests[0].resolve({ok:false,status:403,json:async()=>{if(scenario==='json')throw new Error('Unexpected token <');return {error:'denied'};}});
+  await flush();assert.equal(h.retry.hidden,false,scenario);assert.equal(h.input.attrs['aria-busy'],'false');assert.equal(h.values.unitSat.value,'');
+  assert.match(h.status.textContent,scenario==='access'?/sesión/:scenario==='json'?/respuesta válida/:/tardó demasiado/);
+ }
+});
+
+
+test('timeout releases a hung JSON body and ignores its late result after retry',async()=>{
+ const h=satHarness();h.init();h.type('pieza');h.debounce();
+ const body=deferred();h.requests[0].resolve({ok:true,json:()=>body.promise});await flush();
+ h.debounce();await flush();assert.equal(h.retry.hidden,false);assert.match(h.status.textContent,/tardó demasiado/);assert.equal(h.requests[0].options.signal.aborted,true);
+ h.retryClick();await h.reply(1,[{code:'H87',description:'Pieza'}]);
+ body.resolve({results:[{code:'E48',description:'Unidad de servicio'}]});await flush();
+ assert.match(h.out.innerHTML,/H87/);assert.doesNotMatch(h.out.innerHTML,/E48/);assert.equal(h.values.unitSat.value,'');
+});
+
+test('optional and required unit settings stay scoped to new products',()=>{
+ const h=satHarness();h.context.state.config.productCatalog={requireSatUnit:true};h.init();assert.equal(h.input.required,true);
+ h.form.dataset.original='EXISTING';h.init();assert.equal(h.input.required,false);
+ h.context.state.config.productCatalog.requireSatUnit=false;h.form.dataset.original='';h.init();assert.equal(h.input.required,false);
 });
 
 function mediaHarness(){

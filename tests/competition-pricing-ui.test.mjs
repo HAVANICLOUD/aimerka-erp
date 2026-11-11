@@ -1,3 +1,4 @@
+import {mexicoToday} from '../lib/operations-v28.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -47,7 +48,7 @@ test('manual reference requires validation, preview and explicit application; no
   const h = harness(() => assert.fail('manual capture must not fetch'));
   h.open({ name: 'Public', onApply: (price, reference) => { applied = { price, reference }; } });
   const dialog = h.dialog(), form = flatten(dialog).find(el => el.tag === 'form'), inputs = flatten(form).filter(el => el.tag === 'input');
-  ['Mock store', 'javascript:bad', '1234.50', 'Nuevo', new Date().toISOString().slice(0, 10)].forEach((v, i) => { inputs[i].value = v; });
+  ['Mock store', 'javascript:bad', '1234.50', 'Nuevo', mexicoToday()].forEach((v, i) => { inputs[i].value = v; });
   await form.emit('submit'); assert.equal(find(dialog, 'Usar precio para comparar'), undefined); assert.equal(applied, null);
   inputs[1].value = 'https://example.com/product'; await form.emit('submit');
   assert.match(content(dialog), /Capturada manualmente; no verificada por IA/); assert.equal(applied, null);
@@ -57,7 +58,7 @@ test('manual reference requires validation, preview and explicit application; no
 test('closed or superseded modal discards stale provider success and error', async () => {
   for (const fail of [false, true]) {
     let finish, signal;
-    const h = harness((_url, options) => { signal = options.signal; return new Promise((resolve, reject) => { finish = () => fail ? reject(new Error('mock failure')) : resolve(Response.json({ results: [{ title: 'Stale mock', store: 'Old store', price: 11, currency: 'MXN', url: 'https://example.com/product', condition: 'Nuevo', date: new Date().toISOString().slice(0, 10) }] })); }); });
+    const h = harness((_url, options) => { signal = options.signal; return new Promise((resolve, reject) => { finish = () => fail ? reject(new Error('mock failure')) : resolve(Response.json({ results: [{ title: 'Stale mock', store: 'Old store', price: 11, currency: 'MXN', url: 'https://example.com/product', condition: 'Nuevo', date: mexicoToday() }] })); }); });
     let oldApplied = false;
     h.open({ name: 'Old product', onApply: () => { oldApplied = true; } });
     const pending = find(h.dialog(), 'Buscar precios públicos').click();
@@ -69,7 +70,7 @@ test('closed or superseded modal discards stale provider success and error', asy
 });
 test('mock search result requires a second explicit click and never claims exact UPC verification', async () => {
   let applied;
-  const h = harness(async () => Response.json({ results: [{ title: 'Mock listing', store: 'Mock source', price: 222, currency: 'MXN', url: 'https://example.com/product', condition: 'No indicada', observedAt: new Date().toISOString(), date: new Date().toISOString().slice(0, 10) }], cached: true }));
+  const h = harness(async () => Response.json({ results: [{ title: 'Mock listing', store: 'Mock source', price: 222, currency: 'MXN', url: 'https://example.com/product', condition: 'No indicada', observedAt: new Date().toISOString(), date: mexicoToday() }], cached: true }));
   h.open({ name: 'Public', onApply: (price, ref) => { applied = { price, ref }; } });
   await find(h.dialog(), 'Buscar precios públicos').click();
   assert.match(content(h.dialog()), /consulta en caché/); assert.match(content(h.dialog()), /UPC no verificado/);

@@ -173,3 +173,7 @@ dialog:has(#pt29-product-form){width:760px}
 .pt29-sku-lock[aria-pressed="true"]{background:#fff1d8;color:#784b09;border-color:#d9ad62}
 .pt29-sku-control input:focus-visible,.pt29-sku-lock:focus-visible{outline:2px solid #5884d7;outline-offset:2px}
 #pt29-sku{scroll-margin-block:24px}
+
+.pt29-sat-field .pt29-sat-retry{justify-self:start;margin-top:4px}
+.pt29-sat-field .pt29-sat-retry[hidden]{display:none}
+.pt29-sat-field [data-sat-input][aria-busy="true"]{background:#f3f8fb}

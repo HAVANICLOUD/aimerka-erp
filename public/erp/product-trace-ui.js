@@ -156,34 +156,46 @@
   function satField(name,label,p,kind) {
     const code=p[name]||'',description=p[satDescriptionName(name)]||'';
     if(name==='unitSat'&&state.config.productCatalog?.requireSatUnit&&!p.sku)label='Unidad de venta SAT *';
-    return `<div class="field wide pt29-sat-field"><label for="pt29-${name}-search">${esc(label)}</label><input type="hidden" name="${name}" value="${esc(code)}"><input type="hidden" name="${satDescriptionName(name)}" value="${esc(description)}"><input id="pt29-${name}-search" data-sat-input="${name}" data-sat-kind="${kind}" value="${esc(code+(description?' · '+description:''))}" placeholder="${kind==='units'?'Código o descripción: H87, pieza, E48, servicio…':'Código o descripción: aspiradora, audífonos…'}" autocomplete="off" maxlength="300" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pt29-${name}-results" aria-describedby="pt29-${name}-help"><small id="pt29-${name}-help">Catálogo SAT incluido · CFDI 4.0 · distribución phpCfdi. ${kind==='units'?'Sin asignación automática; puedes dejarla pendiente.':'Selecciona la clave que corresponda.'}</small><div id="pt29-${name}-results" role="listbox" aria-label="Coincidencias SAT" hidden></div><small data-sat-status role="status" aria-live="polite"></small></div>`;
+    return `<div class="field wide pt29-sat-field"><label for="pt29-${name}-search">${esc(label)}</label><input type="hidden" name="${name}" value="${esc(code)}"><input type="hidden" name="${satDescriptionName(name)}" value="${esc(description)}"><input id="pt29-${name}-search" data-sat-input="${name}" data-sat-kind="${kind}" value="${esc(code+(description?' · '+description:''))}" placeholder="${kind==='units'?'Código o descripción: H87, pieza, E48, servicio…':'Código o descripción: aspiradora, audífonos…'}" autocomplete="off" maxlength="300" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pt29-${name}-results" aria-describedby="pt29-${name}-help"><small id="pt29-${name}-help">Catálogo SAT incluido · CFDI 4.0 · distribución phpCfdi. ${kind==='units'?'Sin asignación automática; puedes dejarla pendiente.':'Selecciona la clave que corresponda.'}</small><div id="pt29-${name}-results" role="listbox" aria-label="Coincidencias SAT" hidden></div><small data-sat-status role="status" aria-live="polite"></small><button type="button" class="btn small pt29-sat-retry" data-sat-retry hidden>Reintentar catálogo SAT</button></div>`;
   }
   function cancelSat(input) {
     const lookup=satLookups.get(input);if(!lookup)return;
-    clearTimeout(lookup.timer);lookup.controller?.abort();lookup.sequence++;
+    clearTimeout(lookup.timer);clearTimeout(lookup.timeout);lookup.controller?.abort();lookup.sequence++;lookup.results=[];lookup.pending=false;
+    const box=input.closest('.pt29-sat-field');box.querySelector('[role="listbox"]').hidden=true;input.setAttribute('aria-expanded','false');input.setAttribute('aria-busy','false');
   }
   async function lookupSat(input,exact=false) {
+    if(!satLookups.has(input))return;
     cancelSat(input);
     const lookup=satLookups.get(input),form=input.closest('form'),workspace=ERP.workspace,query=input.value.trim(),sequence=lookup.sequence;
     const box=input.closest('.pt29-sat-field'),out=box.querySelector('[role="listbox"]'),status=box.querySelector('[data-sat-status]');
+    const retry=box.querySelector('[data-sat-retry]');retry.hidden=true;lookup.exact=exact;
     out.hidden=true;input.setAttribute('aria-expanded','false');
-    if(!exact&&query.length<2){status.textContent=query?'Escribe al menos dos caracteres.':'';return;}
-    const controller=new AbortController();lookup.controller=controller;status.textContent='Buscando en el catálogo incluido…';
+    if(!exact&&query&&query.length<2){status.textContent='Escribe al menos dos caracteres.';return;}
+    const controller=new AbortController();lookup.controller=controller;status.textContent='Buscando en el catálogo incluido…';input.setAttribute('aria-busy','true');
+    // Bound both the request and its JSON body, even if a transport ignores abort.
+    lookup.pending=true;let timedOut=false;
+    const timeout=new Promise((_,reject)=>{lookup.timeout=setTimeout(()=>{timedOut=true;reject(new Error('SAT timeout'));controller.abort();},12000);});
     try {
-      const url='/api/sat-catalog?workspace='+encodeURIComponent(workspace)+'&kind='+input.dataset.satKind+'&'+(exact?'code=':'q=')+encodeURIComponent(exact?form.elements.namedItem(input.dataset.satInput).value:query);
-      const response=await fetch(url,{signal:controller.signal}),data=await response.json();
+      const url='/api/sat-catalog?workspace='+encodeURIComponent(workspace)+'&kind='+input.dataset.satKind+'&'+(exact?'code=':query?'q=':'browse=1&q=')+encodeURIComponent(exact?form.elements.namedItem(input.dataset.satInput).value:query);
+      const response=await Promise.race([fetch(url,{signal:controller.signal}),timeout]);
+      let data;try{data=await Promise.race([response.json(),timeout]);}catch{throw new Error('El catálogo no devolvió una respuesta válida. Vuelve a intentar.');}
       if(sequence!==lookup.sequence||!form.isConnected||workspace!==ERP.workspace||input.value.trim()!==query)return;
-      if(!response.ok)throw new Error(data.error||'No se pudo consultar el catálogo.');
+      if(!response.ok)throw new Error(response.status===403?'Tu sesión no permite consultar el catálogo. Inicia sesión y vuelve a intentar.':data?.error||'No se pudo consultar el catálogo incluido. Vuelve a intentar.');
+      if(!Array.isArray(data?.results)||data.results.some(r=>!r||typeof r.code!=='string'||!r.code.trim()||typeof r.description!=='string'))throw new Error('El catálogo no devolvió una respuesta válida. Vuelve a intentar.');
       if(exact){
-        const selected=data.results.find(r=>r.code===form.elements.namedItem(input.dataset.satInput).value);
+        const selected=data.results.find(r=>r.code.toUpperCase()===form.elements.namedItem(input.dataset.satInput).value.toUpperCase());
         if(selected){form.elements.namedItem(satDescriptionName(input.dataset.satInput)).value=selected.description;input.value=selected.code+' · '+selected.description;}
         status.textContent=selected?'':'Valor anterior conservado; puedes elegir una clave vigente.';return;
       }
-      lookup.results=data.results;
+      lookup.results=data.results;lookup.workspace=workspace;
       out.innerHTML=data.results.map((r,i)=>`<button type="button" class="sat-result" role="option" aria-selected="false" data-sat-option="${i}"><strong>${esc(r.code)}</strong><span>${esc(r.description)}</span></button>`).join('');
       out.hidden=!data.results.length;input.setAttribute('aria-expanded',String(!!data.results.length));
-      status.textContent=data.results.length?'Selecciona una coincidencia.':'Sin coincidencias vigentes. Prueba otra descripción.';
-    } catch(error) {if(error.name!=='AbortError'&&sequence===lookup.sequence&&form.isConnected&&workspace===ERP.workspace)status.textContent=error.message;}
+      status.textContent=data.results.length?(query?'Selecciona una coincidencia.':'Sugerencias del catálogo; selecciona una o busca por código o descripción.'):'Sin coincidencias vigentes. Prueba otro código o descripción.';
+    } catch(error) {
+      if((error.name!=='AbortError'||timedOut)&&sequence===lookup.sequence&&form.isConnected&&workspace===ERP.workspace&&input.value.trim()===query){
+        status.textContent=(timedOut?'La consulta tardó demasiado. Vuelve a intentar.':(error.name==='TypeError'?'No se pudo consultar el catálogo incluido. Revisa tu conexión y vuelve a intentar.':error.message)||'No se pudo consultar el catálogo incluido. Vuelve a intentar.')+(exact?' Valor anterior conservado.':'');retry.hidden=false;
+      }
+    } finally {if(sequence===lookup.sequence){lookup.pending=false;clearTimeout(lookup.timeout);input.setAttribute('aria-busy','false');}}
   }
   function initSatFields(form) {
     if(!form)return;
@@ -200,23 +212,34 @@
     return true;
   }
   function selectSat(input,index) {
-    const lookup=satLookups.get(input),row=lookup.results[index];if(!row)return;
-    cancelSat(input);const form=input.closest('form'),box=input.closest('.pt29-sat-field');
+    const lookup=satLookups.get(input),form=input.closest('form');
+    if(!lookup||form!==activeSatForm||!form.isConnected||lookup.workspace!==ERP.workspace)return;
+    const row=lookup.results[index];if(!row||input.closest('.pt29-sat-field').querySelector('[role="listbox"]').hidden)return;
+    cancelSat(input);const box=input.closest('.pt29-sat-field');
     form.elements.namedItem(input.dataset.satInput).value=row.code;
     form.elements.namedItem(satDescriptionName(input.dataset.satInput)).value=row.description;
     input.value=row.code+' · '+row.description;input.setCustomValidity('');input.setAttribute('aria-expanded','false');
     box.querySelector('[role="listbox"]').hidden=true;box.querySelector('[data-sat-status]').textContent='Selección guardada en la ficha al confirmar.';input.focus();
   }
   document.addEventListener('input',event=>{
-    const input=event.target;if(!input.dataset?.satInput)return;
+    const input=event.target;if(!input.dataset?.satInput||!satLookups.has(input))return;
     cancelSat(input);const form=input.closest('form'),lookup=satLookups.get(input),box=input.closest('.pt29-sat-field');
     form.elements.namedItem(input.dataset.satInput).value='';form.elements.namedItem(satDescriptionName(input.dataset.satInput)).value='';
     lookup.results=[];box.querySelector('[role="listbox"]').hidden=true;input.setAttribute('aria-expanded','false');
     input.setCustomValidity(input.value.trim()?'Selecciona una coincidencia del catálogo SAT.':'');
+    box.querySelector('[data-sat-retry]').hidden=true;
     box.querySelector('[data-sat-status]').textContent=input.value.trim()?'Escribe y selecciona una coincidencia.':'';
     lookup.timer=setTimeout(()=>lookupSat(input),250);
   });
+  document.addEventListener('focusin',event=>{
+    const input=event.target,lookup=satLookups.get(input);
+    if(!lookup||input.closest('form')!==activeSatForm||formSatSelected(input)||lookup.pending)return;
+    lookupSat(input);
+  });
+  function formSatSelected(input){return !!input.closest('form').elements.namedItem(input.dataset.satInput).value;}
   document.addEventListener('click',event=>{
+    const retry=event.target.closest('[data-sat-retry]');
+    if(retry){const input=retry.closest('.pt29-sat-field').querySelector('[data-sat-input]');lookupSat(input,!!satLookups.get(input)?.exact);return;}
     const option=event.target.closest('[data-sat-option]');if(!option)return;
     selectSat(option.closest('.pt29-sat-field').querySelector('[data-sat-input]'),Number(option.dataset.satOption));
   });
