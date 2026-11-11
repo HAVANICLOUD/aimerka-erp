@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {generateProductSku,applyInventory} from '../lib/inventory-v28.mjs';
+import {generateCompactProductSku as generateProductSku,applyInventory} from '../lib/inventory-v28.mjs';
 
 const input={name:'Dyson Aspiradora Inalámbrica V12 Digital Slim',brand:'Dyson',model:'V12 Digital Slim',color:'Morado',capacity:'0.3 L'};
 const makeState=()=>({products:[],orders:[],purchases:[],events:[],movements:[]});

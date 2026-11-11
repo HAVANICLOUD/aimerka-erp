@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {applyCompactSkuMigration,compactSkuMigrationCandidates} from '../lib/compact-sku-migration.mjs';
-import {generateProductSku} from '../lib/inventory-v28.mjs';
+import {generateCompactProductSku as generateProductSku} from '../lib/inventory-v28.mjs';
 
 const old='DYSON-ASPIRADORA-INALAMBRICA-V12DIGITALSLIM-MORADO-03L';
 const ctx={now:'2026-10-29T15:00:00.000Z',actor:'QA',requestId:'compact-skus-1',type:'product.compactGeneratedSkus'};

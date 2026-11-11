@@ -14,7 +14,7 @@ const save=(s,p,originalSku,extra={})=>applyInventory(s,{id:'test',type:'product
 test('shared browser engine initializes without resolving or loading JSON imports',async()=>{
  const source=readFileSync(new URL('../lib/inventory-v28.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/^export /gm,'');let imports=0;
  const engine=await vm.runInNewContext('(async()=>{'+source+';return {generateProductSku};})()', {window:{},structuredClone}, {importModuleDynamically(){imports++;throw new Error('Browser must not load server catalogues');}});
- assert.match(engine.generateProductSku({name:'Test',brand:'Marca'}),/^[A-Z0-9]{1,10}$/);assert.equal(imports,0);
+ assert.match(engine.generateProductSku({name:'Test',brand:'Marca'}),/^[A-Z0-9]{1,24}$/);assert.equal(imports,0);
 });
 
 test('full pinned SAT unit distribution includes canonical examples and provenance',()=>{

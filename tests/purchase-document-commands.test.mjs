@@ -103,7 +103,7 @@ test('an unknown product gets generated SKU, empty UPC and zero inventory while 
   document.parsed.supplier='Nuevo proveedor';
   const result=importDocs(s,[document],[{name:'Aspiradora Dyson V12',supplierItem:'701577',qty:2,unitCostCents:null,documentIds:[document.id],newProduct:{name:'Aspiradora Dyson V12',brand:'Dyson',model:'V12',color:'Azul',capacity:'0.35 L',good:100}}],{supplier:'Nuevo proveedor',amountCents:null});
   const product=s.products[0],purchase=s.purchases[0];
-  assert.equal(product.sku,'DYSV12A035');assert.match(product.sku,/^[A-Z0-9]{1,10}$/);assert.equal(product.skuGenerated,true);assert.equal(product.upc,'');assert.equal(product.good,0);assert.equal(product.reserved,0);assert.equal(product.quarantine,0);
+  assert.equal(product.sku,'DYSASPIV12AZ035L');assert.match(product.sku,/^[A-Z0-9]{11,24}$/);assert.equal(product.skuGenerated,true);assert.equal(product.upc,'');assert.equal(product.good,0);assert.equal(product.reserved,0);assert.equal(product.quarantine,0);
   assert.equal(product.costStatus,'Por confirmar');assert.equal(purchase.amountCents,null);assert.equal(purchase.items[0].unitCostCents,null);assert.equal(purchase.items[0].totalCents,null);assert.deepEqual(result.createdSkus,[product.sku]);assert.ok(s.catalogs.suppliers.includes('Nuevo proveedor'));
 });
 
