@@ -80,3 +80,8 @@
 .price28-signal-red{border-color:#e8c6ca}.price28-signal-yellow{border-color:#e9d6a3}.price28-signal-green{border-color:#bedccf}
 #price28-signal-policy{display:grid;gap:14px;margin-top:18px}#price28-signal-policy label{display:grid;gap:8px;font-size:12px;color:#4b6588}#price28-signal-policy input{min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid #cbd8ed;background:#f4f7fe;font:inherit}#price28-signal-policy small{font-size:11px;line-height:1.8;color:#78879c}
 @media(max-width:520px){.price28-channel-result>header{padding-right:45px}.price28-decision strong{font-size:13px}.price28-traffic-corner{right:12px;top:12px}.price28-traffic-vector{width:30px;height:69px}.price28-channel-selection{margin-right:35px}.price28-selection-tools>.btn.primary{width:100%;white-space:normal;line-height:1.6}}
+
+/* Commission is a primary channel rule, before delivery or price objectives. */
+.price28-t1{border:2px solid #b8c5f4;background:#eef2ff;box-shadow:0 4px 14px #3445a00a}
+.price28-t1 legend{font-size:13px;font-weight:750;color:#34459a}
+.price28-t1 legend svg{width:18px;height:18px;vertical-align:middle;margin-right:4px}
