@@ -177,3 +177,10 @@ dialog:has(#pt29-product-form){width:760px}
 .pt29-sat-field .pt29-sat-retry{justify-self:start;margin-top:4px}
 .pt29-sat-field .pt29-sat-retry[hidden]{display:none}
 .pt29-sat-field [data-sat-input][aria-busy="true"]{background:#f3f8fb}
+
+.pt29-copy-sku{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#3445aa;background:#edf0ff;border-color:#c5cdf7;white-space:nowrap}
+.pt29-copy-sku svg{width:16px;height:16px;flex:none}
+.pt29-sku-control+.pt29-copy-sku{margin-top:8px}
+.pt29-copy-status{display:block;font-size:12px;line-height:1.5;overflow-wrap:anywhere;margin-top:6px;color:#466080}
+.pt29-copy-status:empty{display:none}
+.pt29-copy-status[data-copied="true"]{color:#176349}
