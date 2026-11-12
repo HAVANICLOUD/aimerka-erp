@@ -233,15 +233,21 @@ function modeOf(mode) {
 
 function run(config, input, product = null, includeComparisons = true) {
   let policy;try{policy=pricePolicy(config);}catch(error){return invalid([issue('parameters',error.message)]);}
+  // Opt in per scenario so existing events and saved input contracts retain their formulas.
+  const presentation=input.presentationPolicy==='market-discount-99';
+  if(presentation)policy={...policy,step:100,ending:99};
   const context = input.context || (product ? 'recomendador' : 'cotizador');
   const mode = modeOf(input.mode), errors = [], warnings = [];
   const cost = Number(input.cost), marketPrice = Number(input.marketPrice ?? 0);
   let margin = Number(input.margin ?? 0.1), inflation = Number(input.inflation ?? 0.1);
   if (!numeric(input.cost) || cost < 0) errors.push(issue('cost', 'Captura un costo numérico no negativo.'));
   if (!Number.isFinite(marketPrice) || marketPrice < 0 || (context === 'cotizador' && marketPrice <= 0)) errors.push(issue('marketPrice', 'Captura un precio de mercado mayor a cero.'));
-  const range = context === 'cotizador' ? [0, 0.3] : [-0.5, 0.5];
+  const range = presentation ? [0,1] : context === 'cotizador' ? [0, 0.3] : [-0.5, 0.5];
   if (!Number.isFinite(margin) || margin < range[0] || margin > range[1]) errors.push(issue('margin', `El margen debe estar entre ${range[0] * 100}% y ${range[1] * 100}%.`));
-  if (!Number.isFinite(inflation) || inflation < 0 || inflation > (context === 'cotizador' ? 0.3 : 0.5)) errors.push(issue('inflation', 'El inflado debe estar dentro del rango permitido.'));
+  if (!Number.isFinite(inflation) || inflation < 0 || inflation > (presentation?1:context === 'cotizador' ? 0.3 : 0.5)) errors.push(issue('inflation', 'El inflado debe estar dentro del rango permitido.'));
+  const discountMode=input.displayDiscountMode||'automatic';
+  const minimumDiscount=Number(input.minimumDiscount??.1);
+  if(presentation&&(!['automatic','minimum'].includes(discountMode)||!Number.isFinite(minimumDiscount)||minimumDiscount<0||minimumDiscount>=1))errors.push(issue('minimumDiscount','El descuento mínimo debe estar entre 0% y menos de 100%.'));
   const shipping = resolveShipping(config, input, product);
   if (!shipping.valid) errors.push(shipping.error);
   let manualDiscount = numeric(input.manualDiscount) ? Number(input.manualDiscount) : null;
@@ -268,7 +274,7 @@ function run(config, input, product = null, includeComparisons = true) {
     discountPrice=belowMarket;
     if(context==='recomendador'){
       const competitiveInflation=Number(input.competitiveInflation??input.inflation??.1);
-      if(!Number.isFinite(competitiveInflation)||competitiveInflation<0||competitiveInflation>.5)return invalid([issue('competitiveInflation','El inflado competitivo debe estar entre 0% y 50%.')]);
+      if(!Number.isFinite(competitiveInflation)||competitiveInflation<0||competitiveInflation>(presentation?1:.5))return invalid([issue('competitiveInflation','El inflado competitivo está fuera del rango permitido.')]);
       regularPrice=Math.max(discountPrice+policy.step,roundExcel((discountPrice*(1+competitiveInflation)-policy.ending)/policy.step)*policy.step+policy.ending);
     }else{
       regularPrice=roundRegular99(discountPrice,inflation,policy);
@@ -283,14 +289,33 @@ function run(config, input, product = null, includeComparisons = true) {
     margin=0; // Competitive mode evaluates break-even; it never turns a loss into a negative target.
     inflation=regularPrice/discountPrice-1;
   } else if (mode === 'precios') {
-    discountPrice = manualDiscount;
-    regularPrice = manualRegular;
+    discountPrice = presentation?ceilPrice(manualDiscount,policy):manualDiscount;
+    regularPrice = presentation?Math.max(discountPrice,ceilPrice(manualRegular,policy)):manualRegular;
     margin = factor - costTotal / discountPrice;
     inflation = regularPrice / discountPrice - 1;
   } else {
     discountPrice = roundMargin99(costTotal, factor, margin,policy);
     regularPrice = discountPrice === null ? null : roundRegular99(discountPrice, inflation,policy);
   }
+  const regularBeforeAdjustment=regularPrice;
+  let marketFloorApplied=false,minimumDiscountApplied=false;
+  if(presentation&&['tasas','automatico'].includes(mode)){
+    if(factor-margin<=0)return invalid([issue('margin','La utilidad solicitada no es alcanzable con esta comisión y retenciones. Reduce el porcentaje; 100% sobre venta no deja espacio para costos ni deducciones.')],{channel:rates.channel,category,context,mode,inputs:clone(input)});
+    if(discountPrice!==null){
+      const floor=marketPrice>0?ceilPrice(marketPrice,policy):0;
+      marketFloorApplied=floor>regularPrice;
+      regularPrice=Math.max(regularPrice,floor);
+      if(discountMode==='minimum'){
+        const minimum=ceilPrice(discountPrice/(1-minimumDiscount),policy);
+        minimumDiscountApplied=minimum>regularPrice;
+        regularPrice=Math.max(regularPrice,minimum);
+      }
+    }
+  }
+  if(presentation&&(!Number.isFinite(discountPrice)||!Number.isFinite(regularPrice)||discountPrice<=0||regularPrice<discountPrice||regularPrice>1e9))return invalid([issue('price','No se pudo obtener un precio válido dentro del límite de cálculo. Revisa utilidad, inflado y descuento.')],{channel:rates.channel,category,context,mode});
+  const displayDiscountRate=regularPrice>0?Math.max(0,1-discountPrice/regularPrice):null;
+  const regularAboveMarket=marketPrice>0&&regularPrice>marketPrice+.005;
+  if(presentation&&regularAboveMarket)warnings.push('El precio regular supera el último precio del mercado. Revisa el inflado y el descuento anunciado.');
   if (numeric(input.comparisonTargetMargin)) margin = Number(input.comparisonTargetMargin);
   const discount = breakdown(discountPrice, cost, shippingAmount, rates, margin);
   const regular = breakdown(regularPrice, cost, shippingAmount, rates, margin);
@@ -314,7 +339,7 @@ function run(config, input, product = null, includeComparisons = true) {
     shipping: shippingAmount, shippingDetails: shipping, commissionRate: rates.rate, baseCommissionRate: rates.baseRate,
     retentionTreatment:rates.retentionTreatment,objectiveBasis:rates.retentionTreatment==='pass_through'?'cash_after_withholding':'commercial_before_withholding',cashFactor:1-rates.rate-rates.vatRate-rates.isrRate,withholdingBaseMode:rates.withholdingBaseMode,includedVat:rates.includedVat,nominalVatRate:rates.nominalVatRate,nominalIsrRate:rates.nominalIsrRate,commissionSource:rates.commissionSource,configuredCommissionRate:rates.configuredCommissionRate,t1CommissionMode:rates.t1CommissionMode,msiRate: rates.msiRate, vatRate: rates.vatRate, isrRate: rates.isrRate, margin, inflation, factor, marketPrice,
     theoreticalPrice: factor - margin > 0 ? costTotal / (factor - margin) : null,
-    discount, regular, status, competitive, pricePolicy:policy, transfer: rates.channel === 'Tienda Nube' ? transferResult(discount, cost, shippingAmount, margin, context,policy) : null,
+    discount, regular, status, competitive, pricePolicy:policy, displayDiscountRate,regularAboveMarket,marketFloorApplied,minimumDiscountApplied,regularBeforeAdjustment,displayDiscountMode:discountMode,minimumDiscount,effectiveInflation:discountPrice>0?regularPrice/discountPrice-1:null, transfer: rates.channel === 'Tienda Nube' ? transferResult(discount, cost, shippingAmount, margin, context,policy) : null,
     mlComparison: null, inputs: clone(input), ratePath: rates.path, source: `V43 · ${context === 'recomendador' ? 'RECOMENDADOR_UPC' : 'CALCULADORA / COTIZADOR'}`};
   if(includeComparisons&&discount){const otherTreatment=rates.retentionTreatment==='pass_through'?'no_pass_through':'pass_through',other=run(config,{...input,retentionTreatment:otherTreatment},product,false);result.retentionComparison={pass_through:rates.retentionTreatment==='pass_through'?discount:other.discount,no_pass_through:rates.retentionTreatment==='no_pass_through'?discount:other.discount};}
   if (includeComparisons && rates.channel === 'Mercado Libre') result.mlComparison = {
@@ -334,7 +359,7 @@ export function recommend(config, product, input = {}) {
   const mode = modeOf(input.mode || 'automatico');
   const margin = Number(input.margin ?? 0.1);
   const marketPrice = numeric(input.alternateMarketPrice) && Number(input.alternateMarketPrice) > 0 ? Number(input.alternateMarketPrice) : Number(product.priceCents) / 100;
-  const inflation = mode === 'automatico' ? margin === 0 ? Number(input.zeroMarginInflation ?? 0) : margin
+  const inflation = input.presentationPolicy==='market-discount-99'?Number(input.inflation??.1):mode === 'automatico' ? margin === 0 ? Number(input.zeroMarginInflation ?? 0) : margin
     : mode === 'tasas' && margin === 0 ? Number(input.zeroMarginInflation ?? input.inflation ?? 0) : Number(input.inflation ?? 0.1);
   const exactCost = numeric(product.averageCostMxn) && Math.round(Number(product.averageCostMxn) * 100) === product.costCents ? Number(product.averageCostMxn) : Number(product.costCents) / 100;
   const result = run(config, {...input, mode, context: 'recomendador', cost: exactCost, marketPrice, margin, inflation,
