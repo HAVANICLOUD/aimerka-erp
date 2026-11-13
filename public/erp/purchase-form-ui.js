@@ -23,6 +23,7 @@
   const rule=op28engine().creditRuleFor(state.creditRules,form.elements.lender.value,form.elements.instrument.value),preview=op28engine().creditPreview(form.elements.date.value,rule);
   if(preview.paymentDate){if(force||!field.value||field.dataset.automatic==='true'){field.value=preview.paymentDate;field.dataset.automatic='true';op28draft.buyDateMode='auto';}get('op28-purchase-date-result').textContent='Primer pago estimado: '+op28date(preview.paymentDate)+'. Según el corte y pago configurados; puedes editarlo.';}
   else{if(field.dataset.automatic==='true')field.value='';get('op28-purchase-date-result').textContent='Configura el día de corte y pago de este dador e instrumento en Calendario, o captura la primera fecha manualmente.';}
+  window.ERPDate?.refresh(form);
  }
  const previous=op28RenderPurchaseForm;
  op28RenderPurchaseForm=function(){
