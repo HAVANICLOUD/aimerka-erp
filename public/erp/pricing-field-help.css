@@ -134,3 +134,12 @@
  #price28-form .price28-search-row .price28-fill-control{flex-basis:100%}
  #price28-form .price28-search-row .btn{flex:1;justify-content:center}
 }
+/* Readable commission category; no truncated labels or invisible read-only value. */
+#price28-form .price28-category-field{padding:16px;border:2px solid #bdcde3;border-radius:14px;background:#f2f7fd;min-width:0}
+#price28-form .price28-category-field>label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;font-weight:750;color:#24476b;margin-bottom:12px}
+#price28-form .price28-category-field>label>span:first-child{display:flex;align-items:center;gap:9px}
+#price28-form .price28-category-field>label .icon{width:21px;height:21px;color:#486c9d}
+#price28-form .price28-category-field>output{display:block;min-height:52px;padding:14px 16px;border:2px solid #b6cbe2;border-radius:11px;background:#fff;color:#214877;font-size:18px;font-weight:750;line-height:1.5;white-space:normal;overflow-wrap:anywhere;box-shadow:0 3px 8px #355e8b0d}
+#price28-form .price28-category-field>small{display:block;font-size:12px;line-height:1.6;margin-top:10px;color:#58718b}
+.price28-category-help{cursor:help;display:inline-flex;flex:none;padding:5px;border:1px solid #c6d5e6;border-radius:50%;background:#fff}
+.price28-grid{overflow-anchor:none}

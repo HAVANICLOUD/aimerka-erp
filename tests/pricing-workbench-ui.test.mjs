@@ -64,3 +64,11 @@ test('latest purchase cost travels with inventory comparison and clears when cha
   h.listeners.input({target:{dataset:{price28Field:'productKey'},value:'BLANK'}});assert.equal(h.run('price28Input().lastPurchaseCost'),null);
   h.run("price28Forms.comparar.lastPurchaseCost='999';price28Clear()");assert.equal(h.run('price28Forms.comparar.lastPurchaseCost'),'');
 });
+
+test('retention and discount choices update the scenario without rebuilding the page or resetting product inputs',async()=>{
+ const h=harness();h.run("price28Tab='recomendador';Object.assign(price28Forms.recomendador,{productKey:'REF',lastPurchaseCost:'1250',minimumDiscount:'15'})");
+ const initial=h.calls.filter(c=>c[0]==='render').length;
+ for(const [selector,dataset] of [['[data-price28-retention]',{price28Retention:'no_pass_through'}],['[data-price28-discount-mode]',{price28DiscountMode:'minimum'}],['[data-price28-discount-mode]',{price28DiscountMode:'automatic'}]])await h.listeners.click({target:{closest:s=>s===selector?{dataset}:null}});
+ assert.equal(h.calls.filter(c=>c[0]==='render').length,initial);assert.equal(h.run('price28Input().retentionTreatment'),'no_pass_through');
+ assert.equal(h.run('price28Forms.recomendador.minimumDiscount'),'15');assert.equal(h.run('price28Input().lastPurchaseCost'),1250);assert.equal(h.run('price28Forms.recomendador.productKey'),'REF');
+});
