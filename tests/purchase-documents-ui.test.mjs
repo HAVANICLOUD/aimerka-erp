@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createHash} from 'node:crypto';
 import * as parserEngine from '../lib/purchase-document-parser.mjs';
 import * as validationModule from '../lib/purchase-document-validation.mjs';
 import {generateProductSku} from '../lib/inventory-v28.mjs';
@@ -9,7 +10,7 @@ import {generateProductSku} from '../lib/inventory-v28.mjs';
 const source=fs.readFileSync(new URL('../public/erp/purchase-documents-ui.js',import.meta.url),'utf8')
   .replace(/const parser=\(\)=>parserPromise\?\?=import\([^;]+;/,'const parser=async()=>(parserModule=parserEngine);')
   .replace(/const validator=\(\)=>validationPromise\?\?=import\([^;]+;/,'const validator=()=>{validationEngine=validationModule;return Promise.resolve(validationModule);};')
-   .replace('window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder}};');
+   .replace('window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder,addFiles}};');
 const product={sku:'DYSV12M03L',upc:'885609037998',name:'Dyson V12',brand:'Dyson',supplierCodes:[{supplier:'Costco',item:'701577'}]};
 const line={sku:product.sku,name:product.name,supplierItem:'701577',qty:2,unitCostCents:null,totalCents:null,documentIds:[]};
 const order=(id='order')=>({id,name:'orden.pdf',parsed:{kind:'order',supplier:'Costco',supplierOrder:'599633002',currency:'MXN',date:'2026-10-19',totalCents:null,lines:[{supplierItem:'701577',name:'Dyson V12',qty:2}]}});
@@ -26,6 +27,8 @@ function setup(state={products:[structuredClone(product)],purchases:[],documents
   const document={getElementById:id=>nodes.get(id)||null,querySelectorAll:()=>[],querySelector:()=>null,addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);}};
   const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
   const context={document,window:{},icons:{},state,parserEngine,validationModule,structuredClone,URL,FormData,console,
+    DocumentHash29:{digest:async bytes=>createHash('sha256').update(Buffer.from(bytes)).digest('hex')},
+    DocumentReader29:{extract:async file=>({text:await file.text(),extraction:'ocr',warnings:[]})},
     esc,icon:()=>'<svg></svg>',badge:(label,color)=>'<span class="'+color+'">'+esc(label)+'</span>',money:cents=>'$'+(cents/100).toFixed(2),toast:(message,error)=>toasts.push({message,error}),
     showModal:markup=>{html=markup;nodes.set('document-import-form',{});},fetch:async()=>{uploads++;throw new Error('Unexpected upload');},
     ERP:{workspace:'practice',busy:false,today:()=> '2026-10-29',engines:{inventory:{generateProductSku}},field:(id,label,value)=>'<input id="'+id+'" value="'+esc(value)+'">',select:()=>'<select></select>',command:async()=>{commands++;throw new Error('Unexpected command');}}};
@@ -237,4 +240,30 @@ test('a plausible value in ambiguous columns can be confirmed manually while a r
   ui.helpers.setDocumentReference(draft,doc,'021718');await ui.helpers.recompute(draft);
   assert.equal(draft.validation.valid,false);assert.equal(draft.purchase.supplierOrder,'');
   assert.match(ui.html,/Referencia por revisar/);assert.match(ui.html,/docs-save[^>]*disabled/);
+});
+
+test('Importar orden accepts an OCR product list and an invoice as purchase sources instead of redirecting to billing',async()=>{
+  for(const [name,text] of [
+    ['listado.pdf','Proveedor: Costco\nDescripción | Cantidad | UPC\nDyson V12 | 2 | 885609037998\nJuego de herramientas ZX900 totalmente nuevo | 1 | '],
+    ['factura.pdf','CFDI\nProveedor: Costco\nFactura: BMG200\nNúmero de orden: 599633002\nUUID 12345678-1234-4234-8234-123456789012\nDescripción | Cantidad | Importe\nDyson V12 | 1 | 4099.00\nTotal: 4099.00']
+  ]){
+    const ui=setup();await ui.api.open({mode:'order'});
+    await ui.helpers.addFiles([new File([text],name,{type:'application/pdf'})]);
+    const d=ui.helpers.getDraft();
+    assert.equal(d.documents.length,1);assert.equal(d.documents[0].parsed.kind,name==='factura.pdf'?'invoice':'order');
+    assert.equal(d.lines[0].sku,product.sku);assert.equal(d.lines[0].qty,name==='factura.pdf'?1:2);
+    assert.equal(ui.toasts.filter(t=>t.error).length,0);assert.equal(ui.uploads,0);assert.equal(ui.commands,0);
+    if(name==='listado.pdf'){assert.equal(d.lines.length,2);assert.match(ui.html,/Producto nuevo · sin coincidencia/);}
+    else {assert.equal(d.validation.valid,true);assert.equal(d.lines[0].unitCostCents,409900);assert.equal(d.lines[0].documentIds[0],d.documents[0].id);}
+    ui.api.close();
+  }
+});
+
+test('Subir facturación still rejects an OCR order and keeps the saved purchase unchanged',async()=>{
+  const purchase={id:'C1',supplier:'Costco',supplierOrder:'599633002',items:[{...structuredClone(line),id:'L1',receivedQty:1}]};
+  const ui=setup({products:[structuredClone(product)],purchases:[purchase],documents:[],catalogs:{suppliers:['Costco']}});
+  await ui.api.open({purchaseId:purchase.id,mode:'invoice'});const before=JSON.stringify(ui.helpers.getDraft().lines);
+  await ui.helpers.addFiles([new File(['Orden de compra\nNúmero de orden: 599633002\nDescripción | Cantidad\nDyson V12 | 2'],'orden.pdf',{type:'application/pdf'})]);
+  assert.equal(ui.helpers.getDraft().documents.length,0);assert.equal(JSON.stringify(ui.helpers.getDraft().lines),before);
+  assert.match(ui.toasts.at(-1).message,/No se reconoció una factura/);assert.equal(ui.uploads,0);
 });

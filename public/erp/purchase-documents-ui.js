@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261105-inventory').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261105-inventory').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261113-purchase-import').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261113-purchase-import').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -18,6 +18,7 @@
  const hasChanges=d=>Boolean(d.documents.length||d.editedDocumentIds?.length);
  function referenceNeedsReview(parsed){
    if(!parsed)return false;
+   if(parsed.supplierOrderAbsentConfirmed&&!parsed.supplierOrder&&!parsed.supplierOrderConflict&&!parsed.supplierOrderCandidates?.length&&!parsed.supplierOrderRejectedCandidates?.length)return false;
    const normalize=parserModule?.normalizeSupplierOrder||(value=>String(value??'').trim().toUpperCase());
    return Boolean((!parsed.supplierOrderReviewed||!parsed.supplierOrder)&&(parsed.supplierOrderNeedsReview||parsed.supplierOrderConflict)||
      parsed.supplierOrder&&(parserModule?.isTemporalSupplierOrder(parsed.supplierOrder,{context:parsed.evidence?.supplierOrder})||
@@ -77,7 +78,7 @@
      }).join('')+'</ul>'+
      ((report.equivalences||[]).length?'<div class="doc-equivalence-confirm">'+icon('link')+'<span>Equivalencias que se conservarán: '+report.equivalences.map(e=>'<b>'+esc(e.supplierItem)+' → '+esc(e.sku)+'</b>').join(' · ')+'. Se reutilizarán al subir documentos del mismo proveedor.</span></div>':'')+
      (issues.length?'<ul class="doc-match-issues">'+issues.map(issue=>'<li class="'+(issue.severity==='error'?'is-error':'is-warning')+'">'+esc(issue.message)+'</li>').join('')+'</ul>':'<p class="doc-match-ok">Sin diferencias ni documentos repetidos detectados.</p>')+
-     '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / recibidas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+(line.receivedQty||0)+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo promedio documental calculado con las unidades facturadas. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p>'+(fiscal?'<div class="doc-fiscal-status">'+badge(fiscal.valid?'Datos fiscales coincidentes':'Datos fiscales por corregir',fiscal.valid?'green':'red')+'<p>Empresa: '+esc(fiscal.profile?.legalName||'Por configurar')+' · Uso requerido G01. Este cotejo no consulta la vigencia del CFDI en el SAT.</p></div>':'')+'</section>';
+     '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Ordenadas / recibidas / facturadas / pendientes</th><th>Costo sin IVA / unidad</th><th>IVA acumulado</th><th>Costo con IVA / unidad</th><th>Total facturado</th></tr></thead><tbody>'+(report.lines||[]).map(line=>'<tr><td>'+esc(line.name)+'</td><td>'+line.qty+' / '+(line.receivedQty||0)+' / '+line.invoicedQty+' / '+line.pendingInvoiceQty+'</td><td>'+costLabel(line.invoiceAverageNetCostCents)+'</td><td>'+costLabel(line.invoicedTaxCents)+'</td><td>'+costLabel(line.invoiceAverageCostCents)+'</td><td>'+costLabel(line.invoicedTotalCents)+'</td></tr>').join('')+'</tbody></table></div><p class="small-note">Costo de esta compra calculado con las unidades facturadas; no modifica el costo promedio del inventario. Total facturado: <strong>'+costLabel(report.invoiceTotalCents)+'</strong>. La recepción y las existencias se conservan.</p>'+(fiscal?'<div class="doc-fiscal-status">'+badge(fiscal.valid?'Datos fiscales coincidentes':'Datos fiscales por corregir',fiscal.valid?'green':'red')+'<p>Empresa: '+esc(fiscal.profile?.legalName||'Por configurar')+' · Uso requerido G01. Este cotejo no consulta la vigencia del CFDI en el SAT.</p></div>':'')+'</section>';
  }
  const costLabel=value=>value==null?'Por confirmar':money(value);
  function blockerPanel(d){return '<strong>Resuelve las diferencias antes de guardar</strong><p>'+blockers(d).map(esc).join(' ')+'</p><p>Quita el documento incorrecto o revisa su lectura y la referencia original.</p>';}
@@ -160,6 +161,7 @@
    for(const [field,id] of [['supplier','docs-supplier'],['supplierOrder','docs-order'],['date','docs-date'],['shippingStatus','docs-shipping'],['notes','docs-notes'],['buyerCompanyId','docs-buyer']])if(get(id)){const captured=value(id).trim();if(field==='supplierOrder'&&captured!==String(d.purchase.supplierOrder||''))d.orderReferenceMode='manual';d.purchase[field]=captured;}
    if(get('docs-total')&&d.mode!=='invoice')d.purchase.amountCents=cents(value('docs-total'));
    for(const input of document.querySelectorAll('[data-doc-order-reference]')){const doc=allDocs(d).find(doc=>doc.id===input.dataset.docOrderReference);if(doc)setDocumentReference(d,doc,input.value);}
+   for(const input of document.querySelectorAll('[data-doc-no-reference]')){const doc=d.documents.find(doc=>doc.id===input.dataset.docNoReference);if(doc)doc.parsed.supplierOrderAbsentConfirmed=input.checked;}
    d.reviewed=!!get('docs-reviewed')?.checked;
    for(const row of document.querySelectorAll('[data-doc-line]')){
      if(d.mode==='invoice')continue;
@@ -182,6 +184,7 @@
      '<div data-doc-match="'+esc(doc.id)+'">'+matchBadge(check,p)+'</div>'+
      (p.supplierOrderReviewed?'<small>Referencia revisada manualmente. Lectura inicial: '+esc(p.supplierOrderOriginal||'sin número')+'.</small>':p.evidence?.supplierOrder?'<small>Lectura: '+esc(p.evidence.supplierOrder)+'</small>':editable?'<small>Si la lectura falta o es incorrecta, escribe el número que aparece en este documento.</small>':'')+
      '<div data-doc-reference-notice="'+esc(doc.id)+'">'+referenceNotice(p)+'</div></div>'+
+     (editable&&!stored&&!p.supplierOrder?'<label class="small-note"><input type="checkbox" data-doc-no-reference="'+esc(doc.id)+'" '+(p.supplierOrderAbsentConfirmed?'checked':'')+'> Revisé el original: este documento no tiene número de orden. Solo aplica a compras sin una orden del proveedor registrada.</label>':'')+
      (p.totalCents!=null?'<div class="document-card-total">'+money(p.totalCents)+'</div>':'<div class="small-note">Importe por confirmar</div>')+
      (p.kind==='invoice'?'<div class="document-fiscal-reading"><strong>Receptor / uso fiscal</strong><span>'+esc(p.recipientName||'Razón social sin lectura')+'</span><small>RFC '+esc(p.recipientRfc||'Pendiente')+' · CP '+esc(p.recipientPostalCode||'Pendiente')+' · Régimen '+esc(p.recipientTaxRegime||'Pendiente')+' · Uso '+esc(p.cfdiUse||'Pendiente')+'</small></div>':'')+
      (p.uuid?'<div class="document-uuid">UUID '+esc(p.uuid)+'</div>':'')+
@@ -217,7 +220,7 @@
  }
  function lineCard(line,i,d,skus){
    const selected=line.newProduct?'__new__':line.sku||'';
-   const matchLabel=({exact_upc:'UPC reconocido',supplier_item:'Equivalencia del proveedor',name:'Nombre coincidente',suggestion:'Sugerencia: confirmar producto',unmatched:'Asigna un producto',existing:'Producto de esta compra'})[line.match?.confidence]||'Asignación revisada';
+   const matchLabel=({exact_upc:'UPC reconocido',exact_sku:'SKU interno reconocido',supplier_item:'Equivalencia del proveedor',name:'Nombre coincidente',suggestion:'Posible producto existente · confirmar',unmatched:'Producto nuevo · sin coincidencia en el catálogo',existing:'Producto de esta compra'})[line.match?.confidence]||'Asignación revisada';
    const p=state.products.find(p=>p.sku===line.sku),np=line.newProduct||{},field=(key,label,val,type='text',extra='')=>
      '<div class="field"><label>'+esc(label)+'<input data-doc-field="'+key+'" type="'+type+'" value="'+esc(val??'')+'" '+extra+'></label></div>';
    const readonly=line.receivedQty>0?'disabled':'';
@@ -236,7 +239,7 @@
      const generated=skus[i];
      html+='<div class="doc-new-product"><h4>Nuevo producto · existencia inicial 0</h4><div class="form-grid">'+field('brand','Marca *',np.brand,'text','required')+
        field('model','Modelo',np.model)+field('color','Color',np.color)+field('capacity','Capacidad',np.capacity)+field('upc','UPC / EAN (opcional)',np.upc,'text','inputmode="numeric" placeholder="Asignar al recibir"')+
-       field('category','Categoría',np.category)+field('image','URL HTTPS de imagen (opcional)',np.imageUrl,'text')+'</div><div class="doc-generated-sku"><span>SKU interno propuesto</span><code data-doc-sku-preview>'+esc(generated)+'</code></div><p class="small-note">Máximo 10 letras y números, sin espacios ni guiones. Se genera y verifica como único al guardar. El UPC puede incorporarse al recibir la mercancía.</p></div>';
+       field('category','Categoría',np.category)+field('image','URL HTTPS de imagen (opcional)',np.imageUrl,'text')+'</div><div class="doc-generated-sku"><span>SKU interno propuesto</span><code data-doc-sku-preview>'+esc(generated)+'</code></div><p class="small-note">SKU alfanumérico basado en el producto, sin espacios ni guiones. Se genera y verifica como único al guardar. El UPC puede incorporarse al recibir la mercancía.</p></div>';
    }
    html+='<fieldset class="doc-line-links"><legend>Documentos que corresponden a este artículo</legend>'+allDocs(d).map(doc=>
      '<label><input type="checkbox" data-doc-link="'+esc(doc.id)+'" '+(line.documentIds?.includes(doc.id)?'checked':'')+'> '+esc(kindName(doc.parsed?.kind)+' · '+(doc.parsed?.invoiceNumber||doc.name))+'</label>').join('')+'</fieldset></article>';
@@ -253,7 +256,7 @@
    showModal('<form id="document-import-form"><div class="docs-modal-head"><div><span class="eyebrow">COMPRAS / LECTURA DOCUMENTAL</span><h2 id="modal-title">'+title+'</h2><p class="modal-subtitle">La factura respalda lo comprado. Recibir mercancía es un proceso independiente.</p></div><span class="docs-workspace">'+'ERP compartido'+'</span></div>'+
      fiscalBuyerField(d)+'<div class="doc-steps"><span class="'+(!hasFiles?'active':'done')+'"><b>1</b> Adjuntar</span><span class="'+(hasFiles?'active':'')+'"><b>2</b> Revisar y relacionar</span><span><b>3</b> Guardar sin recibir</span></div>'+
      '<div class="head-actions"><button type="button" class="btn" data-doc-mode="order">Importar orden</button><button type="button" class="btn" data-doc-mode="invoice">Subir facturación</button></div>'+
-     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>'+esc(d.mode==='invoice'?'Subir facturación':'Importar orden')+'</strong><p>'+(d.mode==='invoice'?'Adjunta una o varias facturas. AIMERKA las relacionará con la orden, los productos y actualizará los costos.':'Lee una orden de compra o captura del proveedor para crear automáticamente sus partidas.')+' PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
+     '<div class="document-dropzone" id="document-dropzone"><div class="document-drop-icon">'+icon('upload')+'</div><strong>'+esc(d.mode==='invoice'?'Subir facturación':'Importar orden')+'</strong><p>'+(d.mode==='invoice'?'Adjunta una o varias facturas. AIMERKA las relacionará con la orden, los productos y actualizará los costos.':'Adjunta una orden, un listado de productos o una factura para crear la compra. Reconocemos artículos por UPC, SKU, equivalencias y nombre; los nuevos se revisan antes del alta.')+' PDF, PNG o JPG · hasta 15 MB por archivo · máximo 12 archivos por importación.</p><label class="btn primary" for="document-files">'+icon('plus')+' Seleccionar documentos</label><input id="document-files" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple '+(d.busy?'disabled':'')+'><span class="small-note">También puedes arrastrarlos aquí. La lectura y el OCR se procesan en este navegador.</span></div>'+
      '<div id="docs-progress" class="docs-progress" role="status" aria-live="polite">'+esc(d.progress||'')+'</div>'+
      (hasFiles?'<div class="document-grid">'+docs.map(doc=>documentCard(doc,!d.documents.some(x=>x.id===doc.id),d.validation,true)).join('')+'</div>':'')+
      '<div id="docs-validation" aria-live="polite">'+validationPanel(d)+'</div>'+
@@ -289,9 +292,7 @@
        const id=await DocumentHash29.digest(await file.arrayBuffer());
        if(allDocs(d).some(doc=>doc.id===id)){const warning=file.name+' ya está adjunto. El archivo duplicado se omitió y no sumó artículos.';d.uploadWarnings.push(warning);toast(warning);continue;}
        const read=await DocumentReader29.extract(file,message=>progress(d,file.name+' · '+(typeof message==='string'?message:message.message)));
-       checkSession(d);const parsed=engine.parsePurchaseDocument(read.text,{fileName:file.name});
-       if(d.mode==='invoice'&&parsed.kind!=='invoice')throw new Error(file.name+': no se reconoció una factura. Carga la orden desde Importar orden.');
-       if(d.mode==='order'&&parsed.kind!=='order')throw new Error(file.name+': utiliza Subir facturación para adjuntar facturas.');
+       checkSession(d);const parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(read.text,{fileName:file.name}),{mode:d.mode});
        parsed.warnings=[...new Set([...(parsed.warnings||[]),...(read.warnings||[])])];
        d.documents.push({id,sha256:id,name:file.name,mime:file.type,size:file.size,file,text:read.text,parsed,extraction:read.extraction,previewUrl:URL.createObjectURL(file)});
      }
@@ -337,6 +338,7 @@
      (docs.length?validationPanel(d)+'<div class="document-grid">'+docs.map(doc=>documentCard(doc,true,d.validation)).join('')+'</div>':'<div class="doc-empty">'+icon('file')+'<p>Conserva aquí la orden del proveedor y sus facturas. Podrás consultarlas también desde cada producto.</p></div>')+'</section>';
  }
  document.addEventListener('change',e=>{
+   if(e.target.hasAttribute('data-doc-no-reference')&&draft){capture(draft);draft.reviewed=false;refreshValidation(draft,false);render(draft);return;}
    if(e.target.id==='docs-buyer'&&draft){capture(draft);draft.reviewed=false;refreshValidation(draft,false);render(draft);return;}
    if(e.target.id==='document-files'){addFiles(e.target.files);return;}
    if(e.target.id==='workspace-picker'){close();return;}
@@ -374,11 +376,11 @@
      capture(d);const doc=d.documents.find(x=>x.id===el.dataset.docReparse);if(!doc)return;
      doc.text=document.querySelector('[data-doc-text="'+doc.id+'"]').value;
      const kind=document.querySelector('[data-doc-kind="'+doc.id+'"]').value,engine=await parser();
-     doc.parsed=engine.parsePurchaseDocument(doc.text,{fileName:doc.name,kind});doc.extraction='manual';d.reviewed=false;await recompute(d);
+     doc.parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(doc.text,{fileName:doc.name,kind}),{mode:d.mode});doc.extraction='manual';d.reviewed=false;await recompute(d);
    }else if(el.hasAttribute('data-doc-ocr')){
      capture(d);const doc=d.documents.find(x=>x.id===el.dataset.docOcr);if(!doc)return;
      d.busy=true;d.reviewed=false;render(d);
-     try{const read=await DocumentReader29.extract(doc.file,msg=>progress(d,doc.name+' · '+(typeof msg==='string'?msg:msg.message)),{forceOCR:true});checkSession(d);doc.text=read.text;doc.extraction='ocr';doc.parsed=(await parser()).parsePurchaseDocument(doc.text,{fileName:doc.name});d.progress='OCR terminado. Verifica los datos reconocidos.';await recompute(d);}
+     try{const read=await DocumentReader29.extract(doc.file,msg=>progress(d,doc.name+' · '+(typeof msg==='string'?msg:msg.message)),{forceOCR:true});checkSession(d);doc.text=read.text;doc.extraction='ocr';const engine=await parser();doc.parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(doc.text,{fileName:doc.name}),{mode:d.mode});d.progress='OCR terminado. Verifica los datos reconocidos.';await recompute(d);}
      catch(error){if(d===draft){d.progress=error.message;toast(error.message,true);}}finally{d.busy=false;if(d===draft)render(d);}
    }
  });

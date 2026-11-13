@@ -572,3 +572,13 @@ test('ambiguous supplier equivalences do not silently choose an SKU and matching
   assert.equal(result.confidence,'suggestion');
   assert.deepEqual(products,before);
 });
+
+test('unbranded product lists are orders and can identify a product using an internal SKU or UPC-only table',()=>{
+  const listing=parsePurchaseDocument('Proveedor: Distribuidor\nSKU | Cantidad\nDYSV12M03L | 2');
+  assert.equal(listing.kind,'order');assert.equal(listing.supplierOrderNeedsReview,false);assert.equal(listing.lines[0].supplierItem,'DYSV12M03L');
+  const catalog=[{sku:'DYSV12M03L',name:'Dyson V12',upc:'885609037998'}];
+  assert.equal(matchPurchaseLine(listing.lines[0],catalog,[],'Distribuidor').sku,'DYSV12M03L');
+  const byUpc=parsePurchaseDocument('UPC | Cantidad\n885609037998 | 2');
+  assert.equal(byUpc.kind,'order');assert.equal(matchPurchaseLine(byUpc.lines[0],catalog).sku,'DYSV12M03L');
+  assert.equal(matchPurchaseLine({name:'Producto nunca registrado'},catalog).confidence,'unmatched');
+});

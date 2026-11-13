@@ -36,7 +36,7 @@ test('separate invoice upload accumulates Costco costs and preserves the order a
     assert.equal(ledger.documents.at(-1).lineLinks[0].qty,1);assert.equal(ledger.documents.at(-1).lineLinks[0].sku,sku);
   }
   assert.deepEqual(productInvoiceCosts(ledger,sku),{units:2,totalCents:819800,averageCostCents:409900,averageNetCostCents:353362,averageTaxCents:56538});
-  assert.equal(ledger.products[0].costCents,409900);assert.equal(ledger.products[0].averageCostMxn,4099);assert.equal(ledger.products[0].priceCents,stock[0].priceCents);
+  assert.deepEqual(ledger.products,stock,'Documentary invoice costs must not revalue inventory products');
   for(const key of ['good','reserved','quarantine','damaged','safety'])assert.equal(ledger.products[0][key],stock[0][key]);
   assert.deepEqual(ledger.movements,movements);assert.deepEqual(ledger.purchaseReceipts,receipts);
   const before=structuredClone(ledger),extra=doc(204,'invoice',1);
@@ -209,4 +209,34 @@ test('an added order PDF must match the existing purchase items, even with the s
   const order=doc(150),snapshot=JSON.stringify(s);
   assert.throws(()=>importDocs(s,[order],[{...s.purchases[0].items[0]}],{},created.id),/PDF de orden.*no corresponde|PDF de orden no contiene/);
   assert.equal(JSON.stringify(s),snapshot);
+});
+
+test('creating a purchase from an invoice records its actual purchase costs and allows later duplicate billing without revaluation',()=>{
+  const s=state(),sku=createProduct(s),invoice=doc(180,'invoice',1);
+  Object.assign(s.products[0],{averageCostMxn:1234,sourceCost:1234,costSource:'Inventario confirmado'});
+  const originalCost={costCents:s.products[0].costCents,averageCostMxn:s.products[0].averageCostMxn,sourceCost:s.products[0].sourceCost,costSource:s.products[0].costSource};
+  const command={id:'invoice-origin',type:'purchase.importDocuments',payload:{mode:'order',purchase:{supplier:'Costco',date:'2026-10-19'},documents:[invoice],lines:[line(sku,[invoice],{qty:1,unitCostCents:null})]}};
+  const result=applyDocumentImport(s,command,{...clock,verifiedDocuments:metadata([invoice])}),purchase=s.purchases[0];
+  assert.equal(purchase.amountCents,409900);assert.equal(purchase.items[0].unitCostCents,409900);assert.equal(purchase.items[0].invoicedQty,1);
+  assert.equal(s.documents[0].kind,'invoice');assert.equal(s.documents[0].lineLinks[0].sku,sku);assert.equal(s.documents[0].lineLinks[0].qty,1);
+  for(const [key,value] of Object.entries(originalCost))assert.equal(s.products[0][key],value);
+  assert.equal(s.products[0].good,0);assert.equal(s.movements.length,0);
+  const duplicate=doc(181,'invoice',1,180);
+  applyDocumentImport(s,{id:'invoice-origin-reupload',type:'purchase.importDocuments',payload:{mode:'invoice',purchaseId:result.id,purchase:{},lines:structuredClone(purchase.items),documents:[duplicate]}},{...clock,verifiedDocuments:metadata([duplicate])});
+  assert.equal(s.purchases.length,1);assert.equal(s.documents.length,1);assert.equal(s.purchases[0].items[0].invoicedQty,1);
+  for(const [key,value] of Object.entries(originalCost))assert.equal(s.products[0][key],value);
+});
+
+test('a standalone invoice without a supplier order requires explicit absence review and cannot bypass a registered order',()=>{
+  const s=state(),sku=createProduct(s),invoice=doc(190,'invoice',1);
+  invoice.parsed.supplierOrder=null;invoice.parsed.supplierOrderNeedsReview=true;
+  const snapshot=structuredClone(s);
+  assert.throws(()=>importDocs(s,[invoice],[line(sku,[invoice],{qty:1})]),/orden|referencia/);assert.deepEqual(s,snapshot);
+  invoice.parsed.supplierOrderAbsentConfirmed=true;
+  const result=importDocs(s,[invoice],[line(sku,[invoice],{qty:1})]);
+  assert.equal(s.documents[0].parsed.supplierOrder,null);assert.equal(s.documents[0].parsed.supplierOrderAbsentConfirmed,true);
+  const second=doc(191,'invoice',1);second.parsed.supplierOrder=null;second.parsed.supplierOrderAbsentConfirmed=true;
+  const other=state(),otherSku=createProduct(other),order=doc(192),registered=importDocs(other,[order],[line(otherSku,[order])]);
+  assert.throws(()=>importDocs(other,[second],[{...other.purchases[0].items[0]}],{},registered.id),/orden|referencia/);
+  assert.ok(result.ok);
 });
