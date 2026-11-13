@@ -332,3 +332,19 @@ test('evaluation omits exact repeated warnings and those already in reason, pres
  assert.match(h.html(),/>Nueva campaña<\/button>/);assert.match(h.html(),/>Crear campaña<\/button>/);assert.doesNotMatch(h.html(),/\+ (Nueva|Crear) campaña/);
  await h.click('new');assert.deepEqual(actions,[['scroll','start'],['focus',true]]);assert.match(h.html(),/id="commercial-events-form"/);assert.equal(h.calls.length,0);
  });
+
+test('transfer strategy offers all additional discounts 1–50 and explicit percentage fee', async () => {
+ const h=harness({saved:false});h.api.open();
+ assert.match(h.html(),/Activar descuento adicional por transferencia/);
+ await h.click('transfer-toggle');
+ let html=h.html();assert.match(html,/Descuento adicional por transferencia/);assert.match(html,/Comisión por transferencia \(%\)/);
+ const choices=html.match(/data-ce-field="rules.transfer.discount"[\s\S]*?<\/select>/)?.[0];
+ assert.equal((choices.match(/<option/g)||[]).length,50);assert.match(choices,/value="1"/);assert.match(choices,/value="50"/);
+ h.field('rules.transfer.commissionRate','0.07');h.field('rules.transfer.discount','25','select-one');
+ await h.click('save');assert.match(h.html(),/Escribe el nombre/);
+});
+test('transfer results appear in list cards and matrix with separate cash, zero withholding and fee',async()=>{
+ const r=row('A');r.market='Tienda Nube';r.campaignTransfer={price:810,additionalDiscount:.1,commissionRate:.0007,commission:.57,marketplacePayout:809.43,cost:500,shipping:100,cashProfit:209.43,margin:209.43/810,targetMargin:.1,totalDiscountRate:.19,traffic:{color:'green',reason:'Cumple el margen.'}};
+ const h=harness({rows:[r]});h.api.open('e1');await h.click('save');await h.listeners.submit({target:{id:'commercial-events-form',reportValidity:()=>true},preventDefault(){}});
+ for(const view of ['list','cards','matrix']){await h.click('view',{ceView:view});const html=h.html();assert.match(html,/Pago por transferencia/);assert.match(html,/\$810.00/);assert.match(html,/Comisión \(0.07%\)/);assert.match(html,/Disponible de caja/);assert.match(html,/Sin MSI · Retenciones \$0.00/);}
+});
