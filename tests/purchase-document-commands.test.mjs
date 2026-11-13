@@ -240,3 +240,13 @@ test('a standalone invoice without a supplier order requires explicit absence re
   assert.throws(()=>importDocs(other,[second],[{...other.purchases[0].items[0]}],{},registered.id),/orden|referencia/);
   assert.ok(result.ok);
 });
+
+test('received quantities printed in an order stay documentary and never receive stock or change average costs',()=>{
+  const s=state(),sku=createProduct(s,'iPad Air'),order=doc(301);
+  Object.assign(order.parsed,{totalCents:11249000});
+  Object.assign(order.parsed.lines[0],{qty:10,sourceReceivedQty:10,sourcePendingQty:0,totalCents:11249000,unitCostCents:1124900});
+  const created=importDocs(s,[order],[line(sku,[order],{qty:10,sourceReceivedQty:10,sourcePendingQty:0,unitCostCents:1124900})],{amountCents:11249000});
+  const purchase=s.purchases.find(p=>p.id===created.id),item=purchase.items[0];
+  assert.equal(item.qty,10);assert.equal(item.sourceReceivedQty,10);assert.equal(item.sourcePendingQty,0);assert.equal(item.receivedQty,0);
+  assert.equal(purchase.receiptStatus,'Pendiente');assert.equal(s.products[0].good,0);assert.equal(s.products[0].costCents,123400);assert.equal(s.movements.length,0);
+});

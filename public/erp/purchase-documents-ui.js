@@ -2,8 +2,8 @@
 (function(){
  if(typeof icons==='object'){icons.file??='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>';icons.upload??='<path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>';}
  let draft=null,parserPromise=null,parserModule=null,validationPromise=null,validationEngine=null;
- const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261113-purchase-import').then(engine=>(parserModule=engine));
- const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261113-purchase-import').then(engine=>(validationEngine=engine));
+ const parser=()=>parserPromise??=import('/erp/modules/purchase-document-parser.mjs?v=20261113-sams-columns').then(engine=>(parserModule=engine));
+ const validator=()=>validationPromise??=import('/erp/modules/purchase-document-validation.mjs?v=20261113-sams-columns').then(engine=>(validationEngine=engine));
  const get=id=>document.getElementById(id);
  const value=id=>get(id)?.value??'';
  const cents=v=>String(v??'').trim()===''?null:Math.round(Number(v)*100);
@@ -137,6 +137,8 @@
      return {...line,name:previous?.name||priorLine?.name||line.name,id:priorLine?.id,sku,newProduct:previous?.newProduct||null,match,
        sourceKey:previous?.sourceKey||idKey(line),overrides:previous?.overrides||{},manual:previous?.manual||false,
        qty:previous?.overrides?.qty?previous.qty:priorLine?.qty??line.qty,
+       sourceReceivedQty:previous?.sourceReceivedQty??priorLine?.sourceReceivedQty??line.sourceReceivedQty??null,
+       sourcePendingQty:previous?.sourcePendingQty??priorLine?.sourcePendingQty??line.sourcePendingQty??null,
        unitCostCents:previous?.overrides?.cost?previous.unitCostCents:priorLine?.unitCostCents??line.unitCostCents,receivedQty:priorLine?.receivedQty||0,
        documentIds:[...new Set([...(priorLine?.documentIds||[]),...(line.documentIds||[]),...orderIds])].filter(id=>validIds.has(id))};
    });
@@ -226,6 +228,7 @@
    const readonly=line.receivedQty>0?'disabled':'';
    let html='<article class="doc-line" data-doc-line="'+i+'"><div class="doc-line-heading"><span class="doc-line-index">'+(i+1)+'</span>'+
      '<div><strong>'+esc(line.name||'Artículo por identificar')+'</strong><div class="small-note">'+esc(matchLabel)+(line.invoicedQty!=null?' · Facturado '+line.invoicedQty+' de '+line.qty:'')+'</div></div>'+
+     (line.sourceReceivedQty!=null||line.sourcePendingQty!=null?'<div class="small-note">Según el documento: '+line.qty+' pedidas · '+(line.sourceReceivedQty??'Por revisar')+' recibidas · '+(line.sourcePendingQty??'Por revisar')+' pendientes. No registra una recepción en almacén.</div>':'')+
      (p?window.ProductTrace28?.thumb(p)||'':'')+
      (line.receivedQty?badge(line.receivedQty+' recibidas','green'):'<button type="button" class="btn small" data-doc-line-remove="'+i+'">Quitar partida</button>')+'</div>';
    html+='<div class="form-grid">'+field('name','Descripción del artículo *',line.name,'text','required')+field('item','Número de artículo del proveedor',line.supplierItem)+
@@ -291,7 +294,7 @@
        progress(d,'Leyendo '+file.name+'…');
        const id=await DocumentHash29.digest(await file.arrayBuffer());
        if(allDocs(d).some(doc=>doc.id===id)){const warning=file.name+' ya está adjunto. El archivo duplicado se omitió y no sumó artículos.';d.uploadWarnings.push(warning);toast(warning);continue;}
-       const read=await DocumentReader29.extract(file,message=>progress(d,file.name+' · '+(typeof message==='string'?message:message.message)));
+       const read=await DocumentReader29.extract(file,message=>progress(d,file.name+' · '+(typeof message==='string'?message:message.message)),{layout:true});
        checkSession(d);const parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(read.text,{fileName:file.name}),{mode:d.mode});
        parsed.warnings=[...new Set([...(parsed.warnings||[]),...(read.warnings||[])])];
        d.documents.push({id,sha256:id,name:file.name,mime:file.type,size:file.size,file,text:read.text,parsed,extraction:read.extraction,previewUrl:URL.createObjectURL(file)});
@@ -323,7 +326,7 @@
      checkSession(d);progress(d,'Guardando orden, equivalencias y referencias…');
      const lines=d.lines.map(l=>({id:l.id,sku:l.sku||undefined,newProduct:l.newProduct?{...l.newProduct,name:l.name,costCents:l.unitCostCents??undefined,priceCents:0,
        review:l.unitCostCents==null?'Costo pendiente de confirmar. Artículo creado desde documento.':'Creado desde documento revisado.'}:undefined,
-       name:l.name,supplierItem:l.supplierItem,qty:l.qty,unitCostCents:l.unitCostCents,documentIds:l.documentIds}));
+       name:l.name,supplierItem:l.supplierItem,qty:l.qty,sourceReceivedQty:l.sourceReceivedQty,sourcePendingQty:l.sourcePendingQty,unitCostCents:l.unitCostCents,documentIds:l.documentIds}));
      const purchase=Object.fromEntries(['buyerCompanyId','supplier','supplierOrder','date','shippingStatus','notes','amountCents','lender','instrument','term','firstPaymentDate','sicar','taxInvoice','satReviewed'].filter(key=>d.purchase[key]!==undefined&&!(key==='taxInvoice'&&!d.purchase[key])).map(key=>[key,d.purchase[key]]));
      const result=await ERP.command('purchase.importDocuments',{mode:d.mode,purchaseId:d.purchaseId||undefined,purchase,lines,documents});
      if(!result.ok)throw new Error(result.error||'No se guardó la importación. Revisa y vuelve a intentar.');
@@ -380,7 +383,7 @@
    }else if(el.hasAttribute('data-doc-ocr')){
      capture(d);const doc=d.documents.find(x=>x.id===el.dataset.docOcr);if(!doc)return;
      d.busy=true;d.reviewed=false;render(d);
-     try{const read=await DocumentReader29.extract(doc.file,msg=>progress(d,doc.name+' · '+(typeof msg==='string'?msg:msg.message)),{forceOCR:true});checkSession(d);doc.text=read.text;doc.extraction='ocr';const engine=await parser();doc.parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(doc.text,{fileName:doc.name}),{mode:d.mode});d.progress='OCR terminado. Verifica los datos reconocidos.';await recompute(d);}
+     try{const read=await DocumentReader29.extract(doc.file,msg=>progress(d,doc.name+' · '+(typeof msg==='string'?msg:msg.message)),{forceOCR:true,layout:true});checkSession(d);doc.text=read.text;doc.extraction='ocr';const engine=await parser();doc.parsed=engine.preparePurchaseImportDocument(engine.parsePurchaseDocument(doc.text,{fileName:doc.name}),{mode:d.mode});d.progress='OCR terminado. Verifica los datos reconocidos.';await recompute(d);}
      catch(error){if(d===draft){d.progress=error.message;toast(error.message,true);}}finally{d.busy=false;if(d===draft)render(d);}
    }
  });

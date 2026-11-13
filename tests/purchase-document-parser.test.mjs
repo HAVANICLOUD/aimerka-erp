@@ -582,3 +582,43 @@ test('unbranded product lists are orders and can identify a product using an int
   assert.equal(byUpc.kind,'order');assert.equal(matchPurchaseLine(byUpc.lines[0],catalog).sku,'DYSV12M03L');
   assert.equal(matchPurchaseLine({name:'Producto nunca registrado'},catalog).confidence,'unmatched');
 });
+
+test('wrapped fulfillment columns keep ordered, received and pending separate and retain a multiline product name',()=>{
+  const text=`SAM’S CLUB
+Pedido 5082625-001156
+Proveedor: Nueva Walmart de México S.A. de C.V.
+10 pedidas · 10 recibidas · 0 pendientes
+                                                     Cantidad
+Producto / color              UPC          Cantidad Cantidad  Unitario      Importe
+                                                     pendiente
+                                            pedida recibida
+                                                     por recibir
+iPad Air 11 pulgadas, M3, 128 GB,
+                              195949997426  10      10       0  $11,249.00   $112,490.00
+Wi-Fi, azul
+TOTAL                                      10      10       0                $112,490.00
+Importes en MXN.`;
+  const parsed=parsePurchaseDocument(text),line=parsed.lines[0];
+  assert.equal(parsed.kind,'order');assert.equal(parsed.supplierOrder,'5082625-001156');assert.equal(parsed.currency,'MXN');
+  assert.equal(parsed.lines.length,1);assert.equal(line.name,'iPad Air 11 pulgadas, M3, 128 GB, Wi-Fi, azul');
+  assert.equal(line.upc,'195949997426');assert.equal(line.qty,10);assert.equal(line.sourceReceivedQty,10);assert.equal(line.sourcePendingQty,0);
+  assert.equal(line.unitCostCents,1124900);assert.equal(line.totalCents,11249000);assert.equal(parsed.totalCents,11249000);
+  const partial=parsePurchaseDocument(text.replace('195949997426  10      10       0','195949997426  10      3       7'));
+  assert.equal(partial.lines[0].qty,10);assert.equal(partial.lines[0].sourceReceivedQty,3);assert.equal(partial.lines[0].sourcePendingQty,7);
+});
+
+test('delimited fulfillment headers do not overwrite ordered quantity with received or pending quantity',()=>{
+  const parsed=parsePurchaseDocument('Producto / color | UPC | Cantidad pedida | Cantidad recibida | Cantidad pendiente por recibir | Costo unitario | Total\niPad Air azul | 195949997426 | 10 | 0 | 10 | 11249.00 | 112490.00');
+  assert.equal(parsed.lines.length,1);assert.equal(parsed.lines[0].qty,10);assert.equal(parsed.lines[0].sourceReceivedQty,0);assert.equal(parsed.lines[0].sourcePendingQty,10);
+  assert.equal(parsed.lines[0].unitCostCents,1124900);
+});
+
+test('Geometric text layout from the reported multiline PDF yields all purchase fields',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const source=await readFile(new URL('./fixtures/supplier-fulfillment-layout.txt',import.meta.url),'utf8');
+  const parsed=parsePurchaseDocument(source),item=parsed.lines[0];
+  assert.equal(parsed.supplierOrder,'7000000-000001');assert.equal(parsed.lines.length,1);
+  assert.equal(item.upc,'195949997426');assert.equal(item.name,'iPad Air 11 pulgadas, M3, 128 GB, Wi-Fi, azul');
+  assert.equal(item.qty,10);assert.equal(item.sourceReceivedQty,10);assert.equal(item.sourcePendingQty,0);
+  assert.equal(item.unitCostCents,1124900);assert.equal(item.totalCents,11249000);assert.equal(parsed.totalCents,11249000);
+});
