@@ -20,3 +20,14 @@ test('full inventory explorer exposes every product beyond 60, including zero st
  assert.equal((h.run("price28ProductMatches('',8)").match(/data-price28-pick=/g)||[]).length,8);
  assert.deepEqual(h.state,before);
 });
+
+test('server saves inventory scenarios and channel proposals using the latest purchase cost without changing catalog cost',()=>{
+ const state={products:[structuredClone(product)],config:structuredClone(config),events:[]},before=structuredClone(state.products);
+ const input={channel:'Tienda Nube',mode:'manual_precios',manualDiscount:19999,manualRegular:21999,lastPurchaseCost:10000,manualShipping:100};
+ const ctx={now:'2026-11-13T12:00:00Z',today:'2026-11-13',actor:'QA'};
+ applyCommand(state,{id:'last-cost-scenario',type:'pricing.scenario.save',payload:{context:'recomendador',productSku:product.sku,input}},ctx);
+ assert.equal(state.pricingScenarios[0].input.lastPurchaseCost,10000);assert.equal(state.pricingScenarios[0].result.discount.cost,10000);
+ applyCommand(state,{id:'last-cost-publication',type:'pricing.publication.prepare',payload:{productSku:product.sku,targets:['Tienda Nube'],input}},ctx);
+ assert.equal(state.pricePublicationQueue[0].input.lastPurchaseCost,10000);assert.equal(state.pricePublicationQueue[0].result.discount.cost,10000);
+ assert.deepEqual(state.products,before);
+});

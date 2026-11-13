@@ -143,3 +143,14 @@ test('Liverpool included-MSI setting rejects malformed and negative amounts', ()
   const valid=validateCommission(config,{channel:'Liverpool',category:'Telefonía',baseRate:.11,includedMsi:.0355});
   assert.equal(valid.valid,true);close(valid.value.totalRate,.1455);
 });
+
+test('inventory pricing can use a manually entered latest purchase cost without revaluing the product',()=>{
+  const p=copy(iphone),before=copy(p),input={channel:'Tienda Nube',mode:'manual_precios',manualDiscount:39999,manualRegular:44999,shippingType:'Pequeño'};
+  const average=recommend(config,p,input),latest=recommend(config,p,{...input,lastPurchaseCost:20000});
+  assert.equal(average.discount.cost,p.costCents/100);assert.equal(average.costSource,'inventory_average');
+  assert.equal(latest.discount.cost,20000);assert.equal(latest.regular.cost,20000);assert.equal(latest.costSource,'last_purchase');
+  assert.ok(latest.discount.cashProfit>average.discount.cashProfit);assert.deepEqual(p,before);
+  assert.ok(compareChannels(config,p,{...input,lastPurchaseCost:20000}).every(r=>r.discount.cost===20000));
+  for(const empty of [undefined,null,''])assert.equal(recommend(config,p,{...input,lastPurchaseCost:empty}).discount.cost,p.costCents/100);
+  for(const bad of [-1,'no-numérico',Infinity])assert.equal(recommend(config,p,{...input,lastPurchaseCost:bad}).valid,false);
+});

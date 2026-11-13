@@ -10,6 +10,7 @@
     category: ['product', 'layers', 'Elige la categoría del marketplace que corresponde al producto. Esta selección determina la comisión del escenario.'],
     channel: ['product', 'store', 'Selecciona el marketplace para utilizar sus categorías, comisiones y reglas de venta configuradas.'],
     cost: ['money', 'wallet', 'Captura el costo de compra o costo promedio en pesos mexicanos. Se descuenta al calcular la utilidad; no es el precio de venta.'],
+    lastPurchaseCost: ['money', 'wallet', 'Costo final por unidad con IVA, capturado manualmente para calcular precios con la compra más reciente. Vacío usa el costo promedio. Se conserva en el escenario y en las propuestas de precio, sin modificar el inventario.'],
     marketPrice: ['money', 'search', 'Captura el último precio de venta observado en el mercado, en pesos mexicanos. Sirve como referencia y como precio de venta en modo competitivo.'],
     alternateMarketPrice: ['money', 'search', 'Captura una referencia de mercado en pesos mexicanos. Si lo dejas vacío, se conserva el precio general del producto como referencia.'],
     shippingType: ['shipping', 'truck', 'Elige el tamaño del envío para usar su tarifa configurada. Cuando esté disponible, Automático usa las reglas del producto.'],

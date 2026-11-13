@@ -11,7 +11,7 @@ import * as inventoryWorkspace from './modules/inventory-workspace.mjs?v=2026110
 import * as purchaseCatalogs from './modules/purchase-catalogs.mjs?v=20261105-fiscal';
 import * as purchases from './modules/purchase-workspace.mjs?v=20261105-fiscal';
 import * as payments from './modules/payment-reconciliation.mjs?v=20261106-sat';
-import * as pricing from './modules/pricing-v28.mjs?v=20261112-transfer';
+import * as pricing from './modules/pricing-v28.mjs?v=20261113-last-purchase-cost';
 import * as warehouses from './modules/warehouses.mjs';
 import * as payouts from './modules/payout-schedules.mjs';
 import * as settlements from './modules/settlement-documents.mjs?v=20261105-payment-differences';

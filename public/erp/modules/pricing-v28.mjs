@@ -365,9 +365,14 @@ export function recommend(config, product, input = {}) {
   const inflation = input.presentationPolicy==='market-discount-99'?Number(input.inflation??.1):mode === 'automatico' ? margin === 0 ? Number(input.zeroMarginInflation ?? 0) : margin
     : mode === 'tasas' && margin === 0 ? Number(input.zeroMarginInflation ?? input.inflation ?? 0) : Number(input.inflation ?? 0.1);
   const exactCost = numeric(product.averageCostMxn) && Math.round(Number(product.averageCostMxn) * 100) === product.costCents ? Number(product.averageCostMxn) : Number(product.costCents) / 100;
-  const result = run(config, {...input, mode, context: 'recomendador', cost: exactCost, marketPrice, margin, inflation,
+  const useLastCost=present(input.lastPurchaseCost);
+  if(useLastCost&&(!numeric(input.lastPurchaseCost)||Number(input.lastPurchaseCost)<0))return invalid([issue('lastPurchaseCost','Captura un último costo de compra numérico no negativo, o déjalo vacío para usar el costo promedio.')]);
+  const appliedCost=useLastCost?Number(input.lastPurchaseCost):exactCost;
+  const result = run(config, {...input, mode, context: 'recomendador', cost: appliedCost, marketPrice, margin, inflation,
     channel: input.channel || 'T1 Comercios', category: resolveCategory(config, product, input.channel || 'T1 Comercios')}, product);
   result.product = {sku: product.sku, upc: product.upc, name: product.name, category: product.category};
+  result.costSource=useLastCost?'last_purchase':'inventory_average';
+  result.inventoryAverageCost=exactCost;
   return result;
 }
 
