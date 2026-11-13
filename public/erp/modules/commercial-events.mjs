@@ -1,5 +1,7 @@
 /** Bounded, internal campaign proposals. Dates describe a calendar, never trigger activation. */
 import {recommend} from './pricing-v28.mjs';
+import {validateTransferRule as transferRule,transferPaymentResult as campaignTransfer} from './transfer-pricing.mjs';
+export {transferPaymentResult as campaignTransfer} from './transfer-pricing.mjs';
 import {commerciallySelectable} from './product-lifecycle.mjs';
 import {classifyPricing,canSavePrice} from './pricing-signals.mjs';
 import {MARKETS,channelPrice,listingStatus,saveCalculatedPrices} from './product-prices.mjs';
@@ -29,26 +31,6 @@ function references(rows=[]){
   const id=key(r.sku,r.market);if(seen.has(id))fail('Referencia de mercado repetida.');seen.add(id);
   return {sku:r.sku,market:r.market,price:r.price,store:r.store.trim(),url:r.url};
  }).sort((a,b)=>key(a.sku,a.market).localeCompare(key(b.sku,b.market)));
-}
-function transferRule(value){
- if(value===undefined)return null;
- if(!value||typeof value!=='object'||Array.isArray(value)||typeof value.enabled!=='boolean')fail('Configura la opción de pago por transferencia.');
- const discount=value.discount,commissionRate=value.commissionRate;
- if(typeof discount!=='number'||!Number.isFinite(discount)||discount<.01||discount>.5)fail('El descuento adicional por transferencia debe estar entre 1% y 50%.');
- if((value.enabled||commissionRate!=null)&&(typeof commissionRate!=='number'||!Number.isFinite(commissionRate)||commissionRate<0||commissionRate>=1))fail('Indica una comisión porcentual de transferencia válida.');
- return {enabled:value.enabled,discount,commissionRate:commissionRate??null};
-}
-/** Additional discount is applied to the campaign price. Fees are rounded in cents. */
-export function campaignTransfer(result,rule,targetMargin=0,regularCents=0){
- if(!rule?.enabled||!result?.valid||!Number.isFinite(result.discount?.price)||result.channel!=='Tienda Nube')return null;
- const t=transferRule(rule),baseCents=Math.round(result.discount.price*100);
- const priceCents=Math.round(baseCents*(1-t.discount)),commissionCents=Math.round(priceCents*t.commissionRate);
- const price=priceCents/100,commission=commissionCents/100,cost=result.cost,shipping=result.shipping;
- const marketplacePayout=price-commission,netPayout=marketplacePayout-shipping,cashProfit=netPayout-cost,margin=price>0?cashProfit/price:0;
- const belowTargetMargin=margin+1e-10<targetMargin;
- const color=priceCents<=0||Math.round(cashProfit*100)<=0?'red':belowTargetMargin?'yellow':'green';
- const reason=color==='red'?'La transferencia no deja caja positiva después de costo y envío.':color==='yellow'?'La transferencia queda por debajo del margen mínimo de la campaña.':'La transferencia cumple el margen mínimo de la campaña.';
- return {price,priceCents,baseCents,additionalDiscount:t.discount,totalDiscountRate:regularCents>0?1-priceCents/regularCents:null,commissionRate:t.commissionRate,commission,commissionCents,withholdingTotal:0,financing:0,cost,shipping,marketplacePayout,netPayout,cashProfit,commercialProfit:cashProfit,margin,targetMargin,belowTargetMargin,traffic:{color,reason}};
 }
 function normalize(event){
  if(!event||typeof event!=='object')fail('Campaña no encontrada.');

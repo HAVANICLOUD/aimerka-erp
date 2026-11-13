@@ -20,6 +20,8 @@
     msi: ['rules', 'calendar', 'Selecciona el plazo de meses sin intereses de Elektra. Su comisión se incluye en el escenario; a un mismo precio, más comisión reduce la caja disponible.'],
     msiComparisonPrice: ['money', 'calendar', 'Opcional: indica un mismo precio en pesos para comparar los plazos MSI. Vacío usa la referencia indicada en el formulario. Esta comparación no cambia la cotización.'],
     margin: ['rates', 'percent', 'Captura la utilidad objetivo como porcentaje del precio de venta: 10 significa 10%. De 0% a 100%, con pasos de 5%. Si la utilidad no es alcanzable tras comisiones y retenciones se indica, sin inventar un precio.'],
+    transferDiscount: ['rates','tag','Descuento adicional aplicado al precio de venta ya calculado, únicamente para pago por transferencia en Tienda Nube.'],
+    transferCommission: ['rates','percent','Comisión del pago por transferencia en porcentaje. La tasa confirmada de 0.07% equivale a $0.70 por cada $1,000 cobrados. No incluye MSI ni retenciones.'],
     minimumDiscount: ['rates', 'tag', 'Descuento mínimo que deseas mostrar al cliente. Se ajusta el regular sin bajar el precio calculado por utilidad; ambos terminan en 99.'],
     inflation: ['rates', 'percent', 'Captura el porcentaje de aumento para generar el precio regular a partir del precio con descuento. Por ejemplo, 10 significa 10%; no es el margen de utilidad.'],
     zeroMarginInflation: ['rates', 'percent', 'Con utilidad objetivo de 0%, elige por separado el porcentaje de inflado del precio regular. Por ejemplo, 10 significa 10%.'],

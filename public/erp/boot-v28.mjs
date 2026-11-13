@@ -2,8 +2,8 @@ import * as orderWorkspace from './modules/order-workspace.mjs?v=20261111-naviga
 import * as dashboardSummary from './modules/dashboard-summary.mjs?v=20261110-summary';
 import * as workspacePresentation from './modules/workspace-presentation.mjs?v=20261110-summary';
 import * as productLifecycle from './modules/product-lifecycle.mjs?v=20261110-summary';
-import * as pricingSignals from './modules/pricing-signals.mjs?v=20261107-signals';
-import * as commercialEvents from './modules/commercial-events.mjs?v=20261112-transfer';
+import * as pricingSignals from './modules/pricing-signals.mjs?v=20261112-transfer-20261107-signals';
+import * as commercialEvents from './modules/commercial-events.mjs?v=20261112-transfer-all';
 import * as productPrices from './modules/product-prices.mjs?v=20261110-events';
 import * as retentions from './modules/retention-certificates.mjs?v=20261106-sat';
 import * as productIdentity from './modules/product-identity.mjs?v=20261105-restore-sku';
@@ -11,7 +11,7 @@ import * as inventoryWorkspace from './modules/inventory-workspace.mjs?v=2026110
 import * as purchaseCatalogs from './modules/purchase-catalogs.mjs?v=20261105-fiscal';
 import * as purchases from './modules/purchase-workspace.mjs?v=20261105-fiscal';
 import * as payments from './modules/payment-reconciliation.mjs?v=20261106-sat';
-import * as pricing from './modules/pricing-v28.mjs?v=20261111-visible-discount';
+import * as pricing from './modules/pricing-v28.mjs?v=20261112-transfer';
 import * as warehouses from './modules/warehouses.mjs';
 import * as payouts from './modules/payout-schedules.mjs';
 import * as settlements from './modules/settlement-documents.mjs?v=20261105-payment-differences';
