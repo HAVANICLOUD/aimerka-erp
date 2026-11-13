@@ -72,3 +72,23 @@ test('retention and discount choices update the scenario without rebuilding the 
  assert.equal(h.calls.filter(c=>c[0]==='render').length,initial);assert.equal(h.run('price28Input().retentionTreatment'),'no_pass_through');
  assert.equal(h.run('price28Forms.recomendador.minimumDiscount'),'15');assert.equal(h.run('price28Input().lastPurchaseCost'),1250);assert.equal(h.run('price28Forms.recomendador.productKey'),'REF');
 });
+
+
+test('percentage buttons and in-form mode changes never rebuild the page in any calculator',async()=>{
+ const h=harness();
+ for(const tab of ['calculadora','cotizador','recomendador','comparar']){
+  h.run(`price28Tab='${tab}';price28Forms[price28Tab].productKey='REF';price28Forms[price28Tab].lastPurchaseCost='1250'`);
+  for(const [selector,dataset] of [
+   ['[data-price28-rate]',{price28Rate:'margin',price28Value:'35'}],
+   ['[data-price28-rate]',{price28Rate:'inflation',price28Value:'45'}],
+   ['[data-price28-mode]',{price28Mode:'competitivo'}],
+   ['[data-price28-transfer-toggle]',{}]
+  ])await h.listeners.click({target:{closest:s=>s===selector?{dataset}:null}});
+  assert.equal(h.run('price28Forms[price28Tab].margin'),'35');
+  assert.equal(h.run('price28Forms[price28Tab].inflation'),'45');
+  assert.equal(h.run('price28Forms[price28Tab].lastPurchaseCost'),'1250');
+  h.listeners.change({target:{dataset:{price28Field:'margin'},value:'40'}});
+  assert.equal(h.run('price28Forms[price28Tab].margin'),'40');
+ }
+ assert.equal(h.calls.filter(c=>c[0]==='render').length,0);
+});

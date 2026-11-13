@@ -210,6 +210,43 @@ function price28Page(){
   const form=price28Form(),result=price28Calculate();
   return `${price28Styles()}${pageHead('PRECIOS / RENTABILIDAD',heading[0],heading[1],`<div class="head-actions">${price28Tab!=='comparar'?price28Btn(`${icon('layers')} Comparar marketplaces`,'compare-start',`${!result?.discount?'disabled':''}`,true):''}${price28Btn(`${icon('layers')} Configuración`,'configuration')}</div>`)}${tabs}<div class="price28-grid ${price28Tab==='comparar'?'price28-comparing':''}">${form}<section class="panel price28-results" id="price28-result-panel">${price28Tab==='comparar'?`<div id="price28-results" aria-live="polite" aria-atomic="true">${price28Compare(result)}</div>`:`<div class="panel-head"><h2>Resultado del cálculo</h2>${badge('En vivo','blue')}</div><div class="panel-body" id="price28-results" aria-live="polite" aria-atomic="true">${price28Result(result)}</div>`}</section></div>${price28PublicationQueue()}${price28Saved()}`;
 }
+function price28RefreshRates(){
+  const f=price28Forms[price28Tab];
+  for(const field of ['margin','inflation','manualRegular']){
+    const input=document.getElementById('price28-'+field);if(input)input.value=f[field];
+  }
+  document.querySelectorAll?.('[data-price28-rate]').forEach(button=>{
+    const active=Number(f[button.dataset.price28Rate])===Number(button.dataset.price28Value);
+    button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  });
+  document.querySelectorAll?.('[data-price28-mode]').forEach(button=>{
+    const active=f.mode===button.dataset.price28Mode;
+    button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  });
+  price28RefreshResult();
+}
+// Update only the calculator form. Keep the operated control at the same
+// viewport position, including when a mode reveals or removes extra fields.
+function price28RefreshForm(control){
+  const form=document.getElementById('price28-form');
+  if(!form){price28RefreshResult();return;}
+  const keys=Object.entries(control?.dataset||{}).filter(([key])=>key.startsWith('price28'));
+  const id=control?.id,before=control?.getBoundingClientRect?.().top;
+  const scrollX=window.scrollX,scrollY=window.scrollY;
+  const focused=document.activeElement===control;
+  const selection=typeof control?.selectionStart==='number'?[control.selectionStart,control.selectionEnd]:null;
+  const template=document.createElement('template');template.innerHTML=price28Form();
+  const replacement=template.content.querySelector('#price28-form');
+  if(!replacement)return;
+  form.replaceChildren(...replacement.childNodes);
+  price28RefreshResult();
+  const next=id?document.getElementById(id):Array.from(form.querySelectorAll('button,input,select')).find(node=>keys.length&&keys.every(([key,value])=>node.dataset[key]===value));
+  if(focused&&next){next.focus({preventScroll:true});if(selection)next.setSelectionRange?.(...selection);}
+  const delta=before!=null&&next?next.getBoundingClientRect().top-before:0;
+  // Account for any browser clamping while the shorter mode was inserted.
+  window.scrollTo({left:scrollX,top:window.scrollY+delta,behavior:'instant'});
+  if(!next)window.scrollTo({left:scrollX,top:scrollY,behavior:'instant'});
+}
 function price28RefreshOptions(kind,button){
   const attribute=kind==='retention'?'price28Retention':'price28DiscountMode';
   const selector=kind==='retention'?'.price28-retention-policy':'.price28-discount-control';
@@ -232,7 +269,7 @@ function price28RefreshOptions(kind,button){
   price28RefreshResult();
   if(before!=null&&button.isConnected){const delta=button.getBoundingClientRect().top-before;if(Math.abs(delta)>.5)window.scrollBy({top:delta,left:0,behavior:'instant'});}
 }
-function price28RefreshResult(){const preview=document.getElementById('price28-discount-preview');if(preview)preview.textContent=price28DiscountPreview();price28ApplyProposal(price28Forms[price28Tab]);const suggestion=document.getElementById('price28-suggestion');if(suggestion)suggestion.innerHTML=price28Suggestion(price28Forms[price28Tab]);const matches=document.getElementById('price28-inline-products');if(matches){const key=price28Forms[price28Tab].productKey;matches.innerHTML=key&&!price28FindProduct(key)?price28ProductMatches(key,6):'';}const category=document.getElementById('price28-category-info');if(category){const f=price28Forms[price28Tab],p=price28FindProduct(f?.productKey);category.textContent=p?price28Engine().resolveCategory(price28Config(),p,f.channel):'—';}const info=document.getElementById('price28-product-info');if(info){const p=price28FindProduct(price28Forms[price28Tab]?.productKey);info.innerHTML=price28ProductInfo(p);}const el=document.getElementById('price28-results');if(el){const r=price28Calculate();el.innerHTML=price28Tab==='comparar'?price28Compare(r):price28Result(r);}}
+function price28RefreshResult(){const preview=document.getElementById('price28-discount-preview');if(preview)preview.textContent=price28DiscountPreview();price28ApplyProposal(price28Forms[price28Tab]);const suggestion=document.getElementById('price28-suggestion');if(suggestion)suggestion.innerHTML=price28Suggestion(price28Forms[price28Tab]);const matches=document.getElementById('price28-inline-products');if(matches){const key=price28Forms[price28Tab].productKey;matches.innerHTML=key&&!price28FindProduct(key)?price28ProductMatches(key,6):'';}const category=document.getElementById('price28-category-info');if(category){const f=price28Forms[price28Tab],p=price28FindProduct(f?.productKey);category.textContent=p?price28Engine().resolveCategory(price28Config(),p,f.channel):'—';}const info=document.getElementById('price28-product-info');if(info){const p=price28FindProduct(price28Forms[price28Tab]?.productKey);info.innerHTML=price28ProductInfo(p);}const el=document.getElementById('price28-results');if(el){const r=price28Calculate();el.innerHTML=price28Tab==='comparar'?price28Compare(r):price28Result(r);document.querySelectorAll?.('[data-price28-action="compare-start"]').forEach(button=>{button.disabled=!r?.discount;});}}
 
 const price28SettingTabs=[['parameters','Parámetros'],['pricingWithholding','Retenciones para precios'],['shipping','Envíos'],['shippingRules','Reglas de envío'],['commissions','Comisiones'],['mappings','Mapeo de categorías'],['elektraMsi','MSI Elektra'],['tnBands','Tramos Tienda Nube'],['tnGateways','Pasarelas Tienda Nube'],['settlement','Reglas de conciliación']];
 function price28Draft(section){if(!Object.hasOwn(price28ConfigDrafts,section))price28ConfigDrafts[section]=JSON.parse(JSON.stringify(price28Config()[section]??(section==='pricingWithholding'?price28Engine().withholdingProfiles(price28Config()):[])));return price28ConfigDrafts[section];}
@@ -353,19 +390,19 @@ document.addEventListener('change',event=>{
   if(field&&price28Forms[price28Tab]){
     price28Forms[price28Tab][field]=event.target.value;
     if(field==='category'){const f=price28Forms[price28Tab];(f.categoryByChannel??={})[f.channel]=f.category;f.categoryAcceptedTitle=f.name;}
-    if(['channel','mode','productKey','name','margin'].includes(field))render();else price28RefreshResult();
+    if(['channel','mode','productKey','name'].includes(field))price28RefreshForm(event.target);else price28RefreshResult();
   }
 });
 document.addEventListener('click',async event=>{
-  const target=event.target.closest('[data-price28-market]');if(target){const f=price28Forms[price28Tab];f.targetMarket=target.dataset.price28Market;f.channel=price28Channel(f.targetMarket);f.category=f.categoryByChannel?.[f.channel]||price28Engine().listCategories(price28Config(),f.channel)[0];render();return;}
+  const target=event.target.closest('[data-price28-market]');if(target){const f=price28Forms[price28Tab];f.targetMarket=target.dataset.price28Market;f.channel=price28Channel(f.targetMarket);f.category=f.categoryByChannel?.[f.channel]||price28Engine().listCategories(price28Config(),f.channel)[0];price28RefreshForm(target);return;}
   const pick=event.target.closest('[data-price28-pick]');if(pick){const f=price28Forms[price28Tab];if(f.productKey!==pick.dataset.price28Pick){f.lastPurchaseCost='';f.alternateMarketPrice='';f.msiComparisonPrice='';delete f.competitorReference;}f.productKey=pick.dataset.price28Pick;document.getElementById('modal')?.close();render();return;}
   const tab=event.target.closest('[data-price28-tab]');if(tab){price28Tab=tab.dataset.price28Tab;render();return;}
   const setting=event.target.closest('[data-price28-settings-tab]');if(setting){price28SettingsTab=setting.dataset.price28SettingsTab;price28ConfigQuery='';render();return;}
-  const transferToggle=event.target.closest('[data-price28-transfer-toggle]');if(transferToggle){const f=price28Forms[price28Tab];f.transferEnabled=!f.transferEnabled;render();return;}
+  const transferToggle=event.target.closest('[data-price28-transfer-toggle]');if(transferToggle){const f=price28Forms[price28Tab];f.transferEnabled=!f.transferEnabled;price28RefreshForm(transferToggle);return;}
   const retention=event.target.closest('[data-price28-retention]');if(retention){price28Forms[price28Tab].retentionTreatment=retention.dataset.price28Retention;price28RefreshOptions('retention',retention);return;}
-  const mode=event.target.closest('[data-price28-mode]');if(mode){price28Forms[price28Tab].mode=mode.dataset.price28Mode;render();return;}
+  const mode=event.target.closest('[data-price28-mode]');if(mode){price28Forms[price28Tab].mode=mode.dataset.price28Mode;price28RefreshForm(mode);return;}
   const displayDiscount=event.target.closest('[data-price28-discount-mode]');if(displayDiscount){price28Forms[price28Tab].displayDiscountMode=displayDiscount.dataset.price28DiscountMode;price28RefreshOptions('discount',displayDiscount);return;}
-  const rate=event.target.closest('[data-price28-rate]');if(rate){const f=price28Forms[price28Tab],value=rate.dataset.price28Value;f[rate.dataset.price28Rate]=value;if(rate.dataset.price28Rate==='margin'){f.zeroMarginInflation='0';f.mode=['recomendador','comparar'].includes(price28Tab)?'automatico':'tasas';}if(rate.dataset.price28Rate==='inflation'&&['precios','manual_precios'].includes(f.mode)&&Number(f.manualDiscount)>0)f.manualRegular=String(price28Engine().roundRegular99(Number(f.manualDiscount),Number(value)/100,price28Engine().pricePolicy(price28Config())));render();return;}
+  const rate=event.target.closest('[data-price28-rate]');if(rate){const f=price28Forms[price28Tab],value=rate.dataset.price28Value;f[rate.dataset.price28Rate]=value;if(rate.dataset.price28Rate==='margin'){f.zeroMarginInflation='0';f.mode=['recomendador','comparar'].includes(price28Tab)?'automatico':'tasas';}if(rate.dataset.price28Rate==='inflation'&&['precios','manual_precios'].includes(f.mode)&&Number(f.manualDiscount)>0)f.manualRegular=String(price28Engine().roundRegular99(Number(f.manualDiscount),Number(value)/100,price28Engine().pricePolicy(price28Config())));price28RefreshRates();return;}
   const b=event.target.closest('[data-price28-action]');if(!b)return;const action=b.dataset.price28Action;
   if(action==='competition'){const f=price28Forms[price28Tab],p=price28IsProduct()?price28FindProduct(f.productKey):null;if(price28IsProduct()&&!p){toast('Selecciona primero un producto.',true);return;}if(!window.CompetitionPricing){toast('La herramienta de competencia está cargando. Recarga AIMERKA.',true);return;}const originTab=price28Tab,originalKey=f.productKey;window.CompetitionPricing.open({name:p?.name||f.name,upc:/^\d{8,14}$/.test(String(p?.upc||''))?String(p.upc):'',onApply(price,reference){if(price28Tab!==originTab||price28Forms[originTab]!==f||f.productKey!==originalKey){toast('El producto o el escenario cambió. Vuelve a abrir el análisis.',true);return;}f[price28IsProduct()?'alternateMarketPrice':'marketPrice']=String(price);f.competitorReference=reference;f.mode='competitivo';render();toast('Referencia aplicada. El modo competitivo muestra la caja disponible a ese precio.');}});return;}
   if(action==='compare-start'){price28StartComparison();return;}
