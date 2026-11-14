@@ -36,6 +36,30 @@ test('deleting is recoverable, blocks editing/application, and preserves all sav
  assert.equal(exportRows(s,{eventId:id})[0].discountCents,750000);
  assert.deepEqual({runs:s.commercialEventRuns,prices:s.productChannelPrices,queue:s.pricePublicationQueue,products:s.products,orders:s.orders,movements:s.movements},preserved);
  assert.throws(()=>applyCommand(s,{id:'stale',type:'pricing.event.restore',payload:{eventId:id,expectedRevision:1}},ctx),/cambió/);
- command(s,{id:'restore',type:'pricing.event.restore',payload:{eventId:id,expectedRevision:2}},ctx);assert.equal(s.commercialEvents[0].deletedAt,undefined);assert.equal(preview(s,{eventId:id}).rows.length,1);
+ command(s,{id:'restore',type:'pricing.event.restore',payload:{eventId:id,expectedRevision:2}},ctx);assert.equal(s.commercialEvents[0].deletedAt,undefined);assert.equal(preview(s,{eventId:id}).rows.length,0);
  for(const type of ['pricing.event.delete','pricing.event.restore']){assert.equal(permissionFor(type),'pricing');assert.throws(()=>assertPermission({active:true,permissions:['read']},type),/rol/);}
+});
+
+test('continuing the same campaign excludes saved SKU/market pairs after discount changes and reopening',()=>{
+ const s=setup(),id=save(s,{...event,markets:['Sears','Sanborns'],selection:{}},'save');
+ let p=preview(s,{eventId:id});
+ command(s,{id:'partial',type:'pricing.event.apply',payload:{eventId:id,previewFingerprint:p.fingerprint,targets:[{sku:'SKU0',market:'Sears'}]}},ctx);
+ const first=structuredClone(s.commercialEventRuns[0]);
+ save(s,{...s.commercialEvents[0],rules:{mode:'discount',discount:.1,margin:0}},'second-rate');
+ const reopened=structuredClone(s);p=preview(reopened,{eventId:id});
+ assert.equal(p.summary.alreadySaved,1);assert.equal(p.rows.length,3);
+ assert.ok(!p.rows.some(r=>r.sku==='SKU0'&&r.market==='Sears'));
+ assert.ok(p.rows.some(r=>r.sku==='SKU0'&&r.market==='Sanborns'));
+ assert.equal(exportRows(reopened,{eventId:id})[0].discountCents,750000);
+ const before=structuredClone(s);
+ assert.throws(()=>command(s,{id:'repeat',type:'pricing.event.apply',payload:{eventId:id,previewFingerprint:p.fingerprint,targets:[{sku:'SKU0',market:'Sears'}]}},ctx),/Destino desconocido/);assert.deepEqual(s,before);
+ apply(s,id,'remaining');assert.equal(preview(s,{eventId:id}).rows.length,0);assert.deepEqual(s.commercialEventRuns[1],first);assert.equal(exportRows(s,{eventId:id}).length,4);
+ const other=save(s,{...event,selection:{}},'other');assert.equal(preview(s,{eventId:other}).rows.length,2);
+});
+
+test('newly saved campaign targets invalidate a previously computed preview even without price baseline changes',()=>{
+ const s=setup(),id=save(s,{...event,selection:{}},'save'),old=preview(s,{eventId:id});
+ command(s,{id:'one',type:'pricing.event.apply',payload:{eventId:id,previewFingerprint:old.fingerprint,targets:[{sku:'SKU0',market:'Sears'}]}},ctx);
+ const before=structuredClone(s);
+ assert.throws(()=>command(s,{id:'stale',type:'pricing.event.apply',payload:{eventId:id,previewFingerprint:old.fingerprint,targets:[{sku:'SKU1',market:'Sears'}]}},ctx),/recalcula/);assert.deepEqual(s,before);
 });

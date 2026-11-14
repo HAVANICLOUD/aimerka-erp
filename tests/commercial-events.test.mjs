@@ -115,7 +115,7 @@ test('campaign permissions follow parent pricing gate, denying readers, inventor
 
 test('definition revisions stay bounded while all application and proposal history is preserved',()=>{
  const s=setup(),id=save(s,event({markets:['Sears']}));for(let i=0;i<24;i++)save(s,{...s.commercialEvents[0],name:'Version '+i},'save'+i);assert.equal(s.commercialEvents[0].history.length,20);
- for(let i=0;i<12;i++)apply(s,id,[target()],{},'apply'+i);assert.equal(s.commercialEventRuns.length,12);assert.equal(s.pricePublicationQueue.length,12);assert.equal(s.commercialEventRuns.at(-1).id,'apply0');assert.equal(s.pricePublicationQueue.at(-1).runId,'apply0');assert.equal(s.productChannelPriceHistory.length,11);assert.equal(s.commercialEventRuns[0].targets[0].baselineCents,s.productChannelPriceHistory[0].regularCents);
+ for(let i=0;i<12;i++){const campaignId=i===0?id:save(s,event({markets:['Sears']}),'new-campaign'+i);apply(s,campaignId,[target()],{},'apply'+i);}assert.equal(s.commercialEventRuns.length,12);assert.equal(s.pricePublicationQueue.length,12);assert.equal(s.commercialEventRuns.at(-1).id,'apply0');assert.equal(s.pricePublicationQueue.at(-1).runId,'apply0');assert.equal(s.productChannelPriceHistory.length,11);assert.equal(s.commercialEventRuns[0].targets[0].baselineCents,s.productChannelPriceHistory[0].regularCents);
 });
 
 

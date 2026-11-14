@@ -13,7 +13,7 @@ const row = (sku, color = 'green', valid = true) => ({ sku, name: 'Producto ' + 
 function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 'red'), row('D', 'green', false)], real = false, date = '2026-11-11T03:00:00Z', products, lifecycle } = {}) {
   const listeners = {}, calls = [], data = { config: {}, products: products || [{ sku: 'A', upc: '12345', name: 'Audífonos', brand: 'Marca', department: 'Audio', imageUrl: 'javascript:alert(1)' }], commercialEvents: saved ? [campaign()] : [], commercialEventRuns: [] };
   let fingerprint = 'fp1', fail = '', failPreview = false;
-  const engine = real ? commercialEvents : { commercialEventPriceRows:commercialEvents.commercialEventPriceRows, eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
+  const engine = real ? commercialEvents : { commercialEventPriceRows:commercialEvents.commercialEventPriceRows, commercialEventCompletedTargets:commercialEvents.commercialEventCompletedTargets, eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
   class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [date])); } }
   const ERP = { downloadCSV(name,rows){calls.push({type:'download',name,rows:plain(rows)});}, engines: { commercialEvents: engine, warehouses, inventory, productLifecycle: lifecycle }, async command(type, payload) {
     calls.push({ type, payload: plain(payload) }); if (fail) return { ok: false, error: { message: fail } };
@@ -356,7 +356,7 @@ test('history consults separate discount batches and exports snapshots without r
  const before=plain(h.data);assert.match(h.html(),/Descuento 25%/);assert.match(h.html(),/Descuento 10%/);assert.match(h.html(),/Marcas: Apple/);assert.match(h.html(),/Marcas: Dyson/);
  await h.click('history-run',{ceRunId:'batch25'});assert.match(h.html(),/Nombre histórico/);assert.match(h.html(),/UPC 001234/);assert.match(h.html(),/\$750.00/);
  await h.click('export-run',{ceRunId:'batch25',ceGreen:'1'});const exported=h.calls.at(-1);assert.equal(exported.type,'download');assert.equal(exported.rows[0].precio_descuento_mxn,'750.00');assert.equal(exported.rows[0].upc,'001234');assert.equal(exported.rows[0].descuento_configurado_porcentaje,25);
- h.change({ceHistoryCampaign:''},'e1');assert.match(h.html(),/Exportar últimos precios de campaña/);await h.click('export-campaign',{ceEventId:'e1'});assert.equal(h.calls.at(-1).rows.length,2);assert.deepEqual(plain(h.data),before);assert.equal(h.calls.some(c=>c.type.startsWith('pricing.')),false);
+ h.change({ceHistoryCampaign:''},'e1');assert.match(h.html(),/Exportar campaña CSV/);await h.click('export-campaign',{ceEventId:'e1'});assert.equal(h.calls.at(-1).rows.length,2);assert.deepEqual(plain(h.data),before);assert.equal(h.calls.some(c=>c.type.startsWith('pricing.')),false);
 });
 test('campaign removal waits for explicit in-app choice, keeps history and permits recovery',async()=>{
  const h=harness({real:true});h.data.commercialEventRuns=[{id:'saved-run',eventId:'e1',targets:[]}];
@@ -365,4 +365,24 @@ test('campaign removal waits for explicit in-app choice, keeps history and permi
  await h.click('delete',{ceEventId:'e1'});await h.click('confirm-delete',{ceEventId:'e1'});
  assert.equal(h.calls[0].type,'pricing.event.delete');assert.ok(h.data.commercialEvents[0].deletedAt);assert.match(h.html(),/Campañas eliminadas/);assert.equal(h.data.commercialEventRuns[0].id,'saved-run');assert.doesNotMatch(h.html(),/data-ce-edit="e1"/);
  await h.click('restore',{ceEventId:'e1'});assert.equal(h.calls[1].type,'pricing.event.restore');assert.equal(h.data.commercialEvents[0].deletedAt,undefined);assert.match(h.html(),/data-ce-edit="e1"/);
+});
+
+test('one accumulated campaign block displays all discount groups and product images in its consolidated view',async()=>{
+ const h=harness();
+ h.data.commercialEventRuns=[{id:'r25',eventId:'e1',event:campaign({selection:{brands:['Apple']},rules:{mode:'discount',discount:.25}}),targets:[{...row('A'),brand:'Apple',imageUrl:'/api/media/product-a',regularCents:100000,discountCents:75000}]},{id:'r10',eventId:'e1',event:campaign({selection:{departments:['Audio']},rules:{mode:'discount',discount:.1}}),targets:[{...row('B'),brand:'Other',imageUrl:'javascript:alert(1)',regularCents:100000,discountCents:90000}]}];
+ assert.equal((h.html().match(/data-ce-campaign="e1"/g)||[]).length,1);
+ assert.match(h.html(),/Descuento 25%/);assert.match(h.html(),/Descuento 10%/);assert.match(h.html(),/Departamentos: Audio/);
+ await h.click('history-campaign',{ceEventId:'e1'});
+ assert.match(h.html(),/src="\/api\/media\/product-a"/);assert.doesNotMatch(h.html(),/src="javascript:/);
+ assert.match(h.html(),/Descuento asignado 25%/);assert.match(h.html(),/Descuento asignado 10%/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);
+});
+
+test('reopened campaign picker omits completed products and retains chosen brand filters for deselection',()=>{
+ const h=harness({products:[{sku:'A',name:'Guardado',brand:'Apple'},{sku:'B',name:'Pendiente',brand:'Dyson'}]});
+ h.data.commercialEvents[0].markets=['Sears'];h.data.commercialEvents[0].selection.brands=['Apple'];
+ h.data.commercialEventRuns=[{id:'done',eventId:'e1',event:campaign(),targets:[{...row('A'),brand:'Apple'}]}];
+ h.api.open('e1');h.change({ceScope:'selected'});
+ assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="A"/);
+ assert.match(h.html(),/data-ce-array="selection.skus" value="B"/);
+ assert.match(h.html(),/data-ce-array="selection.brands" value="Apple" checked/);
 });
