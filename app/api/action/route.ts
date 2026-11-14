@@ -36,6 +36,13 @@ export async function POST(request:Request){
     }
     let accountHash;
     let verifiedImages;
+    if(command.type==='inventory.importSicarNewProducts'){
+      const rows=command.payload?.manifest?.products;if(!Array.isArray(rows)||rows.length>200)throw new Error('Importa hasta 200 productos por lote.');
+      const images=rows.flatMap((r:any)=>r.images||[]),unique=[...new Map(images.map((image:any)=>[image.id,image])).values()];
+      if(unique.length>300)throw new Error('Importa hasta 300 fotografías por lote.');
+      verifiedImages=[];for(let i=0;i<unique.length;i+=12)verifiedImages.push(...await verifyDocuments(id,unique.slice(i,i+12)));
+      if(verifiedImages.some((image:any)=>!['image/jpeg','image/png'].includes(image.mime)))throw new Error('La galería solo admite imágenes JPG y PNG.');
+    }
     if(command.type==='product.save'&&command.payload?.product?.images){
       const images=command.payload.product.images;if(!Array.isArray(images)||images.length>100)throw new Error('Galería inválida.');
       const uploads=images.filter((image:any)=>image.source!=='V43');
