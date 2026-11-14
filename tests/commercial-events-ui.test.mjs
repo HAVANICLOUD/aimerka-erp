@@ -147,7 +147,7 @@ test('concurrent calculate submissions issue one save and form edits stay blocke
 
 test('calendar clearly explains manual price application without implying scheduled writes', () => {
   const h = harness();
-  assert.match(h.html(), /El calendario organiza la vigencia; guardar fechas no cambia ni restaura precios automáticamente\. Aplica la selección cuando corresponda\./);
+  assert.match(h.html(), /Al terminar el día de cierre en Ciudad de México se restauran los precios anteriores; el envío a tiendas requiere integración\./);
   assert.doesNotMatch(h.html(), /Programada/);
 });
 
@@ -374,7 +374,7 @@ test('one accumulated campaign block displays all discount groups and product im
  assert.match(h.html(),/Descuento 25%/);assert.match(h.html(),/Descuento 10%/);assert.match(h.html(),/Departamentos: Audio/);
  await h.click('history-campaign',{ceEventId:'e1'});
  assert.match(h.html(),/src="\/api\/media\/product-a"/);assert.doesNotMatch(h.html(),/src="javascript:/);
- assert.match(h.html(),/Descuento asignado 25%/);assert.match(h.html(),/Descuento asignado 10%/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);
+ assert.match(h.html(),/Campaña · pasarela \/ MSI: 25%/);assert.match(h.html(),/Campaña · pasarela \/ MSI: 10%/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);
 });
 
 test('reopened campaign picker omits completed products and retains chosen brand filters for deselection',()=>{
@@ -385,4 +385,9 @@ test('reopened campaign picker omits completed products and retains chosen brand
  assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="A"/);
  assert.match(h.html(),/data-ce-array="selection.skus" value="B"/);
  assert.match(h.html(),/data-ce-array="selection.brands" value="Apple" checked/);
+});
+
+test('history names campaign discount and additional SPEI separately with one typography class',async()=>{
+ const h=harness();h.data.commercialEventRuns=[{id:'spei',eventId:'e1',event:campaign({rules:{mode:'discount',discount:.25}}),targets:[{...row('A'),brand:'Apple',regularCents:100000,discountCents:75000,campaignTransfer:{additionalDiscount:.1,totalDiscountRate:.325,priceCents:67500}}]}];await h.click('history-campaign',{ceEventId:'e1'});
+ const html=h.html();assert.match(html,/Campaña · pasarela \/ MSI: 25%/);assert.match(html,/SPEI adicional: 10% sobre el precio de campaña/);assert.match(html,/Descuento total por SPEI: 32.5%/);assert.match(html,/Precio por SPEI: \$675.00/);assert.match(html,/Marca: Apple/);assert.doesNotMatch(html,/>25% efectivo|Descuento asignado/);
 });

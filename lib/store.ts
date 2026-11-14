@@ -1,3 +1,4 @@
+import {migrateBuenFinFamily,backfillCampaignRestorations,restoreExpiredCampaignPrices} from './campaign-lifecycle.mjs';
 import {resolveWorkspace} from './workspace-policy.mjs';
 import { env } from 'cloudflare:workers';
 import { splitState, joinState, diffFragments } from './state-codec.mjs';
@@ -32,7 +33,7 @@ async function init(id:string){
   await db.batch(statements);
 }
 
-export async function readState(id:string){
+export async function readState(id:string,maintain=true){
   const db=database();
   const fetchBatch=()=>db.batch([db.prepare('SELECT revision, initialized, updated_at, last_action FROM erp_workspaces WHERE id=?').bind(id),db.prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? ORDER BY name,part').bind(id)]);
   let batch=await fetchBatch();
@@ -48,6 +49,15 @@ export async function readState(id:string){
     const statements=v43RecoveryWrites(recoverySnapshot,plan).map(write=>db.prepare(write.sql).bind(...write.params));
     await db.batch(statements);
     batch=await fetchBatch();row=batch[0].results[0];state=joinState(batch[1].results);
+  }
+  if(id==='v43'&&maintain){
+    const next=structuredClone(state),now=new Date().toISOString(),actionId='campaign-maintenance-'+crypto.randomUUID();
+    const linked=migrateBuenFinFamily(next,{now,requestId:actionId}),backfilled=backfillCampaignRestorations(next,now),closed=restoreExpiredCampaignPrices(next,now);
+    if(linked||backfilled||closed){
+      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed}};
+      const saved=await commitState(id,row.revision,state,next,command,{ok:true},'Sistema',await hashInput(command.payload));
+      return saved||readState(id,false);
+    }
   }
   return {workspace:id,revision:row.revision,updatedAt:row.updated_at,state};
 }
