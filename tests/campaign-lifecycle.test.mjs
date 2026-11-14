@@ -37,3 +37,10 @@ test('expired campaigns cannot assign new prices without extending their validit
  const s=setup(),id=save(s,event('Expired'),'expired'),preview=previewCommercialEvent(s,{eventId:id}),before=structuredClone(s);
  assert.throws(()=>command(s,{id:'too-late',type:'pricing.event.apply',payload:{eventId:id,previewFingerprint:preview.fingerprint,targets:[{sku:'SKU0',market:'Tienda Nube'}]}},{...ctx,now:'2026-11-18T18:00:00Z'}),/ya cerró/);assert.deepEqual(s,before);
 });
+
+test('exporting a child lot under its root includes only that lot and rejects an unrelated lot',()=>{
+ const s=setup(),a=save(s,{...event('Apple',{brands:['Apple']}),parentName:'Root'},'a');apply(s,a,'run-a');const root=s.commercialEvents.find(e=>e.isParent);
+ const b=save(s,{...event('Consolas',{brands:['Consolas']}),parentId:root.id},'b');apply(s,b,'run-b');
+ assert.equal(commercialEventPriceRows(s,{eventId:root.id}).length,2);assert.equal(commercialEventPriceRows(s,{eventId:root.id,lotId:a})[0].sku,'SKU0');assert.equal(commercialEventPriceRows(s,{eventId:root.id,lotId:b}).length,1);
+ assert.throws(()=>commercialEventPriceRows(s,{eventId:root.id,lotId:'foreign'}),/no pertenece/);
+});

@@ -189,10 +189,11 @@ export function commercialEventCommand(state,command,ctx={}){
 
 // Export saved snapshots only. A newer red/yellow replaces an older green
 // before filtering, so a consolidated export never revives obsolete prices.
-export function commercialEventPriceRows(state,{runId,eventId,greenOnly=false}={}){
+export function commercialEventPriceRows(state,{runId,eventId,lotId,greenOnly=false}={}){
  if(Boolean(runId)===Boolean(eventId))fail('Selecciona un lote o una campaña.');
  const family=eventId?campaignFamilyIds(state,eventId):null;
- const runs=(state.commercialEventRuns||[]).filter(run=>runId?run.id===runId:family.has(run.eventId));
+ if(lotId&&(!eventId||!family.has(lotId)))fail('El lote no pertenece a la campaña seleccionada.');
+ const runs=(state.commercialEventRuns||[]).filter(run=>runId?run.id===runId:family.has(run.eventId)&&(!lotId||run.eventId===lotId));
  if(!runs.length)fail('No hay precios guardados para esta selección.');
  const seen=new Set(),rows=[];
  for(const run of runs)for(const target of run.targets||[]){

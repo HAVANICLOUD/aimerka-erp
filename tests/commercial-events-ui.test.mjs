@@ -13,7 +13,7 @@ const row = (sku, color = 'green', valid = true) => ({ sku, name: 'Producto ' + 
 function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 'red'), row('D', 'green', false)], real = false, date = '2026-11-11T03:00:00Z', products, lifecycle } = {}) {
   const listeners = {}, calls = [], data = { config: {}, products: products || [{ sku: 'A', upc: '12345', name: 'Audífonos', brand: 'Marca', department: 'Audio', imageUrl: 'javascript:alert(1)' }], commercialEvents: saved ? [campaign()] : [], commercialEventRuns: [] };
   let fingerprint = 'fp1', fail = '', failPreview = false;
-  const engine = real ? commercialEvents : { commercialEventPriceRows:commercialEvents.commercialEventPriceRows, commercialEventCompletedTargets:commercialEvents.commercialEventCompletedTargets, eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
+  const engine = real ? commercialEvents : { commercialEventPriceRows:commercialEvents.commercialEventPriceRows, commercialEventCompletedTargets:commercialEvents.commercialEventCompletedTargets, commercialCampaignCoverage:commercialEvents.commercialCampaignCoverage,eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
   class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [date])); } }
   const ERP = { downloadCSV(name,rows){calls.push({type:'download',name,rows:plain(rows)});}, engines: { commercialEvents: engine, warehouses, inventory, productLifecycle: lifecycle }, async command(type, payload) {
     calls.push({ type, payload: plain(payload) }); if (fail) return { ok: false, error: { message: fail } };
@@ -21,7 +21,7 @@ function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 
     if (type === 'pricing.event.save') { const event = { ...plain(payload.event), id: payload.event.id || 'new-event' }; data.commercialEvents = [...data.commercialEvents.filter(e => e.id !== event.id), event]; return { ok: true, result: { id: event.id, eventId: event.id } }; }
     return { ok: true };
   } };
-  const context = createContext({ window: { ERP }, state: data, renderers: {}, document: { addEventListener(name, fn) { listeners[name] = fn; }, getElementById() { return { reportValidity: () => true }; }, querySelector() { return null; } }, render() {}, icon: () => '', money: cents => `$${(cents / 100).toFixed(2)}`, Intl, Date: FixedDate, structuredClone, console });
+  const context = createContext({ window: { ERP }, showModal:html=>{calls.push({type:'modal',html});}, state: data, renderers: {}, document: { addEventListener(name, fn) { listeners[name] = fn; }, getElementById() { return { reportValidity: () => true }; }, querySelector() { return null; } }, render() {}, icon: () => '', money: cents => `$${(cents / 100).toFixed(2)}`, Intl, Date: FixedDate, structuredClone, console });
   runInContext(source, context);
   const api = context.window.CommercialEventsUI;
   const click = async (action, extra = {}) => listeners.click({ target: { closest: () => ({ dataset: { ceAction: action, ...extra } }) } });
@@ -390,4 +390,21 @@ test('reopened campaign picker omits completed products and retains chosen brand
 test('history names campaign discount and additional SPEI separately with one typography class',async()=>{
  const h=harness();h.data.commercialEventRuns=[{id:'spei',eventId:'e1',event:campaign({rules:{mode:'discount',discount:.25}}),targets:[{...row('A'),brand:'Apple',regularCents:100000,discountCents:75000,campaignTransfer:{additionalDiscount:.1,totalDiscountRate:.325,priceCents:67500}}]}];await h.click('history-campaign',{ceEventId:'e1'});
  const html=h.html();assert.match(html,/Campaña · pasarela \/ MSI: 25%/);assert.match(html,/SPEI adicional: 10% sobre el precio de campaña/);assert.match(html,/Descuento total por SPEI: 32.5%/);assert.match(html,/Precio por SPEI: \$675.00/);assert.match(html,/Marca: Apple/);assert.doesNotMatch(html,/>25% efectivo|Descuento asignado/);
+});
+
+
+test('saved agenda shows roots only and opens their lots and progress in a read-only modal',async()=>{
+ const h=harness();h.data.commercialEvents=[campaign({id:'root',name:'Principal',isParent:true}),campaign({id:'apple',name:'Apple lot',parentId:'root'}),campaign({id:'consoles',name:'Consoles lot',parentId:'root'})];
+ const html=h.html(),agenda=html.slice(html.indexOf('<aside class="ce-panel ce-agenda">'),html.indexOf('</aside>'));
+ assert.match(agenda,/data-ce-edit="root"/);assert.doesNotMatch(agenda,/data-ce-edit="apple"|data-ce-edit="consoles"/);
+ const before=plain(h.data);await h.click('',{ceEdit:'root'});const modal=h.calls.at(-1);assert.equal(modal.type,'modal');assert.match(modal.html,/id="modal-title">Principal/);assert.match(modal.html,/Apple lot/);assert.match(modal.html,/Consoles lot/);assert.match(modal.html,/AVANCE DE CAMPAÑA PRINCIPAL/);assert.deepEqual(plain(h.data),before);
+ await h.click('family-new-lot',{ceEventId:'root'});assert.match(h.html(),/<option value="root" selected>Principal/);
+});
+test('campaign and lot filters isolate consultations and CSV exports and reset when switching campaign',async()=>{
+ const h=harness();h.data.commercialEvents=[campaign({id:'root',name:'Parent',isParent:true}),campaign({id:'a',name:'Apple lot',parentId:'root'}),campaign({id:'b',name:'Other lot',parentId:'root'}),campaign({id:'other',name:'Other parent',isParent:true})];
+ h.data.commercialEventRuns=[{id:'a-run',eventId:'a',event:campaign({name:'Apple lot'}),targets:[row('A')]},{id:'b-run',eventId:'b',event:campaign({name:'Other lot'}),targets:[row('B')]},{id:'other-run',eventId:'other',event:campaign({name:'Else'}),targets:[row('C')]}];
+ h.change({ceHistoryCampaign:''},'root');assert.match(h.html(),/data-ce-history-lot/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);assert.doesNotMatch(h.html(),/SKU C/);
+ h.change({ceHistoryLot:''},'a');assert.match(h.html(),/SKU A/);assert.doesNotMatch(h.html(),/SKU B/);assert.match(h.html(),/data-ce-lot-id="a"/);
+ await h.click('export-campaign',{ceEventId:'root',ceLotId:'a'});assert.equal(h.calls.at(-1).rows.length,1);assert.equal(h.calls.at(-1).rows[0].sku,'A');assert.match(h.calls.at(-1).name,/lote-a/);
+ h.change({ceHistoryCampaign:''},'other');assert.doesNotMatch(h.html(),/value="a" selected/);assert.match(h.html(),/SKU C/);assert.doesNotMatch(h.html(),/SKU A/);
 });
