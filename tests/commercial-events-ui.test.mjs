@@ -409,16 +409,32 @@ test('campaign and lot filters isolate consultations and CSV exports and reset w
  h.change({ceHistoryCampaign:''},'other');assert.doesNotMatch(h.html(),/value="a" selected/);assert.match(h.html(),/SKU C/);assert.doesNotMatch(h.html(),/SKU A/);
 });
 
-test('discount base selection defaults to current general price and labels channel prices separately',async()=>{
+test('campaigns expose no price-source selector or channel-reference note',async()=>{
  const r=row('A');Object.assign(r,{input:{mode:'manual_precios'},baselineSource:'general',baselineCents:1249900,channelRegularCents:1409900});
  const h=harness({rows:[r]});h.api.open('e1');h.field('rules.mode','discount','select-one');
- assert.match(h.html(),/Precio base del descuento/);assert.match(h.html(),/value="general" selected/);
- await h.api.calculate();assert.match(h.html(),/general actualizado de la ficha/);assert.match(h.html(),/Precio regular guardado del canal: \$14099.00/);
- h.field('rules.discountBase','channel','select-one');await h.api.calculate();assert.equal(h.calls.findLast(c=>c.type==='pricing.event.save').payload.event.rules.discountBase,'channel');
+ await h.api.calculate();assert.doesNotMatch(h.html(),/Precio base del descuento|general actualizado de la ficha|Precio regular guardado del canal/);
+ assert.equal(h.calls.find(c=>c.type==='pricing.event.save').payload.event.rules.discountBase,undefined);
 });
 test('calculate refreshes shared product data while preserving form inputs and refuses externally edited campaign definitions',async()=>{
  const h=harness();h.api.open('e1');let refreshed=0;
  h.context.window.ERP.reload=async()=>{refreshed++;h.data.products[0].priceCents=1249900;};
  h.field('rules.discount','15','number');await h.api.calculate();assert.equal(refreshed,1);assert.equal(h.data.products[0].priceCents,1249900);assert.equal(h.calls.find(c=>c.type==='pricing.event.save').payload.event.rules.discount,.15);
  const conflict=harness();conflict.api.open('e1');conflict.context.window.ERP.reload=async()=>{conflict.data.commercialEvents[0].name='Edited elsewhere';};conflict.field('rules.margin','20','number');await conflict.api.calculate();assert.equal(conflict.calls.length,0);assert.match(conflict.html(),/La campaña cambió desde otra ventana/);assert.match(conflict.html(),/value="20"/);
+});
+
+test('saved-price withdrawal asks per product and channel and handles server errors without losing the selection',async()=>{
+ const h=harness();h.data.commercialEventRuns=[{id:'saved',eventId:'e1',event:campaign(),targets:[row('A')]}];
+ h.change({ceHistoryCampaign:''},'e1');assert.match(h.html(),/Volver a pendientes/);
+ await h.click('release-price',{ceEventId:'e1',ceRunId:'saved',ceSku:'A',ceMarket:'Sears'});
+ assert.match(h.calls.at(-1).html,/El guardado anterior seguirá disponible/);
+ h.fail('La asignación cambió');await h.click('confirm-release-price');assert.match(h.html(),/La asignación cambió/);
+ h.fail('');await h.click('confirm-release-price');const sent=h.calls.findLast(c=>c.type==='pricing.event.release');assert.deepEqual(sent.payload,{eventId:'e1',runId:'saved',sku:'A',market:'Sears'});
+ assert.match(h.html(),/producto vuelve a pendientes/);
+});
+test('withdrawn prices remain visible in run audit but disappear from consolidated prices and exports',async()=>{
+ const h=harness();h.data.commercialEventRuns=[{id:'saved',eventId:'e1',event:campaign(),targets:[row('A'),row('B')]}];
+ h.data.commercialEventReleases=[{sku:'A',market:'Sears',runIds:['saved']}];
+ h.change({ceHistoryCampaign:''},'e1');assert.doesNotMatch(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);
+ await h.click('history-run',{ceRunId:'saved'});assert.match(h.html(),/ce-campaign-audit" open/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/Retirado · volvió a pendientes/);
+ await h.click('export-campaign',{ceEventId:'e1'});assert.deepEqual(h.calls.at(-1).rows.map(r=>r.sku),['B']);
 });

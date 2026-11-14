@@ -8,10 +8,10 @@ test('discount campaigns use the updated general price rather than an older save
   const s=state(),before=structuredClone(s),row=previewCommercialEvent(s,{event:event(discount)}).rows[0];assert.equal(row.regularCents,1249900);assert.equal(row.baselineCents,1249900);assert.equal(row.baselineSource,'general');assert.equal(row.channelRegularCents,1409900);assert.equal(row.discountCents,expected);assert.deepEqual(s,before);
  }
 });
-test('legacy queued proposals cannot mask a newly edited general price; channel baseline remains explicit',()=>{
+test('legacy queued proposals cannot mask a newly edited general price; legacy channel preference is ignored',()=>{
  const s=state();delete s.productChannelPrices;s.pricePublicationQueue=[{sku:'MAX',targetMarket:'Tienda Nube',regularCents:1429900,discountCents:1299900,status:'awaiting_connection'}];
  assert.equal(previewCommercialEvent(s,{event:event(.1)}).rows[0].regularCents,1249900);
- const e=event(.1);e.rules.discountBase='channel';assert.equal(previewCommercialEvent(s,{event:e}).rows[0].regularCents,1429900);
+ const e=event(.1);e.rules.discountBase='channel';assert.equal(previewCommercialEvent(s,{event:e}).rows[0].regularCents,1249900);
  delete s.pricePublicationQueue;assert.equal(previewCommercialEvent(s,{event:e}).rows[0].baselineSource,'general');
 });
 test('editing the product after preview invalidates the calculation and saving snapshots preserves baseline provenance',()=>{
@@ -22,4 +22,4 @@ test('editing the product after preview invalidates the calculation and saving s
  const saved=structuredClone(s.commercialEventRuns);assert.equal(saved[0].targets[0].baselineSource,'general');assert.equal(saved[0].targets[0].productGeneralCents,1199900);
  s.products[0].priceCents=999900;assert.deepEqual(s.commercialEventRuns,saved);
 });
-test('invalid baseline modes fail without changing records',()=>{const s=state(),before=structuredClone(s),e=event(.1);e.rules.discountBase='invented';assert.throws(()=>previewCommercialEvent(s,{event:e}),/precio base válido/);assert.deepEqual(s,before);});
+test('legacy price-base settings never override inventory or change records',()=>{const s=state(),before=structuredClone(s),e=event(.1);e.rules.discountBase='invented';assert.equal(previewCommercialEvent(s,{event:e}).rows[0].regularCents,1249900);assert.deepEqual(s,before);});

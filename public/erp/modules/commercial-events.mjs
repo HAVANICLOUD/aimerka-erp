@@ -42,14 +42,13 @@ function normalize(event){
  if(event.parentName!==undefined&&(typeof event.parentName!=='string'||event.parentName.length>160))fail('Nombre de campaña principal inválido.');
  if(s.onlyAvailable!==undefined&&typeof s.onlyAvailable!=='boolean')fail('Filtro de disponibilidad inválido.');
  if(s.onlyPublished!==undefined&&typeof s.onlyPublished!=='boolean'||s.warehouseId!==undefined&&typeof s.warehouseId!=='string')fail('Filtros de selección inválidos.');
- if(!['general','channel'].includes(r.discountBase??'general'))fail('Selecciona un precio base válido para el descuento.');
  if(!['margin','discount','competitive'].includes(r.mode))fail('Modo de campaña inválido.');
  const margin=r.margin??.1,discount=r.discount??0,transfer=transferRule(r.transfer);
  if(typeof margin!=='number'||!Number.isFinite(margin)||margin<0||margin>=1||typeof discount!=='number'||!Number.isFinite(discount)||discount<0||discount>=1)fail('Margen o descuento fuera de rango.');
  if(!['pass_through','no_pass_through'].includes(r.retentionTreatment??'pass_through')||!['configured','inferred14'].includes(r.t1CommissionMode??'configured')||!['CLASICA','CLÁSICA','PREMIUM'].includes(r.mlType??'CLASICA'))fail('Reglas de retención o comisión inválidas.');
  if(r.msi!==undefined&&(typeof r.msi!=='string'||r.msi.length>30))fail('Plazo MSI inválido.');
  if(event.id!==undefined&&(typeof event.id!=='string'||!event.id||event.id.length>160))fail('Identificador de campaña inválido.');
- return {id:event.id,isParent:!!event.isParent,parentId:event.parentId||undefined,parentName:typeof event.parentName==='string'?event.parentName.trim():'',name,startDate:event.startDate,endDate:event.endDate,markets,selection:{brands:list(s.brands),departments:list(s.departments),skus:list(s.skus),warehouseId:s.warehouseId||'',onlyPublished:s.onlyPublished??false,onlyAvailable:s.onlyAvailable??false},rules:{mode:r.mode,margin,discount,discountBase:r.discountBase??'general',...(transfer?{transfer}:{}),retentionTreatment:r.retentionTreatment??'pass_through',t1CommissionMode:r.t1CommissionMode??'configured',mlType:r.mlType??'CLASICA',msi:r.msi??'Sin MSI',marketReferences:references(r.marketReferences)}};
+ return {id:event.id,isParent:!!event.isParent,parentId:event.parentId||undefined,parentName:typeof event.parentName==='string'?event.parentName.trim():'',name,startDate:event.startDate,endDate:event.endDate,markets,selection:{brands:list(s.brands),departments:list(s.departments),skus:list(s.skus),warehouseId:s.warehouseId||'',onlyPublished:s.onlyPublished??false,onlyAvailable:s.onlyAvailable??false},rules:{mode:r.mode,margin,discount,...(transfer?{transfer}:{}),retentionTreatment:r.retentionTreatment??'pass_through',t1CommissionMode:r.t1CommissionMode??'configured',mlType:r.mlType??'CLASICA',msi:r.msi??'Sin MSI',marketReferences:references(r.marketReferences)}};
 }
 // Two independent synchronous 32-bit streams; canonical input order does not affect the token.
 function stable(value){
@@ -59,9 +58,10 @@ function stable(value){
  return '{'+Object.keys(value).filter(k=>value[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stable(value[k])).join(',')+'}';
 }
 function hash(value){let a=2166136261,b=5381;for(const c of stable(value)){a=Math.imul(a^c.codePointAt(0),16777619);b=Math.imul(b,33)^c.codePointAt(0);}return 'ce1-'+(a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
+function released(state,runId,sku,market){return (state.commercialEventReleases||[]).some(r=>r.sku===sku&&r.market===market&&r.runIds.includes(runId));}
 export function commercialEventCompletedTargets(state,eventId){
  const ids=campaignFamilyIds(state,eventId);
- return new Set((state.commercialEventRuns||[]).filter(run=>ids.has(run.eventId)).flatMap(run=>(run.targets||[]).filter(row=>money(row.regularCents)&&money(row.discountCents)).map(row=>key(row.sku,row.market))));
+ return new Set((state.commercialEventRuns||[]).filter(run=>ids.has(run.eventId)).flatMap(run=>(run.targets||[]).filter(row=>money(row.regularCents)&&money(row.discountCents)&&!released(state,run.id,row.sku,row.market)).map(row=>key(row.sku,row.market))));
 }
 export function previewCommercialEvent(state,payload={}){
  if(Boolean(payload.eventId)===Boolean(payload.event))fail('Indica una campaña guardada o un evento, exclusivamente.');
@@ -80,9 +80,7 @@ export function previewCommercialEvent(state,payload={}){
    if(s.onlyPublished&&listingStatus(product,market).status!=='published')continue;
    if(completed.has(key(product.sku,market))){alreadySaved++;continue;}
    const saved=channelPrice(state,product.sku,market),r=event.rules;
-   const useGeneral=r.mode==='discount'&&r.discountBase==='general';
-   const baseline=useGeneral?product.priceCents:saved?.regularCents??product.priceCents;
-   const baselineSource=useGeneral||!saved?'general':'channel';
+   const baseline=product.priceCents,baselineSource='general';
    const ref=refs.find(r=>r.sku===product.sku&&r.market===market);
    baselines.push({sku:product.sku,market,saved,baseline});
    const input={channel:['Sears','Sanborns'].includes(market)?'T1 Comercios':market,margin:r.margin,retentionTreatment:r.retentionTreatment,t1CommissionMode:r.t1CommissionMode,mlType:r.mlType,msi:r.msi,alternateMarketPrice:baseline/100,mode:r.mode==='margin'?'automatico':r.mode==='discount'?'manual_precios':'competitivo'};
@@ -165,6 +163,35 @@ export function commercialEventCommand(state,command,ctx={}){
   audit(state,command,ctx,command.type,'Campaña guardada; activación manual.',{eventId:event.id});
   return {ok:true,id:event.id,eventId:event.id,event:copy(saved)};
  }
+ if(command.type==='pricing.event.release'){
+  if((state.commercialEventReleases||[]).some(r=>r.id===command.id))fail('Esta retirada ya fue registrada.');
+  const event=(state.commercialEvents||[]).find(e=>e.id===p.eventId&&!e.deletedAt);
+  if(!event)fail('Selecciona una campaña disponible.');
+  const active=commercialEventPriceRows(state,{eventId:p.eventId}).find(r=>r.sku===p.sku&&r.market===p.market);
+  if(!active||active.runId!==p.runId)fail('La asignación cambió o ya fue retirada; actualiza el historial.');
+  const family=campaignFamilyIds(state,p.eventId),runIds=(state.commercialEventRuns||[]).filter(r=>family.has(r.eventId)&&r.targets?.some(t=>t.sku===p.sku&&t.market===p.market)).map(r=>r.id);
+  const entries=copy(state.campaignPriceRestorations||[]),prices=copy(state.productChannelPrices||[]),history=copy(state.productChannelPriceHistory||[]),queue=copy(state.pricePublicationQueue||[]);
+  const same=row=>row.sku===p.sku&&(row.market||row.targetMarket||row.channel)===p.market;
+  const index=prices.findIndex(same),current=prices[index];
+  if(current&&runIds.includes(current.commandId)){
+   let entry=entries.find(e=>same(e)&&e.appliedRunId===current.commandId),previous=entry?.previous||null,effective=entry?.previousEffective||null;
+   const seen=new Set();
+   while(previous&&(runIds.includes(previous.commandId)||entries.some(e=>same(e)&&e.appliedRunId===previous.commandId&&['released','restored'].includes(e.status)))){
+    if(seen.has(previous.commandId)){previous=null;effective=null;break;}seen.add(previous.commandId);
+    entry=entries.find(e=>same(e)&&e.appliedRunId===previous.commandId);previous=entry?.previous||null;effective=entry?.previousEffective||null;
+   }
+   history.unshift(copy(current));
+   if(previous)prices[index]={...copy(previous),revision:(current.revision||0)+1,updatedAt:ctx.now,restoredFromCampaign:p.eventId};else prices.splice(index,1);
+   const general=(state.products||[]).find(product=>product.sku===p.sku)?.priceCents,price=previous||effective||{regularCents:general,discountCents:general};
+   if(money(price.regularCents)&&money(price.discountCents))queue.unshift({id:'release-'+command.id,source:'campaign-release',eventId:p.eventId,sku:p.sku,targetMarket:p.market,regularCents:price.regularCents,discountCents:price.discountCents,currency:'MXN',status:'awaiting_connection',createdAt:ctx.now});
+  }
+  for(const row of queue)if(row.sku===p.sku&&(row.targetMarket||row.channel)===p.market&&runIds.includes(row.runId)&&['awaiting_connection','review_required'].includes(row.status)){row.status='withdrawn';row.withdrawnAt=ctx.now;}
+  for(const entry of entries)if(same(entry)&&runIds.includes(entry.appliedRunId)){entry.status='released';entry.closedAt=ctx.now;}
+  const release={id:command.id,eventId:campaignFamilyId(state,p.eventId),sku:p.sku,market:p.market,runIds,date:ctx.now,actor:ctx.actor};
+  Object.assign(state,{productChannelPrices:prices,productChannelPriceHistory:history,pricePublicationQueue:queue,campaignPriceRestorations:entries,commercialEventReleases:[release,...(state.commercialEventReleases||[])]});
+  audit(state,command,ctx,command.type,'Asignación retirada; producto y canal disponibles para recalcular.',{eventId:p.eventId,sku:p.sku,market:p.market,runIds});
+  return {ok:true,eventId:p.eventId,message:'Precio retirado de la campaña. El producto vuelve a pendientes en este canal; el historial se conserva.'};
+ }
  if(command.type!=='pricing.event.apply')fail('Operación de campaña no reconocida.');
  if((state.commercialEventRuns||[]).some(r=>r.id===command.id))fail('Esta aplicación ya fue registrada.');
  const closing=(state.commercialEvents||[]).find(e=>e.id===campaignFamilyId(state,p.eventId));
@@ -193,7 +220,7 @@ export function commercialEventCommand(state,command,ctx={}){
 
 // Export saved snapshots only. A newer red/yellow replaces an older green
 // before filtering, so a consolidated export never revives obsolete prices.
-export function commercialEventPriceRows(state,{runId,eventId,lotId,greenOnly=false}={}){
+export function commercialEventPriceRows(state,{runId,eventId,lotId,greenOnly=false,includeReleased=false}={}){
  if(Boolean(runId)===Boolean(eventId))fail('Selecciona un lote o una campaña.');
  const family=eventId?campaignFamilyIds(state,eventId):null;
  if(lotId&&(!eventId||!family.has(lotId)))fail('El lote no pertenece a la campaña seleccionada.');
@@ -201,10 +228,11 @@ export function commercialEventPriceRows(state,{runId,eventId,lotId,greenOnly=fa
  if(!runs.length)fail('No hay precios guardados para esta selección.');
  const seen=new Set(),rows=[];
  for(const run of runs)for(const target of run.targets||[]){
+  const withdrawn=released(state,run.id,target.sku,target.market);if(withdrawn&&!includeReleased)continue;
   const id=key(target.sku,target.market);if(!runId&&seen.has(id))continue;seen.add(id);
   if(greenOnly&&target.traffic?.color!=='green')continue;
   const product=(state.products||[]).find(p=>p.sku===target.sku);
-  rows.push({...copy(target),name:target.name??product?.name??target.sku,imageUrl:target.imageUrl||product?.imageUrl||'',images:copy(target.images?.length?target.images:product?.images||[]),brand:target.brand??product?.brand??'',department:target.department??product?.department??'',upc:target.upc??product?.upc??'',runId:run.id,eventId:run.eventId,eventName:run.event?.name||run.eventId,savedAt:run.date,startDate:run.event?.startDate,endDate:run.event?.endDate,selection:copy(run.event?.selection||{}),rules:copy(run.event?.rules||{})});
+  rows.push({...copy(target),released:withdrawn,name:target.name??product?.name??target.sku,imageUrl:target.imageUrl||product?.imageUrl||'',images:copy(target.images?.length?target.images:product?.images||[]),brand:target.brand??product?.brand??'',department:target.department??product?.department??'',upc:target.upc??product?.upc??'',runId:run.id,eventId:run.eventId,eventName:run.event?.name||run.eventId,savedAt:run.date,startDate:run.event?.startDate,endDate:run.event?.endDate,selection:copy(run.event?.selection||{}),rules:copy(run.event?.rules||{})});
  }
  return rows;
 }

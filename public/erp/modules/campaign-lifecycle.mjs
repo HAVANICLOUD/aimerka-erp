@@ -30,7 +30,7 @@ export function restoreExpiredCampaignPrices(state,now){
  let changed=false;
  function original(entry,seen=new Set()){
   if(seen.has(entry.id))return {assignment:null,effective:null};seen.add(entry.id);
-  const previous=entry.previous,prior=entries.find(e=>e.sku===entry.sku&&e.market===entry.market&&e.appliedRunId===previous?.commandId&&expired(e));
+  const previous=entry.previous,prior=entries.find(e=>e.sku===entry.sku&&e.market===entry.market&&e.appliedRunId===previous?.commandId&&(expired(e)||e.status==='released'));
   return prior?original(prior,seen):{assignment:previous,effective:entry.previousEffective};
  }
  for(const entry of entries){

@@ -22,10 +22,10 @@ test('margin campaign delegates exact formulas and category overrides; no previe
  assert.equal(p.rows.find(r=>r.market==='Mercado Libre').result.category,'Laptops');
 });
 
-test('discount uses exact per-market regular baseline, integer cent rounding and manual pricing',()=>{
+test('discount always uses the inventory regular baseline, integer cent rounding and manual pricing',()=>{
  const s=setup();s.productChannelPrices=[{sku:'A',market:'Sears',regularCents:2500001,discountCents:2200000}];
  const p=preview(s,{event:event({rules:{mode:'discount',discount:.12345,discountBase:'channel'}})});
- for(const row of p.rows){const baseline=row.market==='Sears'?2500001:2100000;assert.equal(row.regularCents,baseline);assert.equal(row.discountCents,Math.round(baseline*(1-.12345)));assert.equal(row.result.mode,'precios');assert.equal(row.result.marketPrice,baseline/100);}
+ for(const row of p.rows){const baseline=2100000;assert.equal(row.regularCents,baseline);assert.equal(row.discountCents,Math.round(baseline*(1-.12345)));assert.equal(row.result.mode,'precios');assert.equal(row.result.marketPrice,baseline/100);}
 });
 
 test('selection intersects brands departments SKUs and nonzero real warehouse balances',()=>{
@@ -115,7 +115,7 @@ test('campaign permissions follow parent pricing gate, denying readers, inventor
 
 test('definition revisions stay bounded while all application and proposal history is preserved',()=>{
  const s=setup(),id=save(s,event({markets:['Sears']}));for(let i=0;i<24;i++)save(s,{...s.commercialEvents[0],name:'Version '+i},'save'+i);assert.equal(s.commercialEvents[0].history.length,20);
- for(let i=0;i<12;i++){const campaignId=i===0?id:save(s,event({markets:['Sears']}),'new-campaign'+i);apply(s,campaignId,[target()],{},'apply'+i);}assert.equal(s.commercialEventRuns.length,12);assert.equal(s.pricePublicationQueue.length,12);assert.equal(s.commercialEventRuns.at(-1).id,'apply0');assert.equal(s.pricePublicationQueue.at(-1).runId,'apply0');assert.equal(s.productChannelPriceHistory.length,11);assert.equal(s.commercialEventRuns[0].targets[0].baselineCents,s.productChannelPriceHistory[0].regularCents);
+ for(let i=0;i<12;i++){const campaignId=i===0?id:save(s,event({markets:['Sears']}),'new-campaign'+i);apply(s,campaignId,[target()],{},'apply'+i);}assert.equal(s.commercialEventRuns.length,12);assert.equal(s.pricePublicationQueue.length,12);assert.equal(s.commercialEventRuns.at(-1).id,'apply0');assert.equal(s.pricePublicationQueue.at(-1).runId,'apply0');assert.equal(s.productChannelPriceHistory.length,11);assert.equal(s.commercialEventRuns[0].targets[0].baselineCents,s.products[0].priceCents);
 });
 
 
