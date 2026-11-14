@@ -24,7 +24,7 @@ test('margin campaign delegates exact formulas and category overrides; no previe
 
 test('discount uses exact per-market regular baseline, integer cent rounding and manual pricing',()=>{
  const s=setup();s.productChannelPrices=[{sku:'A',market:'Sears',regularCents:2500001,discountCents:2200000}];
- const p=preview(s,{event:event({rules:{mode:'discount',discount:.12345}})});
+ const p=preview(s,{event:event({rules:{mode:'discount',discount:.12345,discountBase:'channel'}})});
  for(const row of p.rows){const baseline=row.market==='Sears'?2500001:2100000;assert.equal(row.regularCents,baseline);assert.equal(row.discountCents,Math.round(baseline*(1-.12345)));assert.equal(row.result.mode,'precios');assert.equal(row.result.marketPrice,baseline/100);}
 });
 

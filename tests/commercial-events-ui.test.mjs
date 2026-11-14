@@ -408,3 +408,17 @@ test('campaign and lot filters isolate consultations and CSV exports and reset w
  await h.click('export-campaign',{ceEventId:'root',ceLotId:'a'});assert.equal(h.calls.at(-1).rows.length,1);assert.equal(h.calls.at(-1).rows[0].sku,'A');assert.match(h.calls.at(-1).name,/lote-a/);
  h.change({ceHistoryCampaign:''},'other');assert.doesNotMatch(h.html(),/value="a" selected/);assert.match(h.html(),/SKU C/);assert.doesNotMatch(h.html(),/SKU A/);
 });
+
+test('discount base selection defaults to current general price and labels channel prices separately',async()=>{
+ const r=row('A');Object.assign(r,{input:{mode:'manual_precios'},baselineSource:'general',baselineCents:1249900,channelRegularCents:1409900});
+ const h=harness({rows:[r]});h.api.open('e1');h.field('rules.mode','discount','select-one');
+ assert.match(h.html(),/Precio base del descuento/);assert.match(h.html(),/value="general" selected/);
+ await h.api.calculate();assert.match(h.html(),/general actualizado de la ficha/);assert.match(h.html(),/Precio regular guardado del canal: \$14099.00/);
+ h.field('rules.discountBase','channel','select-one');await h.api.calculate();assert.equal(h.calls.findLast(c=>c.type==='pricing.event.save').payload.event.rules.discountBase,'channel');
+});
+test('calculate refreshes shared product data while preserving form inputs and refuses externally edited campaign definitions',async()=>{
+ const h=harness();h.api.open('e1');let refreshed=0;
+ h.context.window.ERP.reload=async()=>{refreshed++;h.data.products[0].priceCents=1249900;};
+ h.field('rules.discount','15','number');await h.api.calculate();assert.equal(refreshed,1);assert.equal(h.data.products[0].priceCents,1249900);assert.equal(h.calls.find(c=>c.type==='pricing.event.save').payload.event.rules.discount,.15);
+ const conflict=harness();conflict.api.open('e1');conflict.context.window.ERP.reload=async()=>{conflict.data.commercialEvents[0].name='Edited elsewhere';};conflict.field('rules.margin','20','number');await conflict.api.calculate();assert.equal(conflict.calls.length,0);assert.match(conflict.html(),/La campaña cambió desde otra ventana/);assert.match(conflict.html(),/value="20"/);
+});
