@@ -438,3 +438,13 @@ test('withdrawn prices remain visible in run audit but disappear from consolidat
  await h.click('history-run',{ceRunId:'saved'});assert.match(h.html(),/ce-campaign-audit" open/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/Retirado · volvió a pendientes/);
  await h.click('export-campaign',{ceEventId:'e1'});assert.deepEqual(h.calls.at(-1).rows.map(r=>r.sku),['B']);
 });
+
+test('liquidation plans have isolated saved agenda and history while sharing pricing protections',async()=>{
+ const h=harness();h.data.commercialEvents.push(campaign({id:'liq',name:'Liquidación audífonos',kind:'liquidation'}));h.data.commercialEventRuns=[{id:'run-liq',eventId:'liq',event:campaign({kind:'liquidation'}),targets:[row('A')]}];
+ assert.doesNotMatch(h.html(),/Liquidación audífonos|data-ce-run-id="run-liq"/);
+ let html=h.api.renderLiquidation();assert.match(html,/Planes de liquidación/);assert.match(html,/Liquidación audífonos/);assert.doesNotMatch(html,/data-ce-edit="e1"/);
+ h.api.startSelection(['A'],'liquidation',[6]);assert.match(h.api.renderLiquidation(),/commercial-events-form/);h.field('name','Liquidación QA');h.field('startDate','2026-11-13');h.field('endDate','2026-11-17');await h.api.calculate();const sent=h.calls.find(c=>c.type==='pricing.event.save').payload.event;assert.equal(sent.kind,'liquidation');assert.deepEqual(sent.selection.skus,['A']);assert.deepEqual(sent.selection.rotationLevels,[6]);
+});
+test('event results display rotation flags independently from financial signal and red acknowledgement',async()=>{
+ const h=harness({rows:[row('A','red')]});h.context.window.StockRotationUI={flag:sku=>`<span class="sr-flag">6+ Liquidación urgente ${sku}</span>`};h.api.open('e1');await h.api.calculate();assert.match(h.html(),/6\+ Liquidación urgente A/);assert.match(h.html(),/Acepto el riesgo/);assert.match(h.html(),/Rojo/);
+});
