@@ -13,7 +13,7 @@ const row = (sku, color = 'green', valid = true) => ({ sku, name: 'Producto ' + 
 function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 'red'), row('D', 'green', false)], real = false, date = '2026-11-11T03:00:00Z', products, lifecycle } = {}) {
   const listeners = {}, calls = [], data = { config: {}, products: products || [{ sku: 'A', upc: '12345', name: 'Audífonos', brand: 'Marca', department: 'Audio', imageUrl: 'javascript:alert(1)' }], commercialEvents: saved ? [campaign()] : [], commercialEventRuns: [] };
   let fingerprint = 'fp1', fail = '', failPreview = false;
-  const engine = real ? commercialEvents : { commercialEventPriceRows:commercialEvents.commercialEventPriceRows, commercialEventCompletedTargets:commercialEvents.commercialEventCompletedTargets, commercialCampaignCoverage:commercialEvents.commercialCampaignCoverage,eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
+  const engine = real ? commercialEvents : { commercialEventProducts:commercialEvents.commercialEventProducts, commercialEventPriceRows:commercialEvents.commercialEventPriceRows, commercialEventCompletedTargets:commercialEvents.commercialEventCompletedTargets, commercialCampaignCoverage:commercialEvents.commercialCampaignCoverage,eventTemplates: commercialEvents.eventTemplates, previewCommercialEvent() { if (failPreview) throw Error('Fallo de cálculo'); return { fingerprint, rows: structuredClone(rows) }; } };
   class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [date])); } }
   const ERP = { downloadCSV(name,rows){calls.push({type:'download',name,rows:plain(rows)});}, engines: { commercialEvents: engine, warehouses, inventory, productLifecycle: lifecycle }, async command(type, payload) {
     calls.push({ type, payload: plain(payload) }); if (fail) return { ok: false, error: { message: fail } };
@@ -383,8 +383,9 @@ test('reopened campaign picker omits completed products and retains chosen brand
  h.data.commercialEventRuns=[{id:'done',eventId:'e1',event:campaign(),targets:[{...row('A'),brand:'Apple'}]}];
  h.api.open('e1');h.change({ceScope:'selected'});
  assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="A"/);
- assert.match(h.html(),/data-ce-array="selection.skus" value="B"/);
+ assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="B"/);
  assert.match(h.html(),/data-ce-array="selection.brands" value="Apple" checked/);
+ h.change({ceArray:'selection.brands'},'Apple',false,'checkbox');assert.match(h.html(),/data-ce-array="selection.skus" value="B"/);
 });
 
 test('history names campaign discount and additional SPEI separately with one typography class',async()=>{
@@ -447,4 +448,12 @@ test('liquidation plans have isolated saved agenda and history while sharing pri
 });
 test('event results display rotation flags independently from financial signal and red acknowledgement',async()=>{
  const h=harness({rows:[row('A','red')]});h.context.window.StockRotationUI={flag:sku=>`<span class="sr-flag">6+ Liquidación urgente ${sku}</span>`};h.api.open('e1');await h.api.calculate();assert.match(h.html(),/6\+ Liquidación urgente A/);assert.match(h.html(),/Acepto el riesgo/);assert.match(h.html(),/Rojo/);
+});
+
+test('Apple picker and calculation share stock filters and never drop a new zero-stock iPad because a warehouse is selected',async()=>{
+ const h=harness({products:[{sku:'IPAD-NEW',upc:'123',name:'iPad Air M3',brand:'Apple',department:'APPLE',good:0},{sku:'IPAD-STOCK',name:'iPad con stock',brand:'Apple',department:'APPLE',good:2},{sku:'OTHER',name:'Otra marca',brand:'Dyson',good:2}]});
+ h.data.commercialEvents[0].selection={brands:['Apple'],departments:[],skus:[],warehouseId:'principal',onlyAvailable:false};h.api.open('e1');h.change({ceScope:'selected'});
+ assert.match(h.html(),/data-ce-array="selection.skus" value="IPAD-NEW"/);assert.match(h.html(),/data-ce-array="selection.skus" value="IPAD-STOCK"/);assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="OTHER"/);
+ h.field('selection.onlyAvailable',true,'checkbox');assert.doesNotMatch(h.html(),/data-ce-array="selection.skus" value="IPAD-NEW"/);assert.match(h.html(),/data-ce-array="selection.skus" value="IPAD-STOCK"/);
+ h.field('selection.onlyAvailable',false,'checkbox');assert.match(h.html(),/data-ce-array="selection.skus" value="IPAD-NEW"/);assert.match(h.html(),/incluye también productos nuevos y con cero piezas/);
 });

@@ -28,12 +28,13 @@ test('discount always uses the inventory regular baseline, integer cent rounding
  for(const row of p.rows){const baseline=2100000;assert.equal(row.regularCents,baseline);assert.equal(row.discountCents,Math.round(baseline*(1-.12345)));assert.equal(row.result.mode,'precios');assert.equal(row.result.marketPrice,baseline/100);}
 });
 
-test('selection intersects brands departments SKUs and nonzero real warehouse balances',()=>{
+test('selection intersects brands departments and explicit SKUs; warehouse never implies an enabled stock filter',()=>{
  const s=setup();s.products.push({...product,sku:'B',brand:'OTHER'},{...product,sku:'C',department:'OTHER'},{...product,sku:'D',status:'INACTIVO'},{...product,sku:'E'});
  s.warehouses=[{id:'north',active:true},{id:'empty',active:true}];s.warehouseStock=[{warehouseId:'north',sku:'A',good:0,quarantine:1},{warehouseId:'north',sku:'B',good:5},{warehouseId:'north',sku:'C',good:5},{warehouseId:'north',sku:'D',good:5}];
  const selection={brands:['APPLE'],departments:['COMPUTO'],skus:['A','B','C','D','E'],warehouseId:'north'};
- assert.deepEqual(preview(s,{event:event({selection})}).rows.map(r=>r.sku),['A','A']);
- assert.equal(preview(s,{event:event({selection:{warehouseId:'empty'}})}).rows.length,0);
+ assert.deepEqual(preview(s,{event:event({selection})}).rows.map(r=>r.sku),['A','A','E','E']);
+ assert.equal(preview(s,{event:event({selection:{warehouseId:'empty'}})}).rows.length,8);
+ assert.equal(preview(s,{event:event({selection:{warehouseId:'empty',onlyAvailable:true}})}).rows.length,0);
  assert.throws(()=>preview(s,{event:event({selection:{warehouseId:'invented'}})}),/almacén/);
 });
 
@@ -189,17 +190,18 @@ test('profile publication status integration includes only exact published and i
 });
 
 
-test('warehouse filter includes each nonzero stock pool but excludes zero balances and other warehouses',()=>{
+test('warehouse affects availability only when explicitly enabled; unfiltered catalogue includes zero and unallocated rows',()=>{
  const s=setup(),pools=['good','reserved','quarantine','damaged','safety'];
  s.products=pools.map(pool=>({...product,sku:pool,good:10}));s.products.push({...product,sku:'ZERO',good:10},{...product,sku:'OTHER',good:10},{...product,sku:'MISSING',good:10});
  s.warehouses=[{id:'north',active:true},{id:'south',active:true}];
  s.warehouseStock=pools.map(pool=>({warehouseId:'north',sku:pool,...Object.fromEntries(pools.map(p=>[p,p===pool?1:0]))}));
  s.warehouseStock.push({warehouseId:'north',sku:'ZERO',good:0,reserved:0,quarantine:0,damaged:0,safety:0},{warehouseId:'south',sku:'OTHER',good:5});
  const before=structuredClone(s),e=event({markets:['Sears'],selection:{warehouseId:'north'}});
- assert.deepEqual(preview(s,{event:e}).rows.map(r=>r.sku).sort(),pools.slice().sort());assert.deepEqual(s,before);
+ assert.deepEqual(preview(s,{event:e}).rows.map(r=>r.sku).sort(),[...pools,'ZERO','OTHER','MISSING'].sort());assert.deepEqual(s,before);
  assert.equal(preview(s,{event:event({markets:['Sears']})}).rows.length,8);
  const fallback=setup();fallback.products[0]={...product,good:0,reserved:0,safety:0};
- assert.equal(preview(fallback,{event:event({selection:{warehouseId:'principal'}})}).rows.length,0);
+ assert.equal(preview(fallback,{event:event({selection:{warehouseId:'principal'}})}).rows.length,2);
+ assert.equal(preview(fallback,{event:event({selection:{warehouseId:'principal',onlyAvailable:true}})}).rows.length,0);
  fallback.products[0].damaged=1;assert.equal(preview(fallback,{event:event({selection:{warehouseId:'principal'}})}).rows.length,2);assert.equal(fallback.warehouseStock,undefined);
 });
 
