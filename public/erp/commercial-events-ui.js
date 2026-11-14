@@ -1,5 +1,5 @@
 /* Commercial events workspace. Host owns routing, assets and state synchronization.
- * Only pricing.event.save and pricing.event.apply persist changes. No publish API.
+ * Campaign commands persist changes. No publish API.
  */
 (function () {
   'use strict';
@@ -8,11 +8,12 @@
   const presetNames = () => [...new Set((engine()?.eventTemplates?.length ? engine().eventTemplates.map(e => typeof e === 'string' ? e : e.name) : presetFallback).filter(Boolean))];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const engine = () => window.ERP?.engines?.commercialEvents;
-  const events = () => state.commercialEvents || [];
+  const allEvents = () => state.commercialEvents || [];
+  const events = () => allEvents().filter(e => !e.deletedAt);
   const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).reduce((o, p) => { o[p.type] = p.value; return o; }, {});
   function mexicoDate() { const p = today(); return `${p.year}-${p.month}-${p.day}`; }
   let month = mexicoDate().slice(0, 7), draft = null, savedJSON = '', preview = null, previewEvent = '', selected = new Set(), acknowledged = new Set(), page = 0, busy = false, error = '', notice = '', search = '', scope = 'all', revision = 0;
-  let resultView = 'list', signalFilter = 'all';
+  let resultView = 'list', signalFilter = 'all', historyCampaign = '', historyRun = '', historyGreen = false, historyPage = 0, pendingDelete = '';
   const pageSize = 50;
   const selectableProducts = () => (state.products || []).filter(p => window.ERP?.engines?.productLifecycle?.commerciallySelectable?.(p) ?? true);
   const key = row => JSON.stringify([row.sku, row.market]);
@@ -49,7 +50,7 @@
   const button = (action, label, extra = '') => `<button type="button" class="ce-button ${['new', 'apply'].includes(action) ? 'ce-primary' : ''}" data-ce-action="${action}" ${busy ? 'disabled' : ''} ${extra.replace(/class="[^"]*"/g, '')}>${glyph(actionIcon(action))}${label}</button>`;
   // Local icons keep semantics stable even when the host icon vocabulary changes.
   const iconPaths = {
-    plus: 'M12 5v14M5 12h14', check: 'm5 12 4 4L19 6', close: 'm6 6 12 12M6 18 18 6',
+    trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7', download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5', history:'M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2', plus: 'M12 5v14M5 12h14', check: 'm5 12 4 4L19 6', close: 'm6 6 12 12M6 18 18 6',
     left: 'm15 5-7 7 7 7', right: 'm9 5 7 7-7 7', down: 'm6 9 6 6 6-6',
     calendar: 'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16', box: 'm12 3 9 5v9l-9 5-9-5V8l9-5zm0 9v10M3 8l9 4 9-4',
     store: 'M4 10v11h16V10M3 10l2-7h14l2 7M8 21v-7h8v7', calculator: 'M5 3h14v18H5zM8 7h8M8 12h2m4 0h2M8 16h2m4 0h2',
@@ -66,7 +67,7 @@
     return `<svg class="ce-icon ce-traffic-light" viewBox="0 0 24 32" aria-hidden="true" focusable="false"><rect x="5" y="1" width="14" height="30" rx="5" fill="#263b43"/>${[['red', '#ef6b68'], ['amber', '#f5c452'], ['green', '#62cf94']].map(([name, fill], index) => `<circle cx="12" cy="${8 + index * 8}" r="3" fill="${fill}" opacity="${active === 'all' || active === name ? 1 : .18}"/>`).join('')}</svg>`;
   }
   const selectIcon = path => ({ 'rules.mode': 'calculator', 'rules.retentionTreatment': 'shield', 'rules.t1CommissionMode': 'percent', 'rules.mlType': 'store', 'rules.msi': 'card', 'rules.transfer.discount':'percent', 'selection.warehouseId': 'box', 'selection.brands': 'tag', 'selection.departments': 'box' }[path] || (path.endsWith('.market') ? 'store' : 'list'));
-  const actionIcon = action => ({ new: 'plus', apply: 'save', save: 'save', 'prev-month': 'left', 'next-month': 'right', today: 'calendar', 'prev-page': 'left', 'next-page': 'right', greens: 'check', none: 'close', 'add-reference': 'plus', 'remove-reference': 'close', 'lookup-reference': 'search', 'transfer-toggle':'bank', view: 'list', filter: 'signal' }[action] || 'check');
+  const actionIcon = action => ({ delete:'trash', 'confirm-delete':'trash',restore:'history','cancel-delete':'close','history-run':'search','export-run':'download','export-campaign':'download','history-prev':'left','history-next':'right', new: 'plus', apply: 'save', save: 'save', 'prev-month': 'left', 'next-month': 'right', today: 'calendar', 'prev-page': 'left', 'next-page': 'right', greens: 'check', none: 'close', 'add-reference': 'plus', 'remove-reference': 'close', 'lookup-reference': 'search', 'transfer-toggle':'bank', view: 'list', filter: 'signal' }[action] || 'check');
   function productImage(product) {
     // Gallery primary takes priority; each fallback passes the same URL checks.
     const gallery = Array.isArray(product?.images) ? product.images : [];
@@ -175,15 +176,44 @@
     const tone=t.traffic.color==='yellow'?'amber':t.traffic.color;
     return `<section class="ce-transfer-result ce-transfer-${tone}"><header>${glyph('bank')}<strong>Pago por transferencia</strong><span class="ce-pill ce-${tone}">${t.traffic.color==='green'?'Cumple margen':t.traffic.color==='yellow'?'Revisar margen':'Sin caja positiva'}</span></header><div class="ce-transfer-price"><small>Precio final · ${pct(t.additionalDiscount)} adicional</small><strong>${mxn(t.price)}</strong></div><dl class="ce-economics"><div><dt>Comisión (${pct(t.commissionRate)})</dt><dd>${mxn(t.commission)}</dd></div><div><dt>Depósito neto</dt><dd>${mxn(t.marketplacePayout)}</dd></div><div><dt>Costo + envío</dt><dd>${mxn(t.cost+t.shipping)}</dd></div><div class="ce-transfer-cash"><dt>Disponible de caja</dt><dd>${mxn(t.cashProfit)}</dd></div><div><dt>Margen / mínimo</dt><dd>${pct(t.margin)} / ${pct(t.targetMargin)}</dd></div><div><dt>Descuento total vs. regular</dt><dd>${pct(t.totalDiscountRate)}</dd></div></dl><p>Sin MSI · Retenciones $0.00. ${escape(t.traffic.reason)}</p></section>`;
   }
+  const percent = value => Number.isFinite(value) ? `${+(value*100).toFixed(2)}%` : '—';
+  const dateLabel = value => {const date=new Date(value);return Number.isNaN(+date)?value||'Sin fecha':new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);};
+  function runScope(run){
+    const s=run.event?.selection||{},r=run.event?.rules||{};
+    return [r.mode==='discount'?`Descuento ${percent(r.discount)}`:r.mode==='margin'?`Margen ${percent(r.margin)}`:'Precio competitivo',s.brands?.length?`Marcas: ${s.brands.join(', ')}`:'Todas las marcas',s.departments?.length?`Departamentos: ${s.departments.join(', ')}`:'',s.skus?.length?`${s.skus.length} productos seleccionados`:'Inventario filtrado'].filter(Boolean).join(' · ');
+  }
+  function savedRows(options){return engine().commercialEventPriceRows(state,options);}
+  function exportPrices(options){
+    try{
+      const rows=savedRows(options);if(!rows.length)throw Error('No hay precios verdes en esta selección.');
+      const value=n=>Number.isFinite(n)?n:'';
+      const data=rows.map(row=>({sku:row.sku,upc:row.upc,producto:row.name,marketplace:row.market,precio_regular_mxn:(row.regularCents/100).toFixed(2),precio_descuento_mxn:(row.discountCents/100).toFixed(2),moneda:'MXN',semaforo:row.traffic?.color==='green'?'Verde':row.traffic?.color==='yellow'?'Amarillo':'Rojo',descuento_efectivo_porcentaje:value(row.regularCents?+(100*(1-row.discountCents/row.regularCents)).toFixed(4):null),descuento_configurado_porcentaje:row.rules.mode==='discount'?row.rules.discount*100:'',margen_objetivo_porcentaje:value((row.targetMargin??row.rules.margin)*100),disponible_caja_mxn:value(row.discount?.cashProfit??row.discount?.profit),comision_porcentaje:value(row.commissionRate==null?null:row.commissionRate*100),campana:row.eventName,lote:row.runId,guardado:dateLabel(row.savedAt),inicio:row.startDate?.split('-').reverse().join('/'),fin:row.endDate?.split('-').reverse().join('/'),precio_transferencia_mxn:value(row.campaignTransfer?.price),caja_transferencia_mxn:value(row.campaignTransfer?.cashProfit)}));
+      window.ERP.downloadCSV(`AIMERKA-${options.runId?'lote':'campana'}-${options.runId||options.eventId}${options.greenOnly?'-verdes':''}`,data);
+      notice=`Exportación preparada: ${rows.length} precios guardados. No se enviaron a las tiendas.`;error='';
+    }catch(e){error=e.message||'No se pudo exportar.';}
+    redraw();
+  }
+  function runDetail(run){
+    let rows=savedRows({runId:run.id,greenOnly:historyGreen});
+    const pages=Math.max(1,Math.ceil(rows.length/pageSize));historyPage=Math.min(historyPage,pages-1);
+    return `<div class="ce-run-detail"><div class="ce-toolbar"><label class="ce-check"><input type="checkbox" data-ce-history-green ${historyGreen?'checked':''}>Solo precios guardados en verde</label><span>${rows.length} precios · valores del momento de guardar</span></div><div class="ce-table-scroll"><table><thead><tr><th>Producto · SKU · UPC</th><th>Marketplace</th><th>Semáforo guardado</th><th>Regular</th><th>Con descuento</th><th>Descuento real</th><th>Caja disponible</th></tr></thead><tbody>${rows.slice(historyPage*pageSize,(historyPage+1)*pageSize).map(row=>`<tr><td><strong>${escape(row.name)}</strong><small>SKU ${escape(row.sku)}</small><small>UPC ${escape(row.upc||'Sin UPC')}</small></td><td><span class="ce-market-inline">${logo(row.market)}${escape(row.market)}</span></td><td><span class="ce-pill ce-${color(row)}">${trafficLight(color(row))}${color(row)==='green'?'Verde':color(row)==='amber'?'Amarillo':'Rojo'}</span></td><td>${amount(row.regularCents)}</td><td><strong>${amount(row.discountCents)}</strong></td><td>${percent(1-row.discountCents/row.regularCents)}</td><td>${amount(Math.round((row.discount?.cashProfit??row.discount?.profit)*100))}</td></tr>`).join('')||'<tr><td colspan="7">Este lote no contiene precios guardados en verde.</td></tr>'}</tbody></table></div><div class="ce-toolbar">${button('history-prev','Anterior',historyPage===0?'disabled':'')}<span>Página ${historyPage+1} de ${pages}</span>${button('history-next','Siguiente',historyPage+1>=pages?'disabled':'')}</div><p class="ce-help">Esta consulta conserva el descuento, los precios y el semáforo de este lote. No recalcula con la configuración actual.</p></div>`;
+  }
   function historyHTML() {
-    const runs = state.commercialEventRuns || [];
-    return `<section class="ce-panel ce-history"><header><div><span class="ce-eyebrow">TRAZABILIDAD</span><h2>Historial de precios guardados</h2></div><span class="ce-pill">${runs.length} aplicaciones registradas</span></header>${runs.length ? `<div class="ce-table-scroll"><table><thead><tr><th>Campaña</th><th>Fecha · Ciudad de México</th><th>Responsable</th><th>Precios</th><th>Estado</th></tr></thead><tbody>${runs.map(run => {
-      const date = new Date(run.date), label = Number.isNaN(+date) ? run.date || 'Sin fecha' : (window.ERPDate?.datetime?.(run.date) || new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).format(date));
-      return `<tr><td><strong>${escape(run.event?.name || events().find(e => e.id === run.eventId)?.name || run.eventId)}</strong><small>${escape(run.id)}</small></td><td>${escape(label)}</td><td>${escape(run.actor || '—')}</td><td>${(run.targets || []).length}</td><td>Guardado virtual · pendiente de envío</td></tr>`;
-    }).join('')}</tbody></table></div>` : '<p class="ce-help">Aún no se han guardado precios de campaña. Las aplicaciones registradas aparecerán aquí.</p>'}</section>`;
+    const runs=(state.commercialEventRuns||[]).filter(run=>!historyCampaign||run.eventId===historyCampaign);
+    const names=new Map(allEvents().map(e=>[e.id,e.name+(e.deletedAt?' · eliminada':'')]));
+    for(const run of state.commercialEventRuns||[])if(!names.has(run.eventId))names.set(run.eventId,run.event?.name||run.eventId);
+    return `<section class="ce-panel ce-history" id="ce-history"><header><div><span class="ce-eyebrow">TRAZABILIDAD POR LOTES</span><h2>Historial de precios guardados</h2><p>Cada guardado conserva su grupo de productos, reglas y resultados.</p></div><span class="ce-pill">${runs.length} aplicaciones registradas</span></header><div class="ce-history-tools"><label class="ce-field">${glyph('calendar')} Consultar campaña<span class="ce-select-wrap"><span class="ce-select-leading">${glyph('calendar')}</span><span class="ce-select-chevron">${glyph('down')}</span><select data-ce-history-campaign><option value="">Todas las campañas</option>${[...names].map(([id,name])=>`<option value="${escape(id)}" ${historyCampaign===id?'selected':''}>${escape(name)}</option>`).join('')}</select></span></label>${historyCampaign?`<div class="ce-toolbar">${button('export-campaign','Exportar últimos precios de campaña',`data-ce-event-id="${escape(historyCampaign)}"`)}${button('export-campaign','Exportar últimos verdes',`data-ce-event-id="${escape(historyCampaign)}" data-ce-green="1"`)}</div><p class="ce-help">Exporta el último precio guardado por SKU y marketplace, reuniendo los distintos lotes sin duplicarlos.</p>`:''}</div><div class="ce-history-runs">${runs.map(run=>`<article class="ce-history-run"><header><div><strong>${escape(run.event?.name||names.get(run.eventId)||run.eventId)}</strong><small>${escape(dateLabel(run.date))} · ${escape(run.actor||'—')}</small><p>${escape(runScope(run))}</p><small>Lote ${escape(run.id)}</small></div><span class="ce-pill">${(run.targets||[]).length} precios · ${(run.targets||[]).filter(t=>t.traffic?.color==='green').length} verdes</span></header><div class="ce-toolbar">${button('history-run',historyRun===run.id?'Cerrar lote':'Consultar lote',`data-ce-run-id="${escape(run.id)}" aria-expanded="${historyRun===run.id}"`)}${button('export-run','Exportar lote CSV',`data-ce-run-id="${escape(run.id)}"`)}${button('export-run','Exportar verdes CSV',`data-ce-run-id="${escape(run.id)}" data-ce-green="1"`)}</div>${historyRun===run.id?runDetail(run):''}</article>`).join('')||'<p class="ce-help">Aún no se han guardado precios de campaña. Las aplicaciones registradas aparecerán aquí.</p>'}</div><p class="ce-help">CSV general para actualización masiva: SKU, UPC, canal, precio regular y con descuento en MXN. Cada canal puede requerir adaptar sus encabezados. Exportar no modifica ni publica precios.</p></section>`;
+  }
+  function agenda(){
+    return `<aside class="ce-panel ce-agenda"><h2>Campañas guardadas <span>${events().length}</span></h2>${events().map(e=>`<div class="ce-agenda-item"><button type="button" data-ce-edit="${escape(e.id)}" class="ce-agenda-event">${glyph('calendar')}<strong>${escape(e.name)}</strong><span>${escape(e.startDate?.split('-').reverse().join('/')||'Sin inicio')} → ${escape(e.endDate?.split('-').reverse().join('/')||'Sin cierre')}</span><small>${status(e)} · ${(e.markets||[]).length} canales</small></button>${pendingDelete===e.id?`<div class="ce-delete-confirm"><p>¿Eliminar esta campaña de la lista y del calendario? Sus lotes y precios se conservan. Podrás recuperarla.</p>${button('confirm-delete','Eliminar campaña',`data-ce-event-id="${escape(e.id)}"`)}${button('cancel-delete','Conservar')}</div>`:button('delete','Eliminar campaña',`data-ce-event-id="${escape(e.id)}" aria-label="Eliminar campaña ${escape(e.name)}"`)}</div>`).join('')||'<p>Aún no hay campañas. Crea una con las fechas de tu equipo.</p>'}${allEvents().some(e=>e.deletedAt)?`<details class="ce-deleted"><summary>${glyph('trash')} Campañas eliminadas</summary>${allEvents().filter(e=>e.deletedAt).map(e=>`<div><strong>${escape(e.name)}</strong>${button('restore','Recuperar',`data-ce-event-id="${escape(e.id)}"`)}</div>`).join('')}</details>`:''}</aside>`;
+  }
+  async function changeAvailability(id,remove){
+    const event=allEvents().find(e=>e.id===id);if(!event)return;
+    try{busy=true;error='';await command(remove?'pricing.event.delete':'pricing.event.restore',{eventId:id,expectedRevision:event.revision||0});if(remove&&draft?.id===id){draft=null;savedJSON='';invalidate();}pendingDelete='';notice=remove?'Campaña eliminada. Su historial y precios se conservan; puedes recuperarla.':'Campaña recuperada.';}
+    catch(e){error=e.message||'No se pudo actualizar la campaña.';}finally{busy=false;redraw();}
   }
   function pageHTML() {
-    return `<section class="commercial-events" aria-busy="${busy}"><header class="ce-hero"><div><span class="ce-eyebrow">COMERCIAL / EVENTOS</span><h1>Campañas que llegan a tiempo.</h1><p>Planea el calendario, define tu alcance y prepara precios por marketplace.</p></div>${button('new', 'Nueva campaña')}</header><div class="ce-planning">${calendar()}<aside class="ce-panel ce-agenda"><h2>Campañas guardadas <span>${events().length}</span></h2>${events().map(e => `<button type="button" data-ce-edit="${escape(e.id)}" class="ce-agenda-event">${glyph('calendar')}<strong>${escape(e.name)}</strong><span>${escape(e.startDate || 'Sin inicio')} → ${escape(e.endDate || 'Sin cierre')}</span><small>${status(e)} · ${(e.markets || []).length} canales</small></button>`).join('') || '<p>Aún no hay campañas. Crea una con las fechas de tu equipo.</p>'}</aside></div>${form()}<div class="ce-feedback" aria-live="polite">${error ? `<p class="ce-error" role="alert">${escape(error)}</p>` : ''}${notice ? `<p class="ce-notice" role="status">${escape(notice)}</p>` : ''}</div>${previewHTML()}${historyHTML()}</section>`;
+    return `<section class="commercial-events" aria-busy="${busy}"><header class="ce-hero"><div><span class="ce-eyebrow">COMERCIAL / EVENTOS</span><h1>Campañas que llegan a tiempo.</h1><p>Planea el calendario, define tu alcance y prepara precios por marketplace.</p></div>${button('new', 'Nueva campaña')}</header><div class="ce-planning">${calendar()}${agenda()}</div>${form()}<div class="ce-feedback" aria-live="polite">${error ? `<p class="ce-error" role="alert">${escape(error)}</p>` : ''}${notice ? `<p class="ce-notice" role="status">${escape(notice)}</p>` : ''}</div>${previewHTML()}${historyHTML()}</section>`;
   }
   function validate() {
     if (!draft || !draft.name.trim()) throw new Error('Escribe el nombre de la campaña.');
@@ -274,6 +304,8 @@
   });
   document.addEventListener('change', event => {
     const t = event.target; if (busy) return;
+    if(t.dataset.ceHistoryCampaign!==undefined){historyCampaign=t.value;historyRun='';historyPage=0;redraw();return;}
+    if(t.dataset.ceHistoryGreen!==undefined){historyGreen=t.checked;historyPage=0;redraw();return;}
     if (t.dataset.ceRow !== undefined) { choose(+t.dataset.ceRow, t.checked); redraw(); return; }
     if (t.dataset.ceAck !== undefined) { const r = preview?.rows?.[+t.dataset.ceAck]; if (r && eligible(r) && color(r) === 'red') { if (t.checked) acknowledged.add(key(r)); else { acknowledged.delete(key(r)); selected.delete(key(r)); } } redraw(); return; }
     if (!draft) return;
@@ -287,6 +319,12 @@
     if (b.dataset.ceEdit !== undefined) { open(b.dataset.ceEdit); return; }
     if (b.dataset.cePreset !== undefined && draft) { edit('name', b.dataset.cePreset); redraw(); return; }
     const action = b.dataset.ceAction;
+    if(action==='delete'){pendingDelete=b.dataset.ceEventId;redraw();return;}
+    if(action==='cancel-delete'){pendingDelete='';redraw();return;}
+    if(action==='confirm-delete'||action==='restore'){await changeAvailability(b.dataset.ceEventId,action==='confirm-delete');return;}
+    if(action==='history-run'){historyRun=historyRun===b.dataset.ceRunId?'':b.dataset.ceRunId;historyPage=0;historyGreen=false;redraw();return;}
+    if(action==='history-prev'||action==='history-next'){historyPage=Math.max(0,historyPage+(action==='history-next'?1:-1));redraw();return;}
+    if(action==='export-run'||action==='export-campaign'){exportPrices({...action==='export-run'?{runId:b.dataset.ceRunId}:{eventId:b.dataset.ceEventId},greenOnly:b.dataset.ceGreen==='1'});return;}
     if (action === 'new') { open(); return; }
     if (action === 'transfer-toggle' && draft) { edit('rules.transfer.enabled',!draft.rules.transfer.enabled); redraw(); return; }
     if (['prev-month', 'next-month', 'today'].includes(action)) { const [y, m] = month.split('-').map(Number); month = action === 'today' ? mexicoDate().slice(0, 7) : new Date(Date.UTC(y, m - 1 + (action === 'next-month' ? 1 : -1), 1)).toISOString().slice(0, 7); redraw(); return; }

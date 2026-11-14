@@ -57,7 +57,7 @@ function stable(value){
 function hash(value){let a=2166136261,b=5381;for(const c of stable(value)){a=Math.imul(a^c.codePointAt(0),16777619);b=Math.imul(b,33)^c.codePointAt(0);}return 'ce1-'+(a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
 export function previewCommercialEvent(state,payload={}){
  if(Boolean(payload.eventId)===Boolean(payload.event))fail('Indica una campaña guardada o un evento, exclusivamente.');
- const event=normalize(payload.eventId?(state.commercialEvents||[]).find(e=>e.id===payload.eventId):payload.event);
+ const event=normalize(payload.eventId?(state.commercialEvents||[]).find(e=>e.id===payload.eventId&&!e.deletedAt):payload.event);
  const s=event.selection;
  if(s.warehouseId&&!warehouses(state).some(w=>w.id===s.warehouseId&&w.active))fail('Selecciona un almacén activo.');
  const balances=s.warehouseId?warehouseBalances(state).filter(b=>b.warehouseId===s.warehouseId):[];
@@ -122,11 +122,27 @@ function audit(state,command,ctx,type,message,extra={}){
 export function commercialEventCommand(state,command,ctx={}){
  const p=command.payload||{};
  if(typeof command.id!=='string'||!command.id||command.id.length>120)fail('Identificador de operación requerido.');
+ if(['pricing.event.delete','pricing.event.restore'].includes(command.type)){
+  const event=(state.commercialEvents||[]).find(e=>e.id===p.eventId);
+  if(!event)fail('Campaña no encontrada.');
+  if(p.expectedRevision!==undefined&&p.expectedRevision!==(event.revision||0))fail('La campaña cambió; actualiza antes de continuar.');
+  if(command.type==='pricing.event.delete'){
+   if(event.deletedAt)fail('La campaña ya está eliminada.');
+   event.deletedAt=ctx.now;event.deletedBy=ctx.actor;
+  }else{
+   if(!event.deletedAt)fail('La campaña ya está disponible.');
+   delete event.deletedAt;delete event.deletedBy;
+  }
+  event.revision=(event.revision||0)+1;event.updatedAt=ctx.now;
+  audit(state,command,ctx,command.type,'Historial y precios conservados.',{eventId:event.id});
+  return {ok:true,eventId:event.id,message:command.type==='pricing.event.delete'?'Campaña eliminada. Puedes recuperarla; su historial y precios se conservan.':'Campaña recuperada.'};
+ }
  if(command.type==='pricing.event.save'){
   const event=normalize(p.event),existing=(state.commercialEvents||[]).find(e=>e.id===event.id);
+  if(existing?.deletedAt)fail('Recupera la campaña antes de editarla.');
   if(event.id&&!existing)fail('Campaña no encontrada.');
   event.id=event.id||'campaign-'+command.id;
-  if(!existing&&(state.commercialEvents||[]).length>=100)fail('Límite de 100 campañas alcanzado.');
+  if(!existing&&(state.commercialEvents||[]).filter(e=>!e.deletedAt).length>=100)fail('Límite de 100 campañas alcanzado.');
   if(!existing&&(state.commercialEvents||[]).some(e=>e.id===event.id))fail('Identificador de campaña repetido.');
   // Validate warehouse and bounds before saving, without requiring all rows to be viable.
   previewCommercialEvent(state,{event});
@@ -150,8 +166,24 @@ export function commercialEventCommand(state,command,ctx={}){
   for(const old of draft.pricePublicationQueue)if(old.sku===row.sku&&(old.targetMarket||old.channel)===row.market&&['awaiting_connection','review_required'].includes(old.status)){old.status='superseded';old.supersededAt=ctx.now;}
   draft.pricePublicationQueue.unshift({id:command.id+'-'+key(row.sku,row.market),source:'commercial-event',sourceId:row.sourceId,eventId:p.eventId,runId:command.id,sku:row.sku,upc:product.upc,name:row.name,channel:row.result.channel,targetMarket:row.market,currency:'MXN',regularCents:row.regularCents,discountCents:row.discountCents,status:row.traffic.color==='red'?'review_required':'awaiting_connection',riskAcknowledged:ack.has(key(row.sku,row.market)),traffic:copy(row.traffic),createdAt:ctx.now,actor:ctx.actor,input:copy(row.input),result:copy(row.result)});
  }
- const snapshot={id:command.id,eventId:p.eventId,date:ctx.now,actor:ctx.actor,fingerprint:preview.fingerprint,event:copy(preview.event),configSnapshot:copy(state.config),targets:rows.map(row=>({sku:row.sku,market:row.market,sourceId:row.sourceId,baselineCents:row.baselineCents,regularCents:row.regularCents,discountCents:row.discountCents,reference:copy(row.reference),traffic:copy(row.traffic),riskAcknowledged:ack.has(key(row.sku,row.market)),regular:copy(row.result.regular),discount:copy(row.result.discount),...(row.campaignTransfer?{campaignTransfer:copy(row.campaignTransfer)}:{})}))};
+ const snapshot={id:command.id,eventId:p.eventId,date:ctx.now,actor:ctx.actor,fingerprint:preview.fingerprint,event:copy(preview.event),configSnapshot:copy(state.config),targets:rows.map(row=>({sku:row.sku,name:row.name,upc:state.products.find(p=>p.sku===row.sku)?.upc||'',brand:row.brand||'',department:row.department||'',category:row.result.category,commissionRate:row.result.commissionRate,targetMargin:row.targetMargin,actualMargin:row.actualMargin,market:row.market,sourceId:row.sourceId,baselineCents:row.baselineCents,regularCents:row.regularCents,discountCents:row.discountCents,reference:copy(row.reference),traffic:copy(row.traffic),riskAcknowledged:ack.has(key(row.sku,row.market)),regular:copy(row.result.regular),discount:copy(row.result.discount),...(row.campaignTransfer?{campaignTransfer:copy(row.campaignTransfer)}:{})}))};
  Object.assign(state,draft,{commercialEventRuns:[snapshot,...(state.commercialEventRuns||[])]});
  audit(state,command,ctx,'campaign.applied','Propuestas internas guardadas; pendientes de conexión.',{eventId:p.eventId,runId:command.id,targets:rows.map(r=>({sku:r.sku,market:r.market}))});
  return {ok:true,id:command.id,eventId:p.eventId,applied:rows.length,fingerprint:preview.fingerprint,message:'Propuestas guardadas; no enviadas a tiendas.'};
+}
+
+// Export saved snapshots only. A newer red/yellow replaces an older green
+// before filtering, so a consolidated export never revives obsolete prices.
+export function commercialEventPriceRows(state,{runId,eventId,greenOnly=false}={}){
+ if(Boolean(runId)===Boolean(eventId))fail('Selecciona un lote o una campaña.');
+ const runs=(state.commercialEventRuns||[]).filter(run=>runId?run.id===runId:run.eventId===eventId);
+ if(!runs.length)fail('No hay precios guardados para esta selección.');
+ const seen=new Set(),rows=[];
+ for(const run of runs)for(const target of run.targets||[]){
+  const id=key(target.sku,target.market);if(!runId&&seen.has(id))continue;seen.add(id);
+  if(greenOnly&&target.traffic?.color!=='green')continue;
+  const product=(state.products||[]).find(p=>p.sku===target.sku);
+  rows.push({...copy(target),name:target.name??product?.name??target.sku,upc:target.upc??product?.upc??'',runId:run.id,eventId:run.eventId,eventName:run.event?.name||run.eventId,savedAt:run.date,startDate:run.event?.startDate,endDate:run.event?.endDate,selection:copy(run.event?.selection||{}),rules:copy(run.event?.rules||{})});
+ }
+ return rows;
 }
