@@ -21,3 +21,8 @@ test('filters and selection prepare own plan or ordinary campaign without stock 
 test('new sales refresh flags automatically and clear ineligible selection before a new plan',async()=>{
  const h=harness();h.api.render();await h.click('select');h.state.orders=[{documentDate:'2026-11-14',status:'delivered',items:[{sku:'A',qty:1}]}];h.context.window.ERP.revision++;assert.doesNotMatch(h.api.render(),/SKU <b>A/);assert.equal(h.api.flag('A'),'');const count=h.calls.length;await h.click('prepare');assert.equal(h.calls.length,count);
 });
+test('catalogue appearance switches independently hide event or liquidation flags and share custom colors',()=>{
+ const h=harness();h.state.config={stockRotation:{showFlagsInEvents:false,showFlagsInLiquidations:true,showLevelNumber:false,showLevelLabel:false,levels:[{level:6,color:'#abcdef'}]}};
+ assert.equal(h.api.flag('A','events'),'');const flag=h.api.flag('A','liquidation');assert.match(flag,/--sr-band:#abcdef/);assert.doesNotMatch(flag,/<b>|<span>Liquidación urgente/);assert.match(flag,/aria-label="Liquidación urgente · nivel 6"/);
+ h.state.config.stockRotation.showFlagsInLiquidations=false;assert.equal(h.api.flag('A','liquidation'),'');assert.match(h.api.render(),/Nivel 6/);
+});

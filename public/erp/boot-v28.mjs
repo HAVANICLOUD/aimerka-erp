@@ -1,10 +1,10 @@
-import * as stockRotation from './modules/stock-rotation.mjs?v=20261114-liquidation';
+import * as stockRotation from './modules/stock-rotation.mjs?v=20261114-rotation-catalog';
 import * as orderWorkspace from './modules/order-workspace.mjs?v=20261111-navigation';
 import * as dashboardSummary from './modules/dashboard-summary.mjs?v=20261110-summary';
 import * as workspacePresentation from './modules/workspace-presentation.mjs?v=20261110-summary';
 import * as productLifecycle from './modules/product-lifecycle.mjs?v=20261110-summary';
 import * as pricingSignals from './modules/pricing-signals.mjs?v=20261112-transfer-20261107-signals';
-import * as commercialEvents from './modules/commercial-events.mjs?v=20261114-liquidation';
+import * as commercialEvents from './modules/commercial-events.mjs?v=20261114-rotation-catalog';
 import * as productPrices from './modules/product-prices.mjs?v=20261110-events';
 import * as retentions from './modules/retention-certificates.mjs?v=20261106-sat';
 import * as productIdentity from './modules/product-identity.mjs?v=20261105-restore-sku';
