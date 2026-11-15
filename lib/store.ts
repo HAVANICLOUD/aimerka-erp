@@ -1,3 +1,4 @@
+import {correctLiverpoolSmartwatches} from './marketplace-mapping-maintenance.mjs';
 import {migrateBuenFinFamily,backfillCampaignRestorations,restoreExpiredCampaignPrices} from './campaign-lifecycle.mjs';
 import {resolveWorkspace} from './workspace-policy.mjs';
 import { env } from 'cloudflare:workers';
@@ -52,9 +53,10 @@ export async function readState(id:string,maintain=true){
   }
   if(id==='v43'&&maintain){
     const next=structuredClone(state),now=new Date().toISOString(),actionId='campaign-maintenance-'+crypto.randomUUID();
+    const mappingCorrection=correctLiverpoolSmartwatches(next,{now,requestId:actionId,actor:'Sistema · revisión del propietario'});
     const linked=migrateBuenFinFamily(next,{now,requestId:actionId}),backfilled=backfillCampaignRestorations(next,now),closed=restoreExpiredCampaignPrices(next,now);
-    if(linked||backfilled||closed){
-      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed}};
+    if(mappingCorrection||linked||backfilled||closed){
+      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed,mappingCorrection}};
       const saved=await commitState(id,row.revision,state,next,command,{ok:true},'Sistema',await hashInput(command.payload));
       return saved||readState(id,false);
     }
