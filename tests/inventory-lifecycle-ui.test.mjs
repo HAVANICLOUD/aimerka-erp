@@ -65,3 +65,6 @@ test('inventory filters follow operational order and retirement comments are opt
  ui.lifecycleForm('A','discontinue');assert.match(nodes.modal.innerHTML,/Comentarios <small>Opcional/);assert.doesNotMatch(nodes.modal.innerHTML,/Motivo obligatorio|textarea[^>]*required/);assert.match(nodes.modal.innerHTML,/Ocultar de los catálogos operativos/);
  const f=form();f.reason.value='';await emit('submit',f);assert.equal(calls.find(c=>c[0]==='command')[2].reason,'');
 });
+test('all six inventory totals are keyboard-accessible buttons opening their own bucket consultation',()=>{
+ const {ui}=setup();const html=ui.render();assert.deepEqual([...html.matchAll(/data-iw-pool="([^"]+)"/g)].map(m=>m[1]),['good','reserved','quarantine','damaged','safety','available']);assert.match(html,/type="button" class="iw-stat iw-reserved"[^>]*aria-haspopup="dialog"/);assert.match(html,/aria-label="Consultar Reserva y sus productos"/);
+});
