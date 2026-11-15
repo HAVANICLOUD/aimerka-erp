@@ -1,4 +1,4 @@
-import {validateClassification,validateMarketCategories} from './product-taxonomy.mjs?v=20261115-product-routing';
+import {validateClassification,validateMarketCategories} from './product-taxonomy.mjs?v=20261115-simple-mapping';
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
 import {commerciallySelectable} from './product-lifecycle.mjs?v=20261115-product-routing';
 // The browser shares this engine. Only the server supplies trusted catalogue maps.

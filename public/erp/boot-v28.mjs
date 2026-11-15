@@ -1,11 +1,12 @@
-import * as productTaxonomy from './modules/product-taxonomy.mjs?v=20261115-product-routing';
+import * as productSearch from './modules/product-search.mjs?v=20261115-simple-mapping';
+import * as productTaxonomy from './modules/product-taxonomy.mjs?v=20261115-simple-mapping';
 import * as stockRotation from './modules/stock-rotation.mjs?v=20261115-taxonomy';
 import * as orderWorkspace from './modules/order-workspace.mjs?v=20261111-navigation';
 import * as dashboardSummary from './modules/dashboard-summary.mjs?v=20261110-summary';
 import * as workspacePresentation from './modules/workspace-presentation.mjs?v=20261110-summary';
 import * as productLifecycle from './modules/product-lifecycle.mjs?v=20261115-product-routing';
 import * as pricingSignals from './modules/pricing-signals.mjs?v=20261112-transfer-20261107-signals';
-import * as commercialEvents from './modules/commercial-events.mjs?v=20261115-product-routing';
+import * as commercialEvents from './modules/commercial-events.mjs?v=20261115-simple-mapping';
 import * as productPrices from './modules/product-prices.mjs?v=20261110-events';
 import * as retentions from './modules/retention-certificates.mjs?v=20261106-sat';
 import * as productIdentity from './modules/product-identity.mjs?v=20261105-restore-sku';
@@ -20,7 +21,7 @@ import * as settlements from './modules/settlement-documents.mjs?v=20261105-paym
 import * as operations from './modules/operations-v28.mjs?v=20261029-documents';
 import * as reconciliation from './modules/reconciliation-v28.mjs?v=20261106-competitivo-v2';
 import * as inventory from './modules/inventory-v28.mjs?v=20261115-product-routing';
-ERP.engines={productTaxonomy,stockRotation,orderWorkspace,dashboardSummary,workspacePresentation,productLifecycle,commercialEvents,pricingSignals,productPrices,retentions,productIdentity,inventoryWorkspace,purchaseCatalogs,purchases,payments,pricing,operations,reconciliation,inventory,warehouses,payouts,settlements};
+ERP.engines={productSearch,productTaxonomy,stockRotation,orderWorkspace,dashboardSummary,workspacePresentation,productLifecycle,commercialEvents,pricingSignals,productPrices,retentions,productIdentity,inventoryWorkspace,purchaseCatalogs,purchases,payments,pricing,operations,reconciliation,inventory,warehouses,payouts,settlements};
 window.OrderWorkspace?.install?.(orderWorkspace);
 D.available=inventory.available;D.orderTotal=inventory.orderTotal;D.expectedNet=inventory.expectedNet;
 document.getElementById('main').innerHTML='<div class="loading-state"><div class="loader"></div><h2>Abriendo tu operación…</h2><p>Productos, pedidos, compras y gastos de AIMERKA.</p></div>';
