@@ -1,6 +1,6 @@
-import {validateClassification} from './product-taxonomy.mjs';
+import {validateClassification,validateMarketCategories} from './product-taxonomy.mjs?v=20261115-product-routing';
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
-import {commerciallySelectable} from './product-lifecycle.mjs';
+import {commerciallySelectable} from './product-lifecycle.mjs?v=20261115-product-routing';
 // The browser shares this engine. Only the server supplies trusted catalogue maps.
 function validateProductSat(state,p,existing,now,{satCatalogues,requireFiscalValidation}={}) {
  const selected={};
@@ -171,6 +171,7 @@ export function applyInventory(state,action,context={}){
    if(existing&&existing.costCents!==costCents&&exactCost===existing.averageCostMxn)exactCost=costCents/100;
    if(exactCost!=null&&(!Number.isFinite(exactCost)||exactCost<0||Math.round(exactCost*100)!==costCents))fail('El costo promedio exacto no coincide con el importe en centavos.');
    const classification='classification' in p?validateClassification(state,p.classification):null;
+   const marketCategories='marketCategories' in p?validateMarketCategories(state,p.marketCategories):null;
    const satSelection=validateProductSat(state,p,existing,ctx.now,ctx);
    const fields=['category','department','generalCategory','commercialDepartment','shippingType','shippingException','shippingSuggested','sellerSku','review','model','color','capacity','description','manufacturerPart','condition','countryOfOrigin','material'];
    let imageUrl=existing?.imageUrl||'';if('imageUrl' in p){imageUrl=text(p.imageUrl,2000);if(imageUrl){let valid=imageUrl.startsWith('/')&&!imageUrl.startsWith('//');try{const u=new URL(imageUrl);valid=u.protocol==='https:'&&!u.username&&!u.password;}catch{}if(!valid)fail('La imagen debe usar una ruta del sitio o una URL HTTPS.');}}
@@ -179,6 +180,7 @@ export function applyInventory(state,action,context={}){
    const base=existing?clone(existing):{sku,upc,good:0,reserved:0,quarantine:0,damaged:0,safety:0,minStock:3,icon:'box',source:'AIMERKA',sourceStock:null,categories:{},categoryOverrides:{}};
    Object.assign(base,{sku,upc,name,brand,costCents,priceCents,status:p.status||'OK',imageUrl,supplierCodes,barcodeStatus:upc?'Registrado':'Pendiente',createdAt:existing?.createdAt||ctx.now,updatedAt:ctx.now,skuGenerated:existing?.skuGenerated??generated});for(const f of fields)if(f in p)base[f]=text(p[f],300);Object.assign(base,satSelection);
    if(classification)base.classification=classification;
+   if(marketCategories)base.marketCategories=marketCategories;
    if(p.categoryOverrides)base.categoryOverrides=Object.fromEntries(Object.entries(p.categoryOverrides).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.categories)base.categories=Object.fromEntries(Object.entries(p.categories).map(([k,v])=>[text(k,60),text(v,150)]));
    if(p.images){

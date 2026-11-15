@@ -1,11 +1,11 @@
-import {productInCategories,taxonomy} from './product-taxonomy.mjs';
+import {productInCategories,taxonomy} from './product-taxonomy.mjs?v=20261115-product-routing';
 import {rotationReport} from './stock-rotation.mjs';
 import {campaignFamilyIds,campaignFamilyId,ensureCampaignParent} from './campaign-lifecycle.mjs';
 /** Bounded, internal campaign proposals. Dates describe a calendar, never trigger activation. */
-import {recommend} from './pricing-v28.mjs';
+import {recommend} from './pricing-v28.mjs?v=20261115-product-routing';
 import {validateTransferRule as transferRule,transferPaymentResult as campaignTransfer} from './transfer-pricing.mjs';
 export {transferPaymentResult as campaignTransfer} from './transfer-pricing.mjs';
-import {commerciallySelectable} from './product-lifecycle.mjs';
+import {commerciallySelectable} from './product-lifecycle.mjs?v=20261115-product-routing';
 import {classifyPricing,canSavePrice} from './pricing-signals.mjs';
 import {MARKETS,channelPrice,listingStatus,saveCalculatedPrices} from './product-prices.mjs';
 import {warehouses,warehouseBalances} from './warehouses.mjs';

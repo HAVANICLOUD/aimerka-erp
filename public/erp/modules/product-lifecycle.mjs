@@ -20,6 +20,11 @@ function record(state,p,command,ctx,label,patch){
  return {ok:true,sku:p.sku,message:label};
 }
 export function applyProductLifecycle(state,command,ctx={}){
+ if(command.type==='inventory.product.discontinueBatch'){
+  const payload=command.payload||{};if(!Array.isArray(payload.skus)||!payload.skus.length||payload.skus.length>500||payload.skus.some(s=>typeof s!=='string')||new Set(payload.skus).size!==payload.skus.length)throw Error('Selecciona de 1 a 500 productos diferentes.');
+  const draft=structuredClone(state);for(const [index,sku] of payload.skus.entries())applyProductLifecycle(draft,{...command,id:command.id+'-'+index,type:'inventory.product.discontinue',payload:{sku,reason:payload.reason,hide:payload.hide}},ctx);
+  Object.assign(state,draft);return {ok:true,count:payload.skus.length,message:payload.skus.length+' productos descontinuados. Historial y conciliaciones conservados.'};
+ }
  const payload=command.payload||{},p=(state.products||[]).find(p=>p.sku===payload.sku);
  if(!p)throw Error('Producto no encontrado.');
  if(payload.reason!==undefined&&(typeof payload.reason!=='string'||payload.reason.length>1000))throw Error('Los comentarios deben tener hasta 1000 caracteres.');

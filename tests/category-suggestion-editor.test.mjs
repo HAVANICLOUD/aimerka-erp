@@ -19,22 +19,15 @@ function harness(previous=null){
   return {...context.window.testHooks,form,inputs,reviewed,message,commands,error,change,accept,context};
 }
 
-test('creation shows proposal without selecting it; save requires explicit acceptance',async()=>{
-  const h=harness();h.updateCategoryReview(h.form);
-  assert.match(h.message.textContent,/LAPTOPS/);assert.equal(h.inputs.category.value,'');
-  await h.saveProduct(h.form);assert.equal(h.commands.length,0);assert.match(h.error.textContent,/aprueba/);
-  h.accept();assert.equal(h.inputs.category.value,'LAPTOPS');assert.equal(h.reviewed.checked,true);
-  await h.saveProduct(h.form);assert.equal(h.commands.length,1);assert.equal(h.commands[0][1].product.category,'LAPTOPS');
+test('new editor requires a classification route instead of the removed legacy profile approval',async()=>{
+ const h=harness();let chosen=false;h.context.window.ProductTaxonomyUI={readProduct(form,p){if(!chosen)throw Error('Agrega una categoría comercial.');p.classification={categoryIds:['route']};p.marketCategories={Liverpool:'Telefonía'};}};
+ await h.saveProduct(h.form);assert.equal(h.commands.length,0);assert.match(h.error.textContent,/categoría comercial/);
+ chosen=true;await h.saveProduct(h.form);assert.equal(h.commands.length,1);const p=h.commands[0][1].product;assert.equal(p.category,'');assert.deepEqual(Array.from(p.classification.categoryIds),['route']);assert.equal(p.marketCategories.Liverpool,'Telefonía');
 });
 
-test('manual choice is preserved and can be approved; later title/category edits revoke approval',async()=>{
-  const h=harness();h.inputs.category.value='TABLET';h.change('category');
-  h.reviewed.checked=true;h.change('categoryReviewed');
-  h.updateCategoryReview(h.form);assert.equal(h.inputs.category.value,'TABLET');assert.equal(h.reviewed.checked,true);
-  await h.saveProduct(h.form);assert.equal(h.commands[0][1].product.category,'TABLET');
-  h.inputs.name.value='iPhone 17';h.updateCategoryReview(h.form);assert.equal(h.reviewed.checked,false);assert.equal(h.inputs.category.value,'TABLET');
-  await h.saveProduct(h.form);assert.equal(h.commands.length,1);
-  h.reviewed.checked=true;h.change('categoryReviewed');h.inputs.category.value='LAPTOPS';h.change('category');assert.equal(h.reviewed.checked,false);
+test('the removed legacy profile review cannot prevent saving a route-based product',async()=>{
+ const h=harness();h.context.window.ProductTaxonomyUI={readProduct(form,p){p.classification={categoryIds:['tablet']};p.marketCategories={Liverpool:'Cómputo'};}};
+ h.inputs.name.value='iPad';h.reviewed.checked=false;await h.saveProduct(h.form);assert.equal(h.commands.length,1);assert.equal(h.commands[0][1].product.name,'iPad');assert.equal(h.commands[0][1].product.category,'');
 });
 
 test('existing product saves stored category and marketplace overrides without creation review',async()=>{

@@ -1,4 +1,4 @@
-import {CHANNELS,resolveCategory} from './pricing-v28.mjs';
+import {CHANNELS,resolveCategory,listCategories} from './pricing-v28.mjs?v=20261115-product-routing';
 import seed from './dingdong-classification-data.mjs';
 import reviewed from './product-classification-review.mjs';
 export const labelKey=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es-MX');
@@ -42,6 +42,7 @@ export function saveTaxonomyNode(state,command,ctx={}){
  if(categoryPath(state,parentId).length>10)throw Error('Usa un máximo de once niveles de categorías.');
  if(nodes.some(n=>n.id!==existing?.id&&n.parentId===parentId&&n.name===name))throw Error('Esa categoría ya existe en esta rama.');
  const id=existing?.id||'cat-'+command.id;const node={...(existing||{}),id,name,parentId,position:existing?.position??nodes.length};
+ if('marketMappings' in input)node.marketMappings=validateMarketCategories(state,input.marketMappings);
  if(existing)Object.assign(existing,node);else nodes.push(node);
  const saved={...structuredClone(current),revision:current.revision+1,nodes};
  (state.catalogs??={}).productTaxonomy=saved;
@@ -58,4 +59,45 @@ export function classificationNeedsReview(state,p){const c=classification(state,
 export function marketplaceMappingSuggestions(state,id){
  const products=(state.products||[]).filter(p=>productInCategories(state,p,[id]));
  return CHANNELS.map(channel=>{const counts=new Map();for(const p of products){const category=resolveCategory(state.config||{},p,channel);if(category)counts.set(category,(counts.get(category)||0)+1);}const candidates=[...counts].map(([category,count])=>({category,count})).sort((a,b)=>b.count-a.count||a.category.localeCompare(b.category,'es'));return {channel,candidates,productCount:products.length,consistent:candidates.length===1};});
+}
+
+export const CLASSIFIED_MARKETS=['Coppel','Mercado Libre','Liverpool','Elektra'];
+export function validateMarketCategories(state,input={}){
+ if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Las correspondencias de categoría no son válidas.');
+ const result={};for(const [channel,value] of Object.entries(input)){if(!CLASSIFIED_MARKETS.includes(channel)||typeof value!=='string')throw Error('Canal o categoría inválidos.');if(!value.trim()){result[channel]='';continue;}const valid=listCategories(state.config,channel,{mapping:true}).find(c=>labelKey(c)===labelKey(value));if(!valid)throw Error('Selecciona una categoría del catálogo de '+channel+'.');result[channel]=valid;}return result;
+}
+export function categoryMappingProposal(state,ids=[],excludeSku=''){
+ const nodes=taxonomy(state).nodes;return CLASSIFIED_MARKETS.map(channel=>{
+  const values=[];let ambiguous=false;
+  for(const id of ids){const chain=categoryPath(state,id).slice().reverse();let found=false;
+   for(const node of chain){if(node.marketMappings?.[channel]){values.push(node.marketMappings[channel]);found=true;break;}
+    const peers=(state.products||[]).filter(p=>p.sku!==excludeSku&&productInCategories(state,p,[node.id]));
+    const available=listCategories(state.config,channel,{mapping:true}),resolved=peers.map(p=>resolveCategory(state.config,p,channel));if(resolved.some(v=>!available.some(c=>labelKey(c)===labelKey(v))))ambiguous=true;
+    const candidates=[...new Set(resolved.filter(v=>available.some(c=>labelKey(c)===labelKey(v))))];
+    if(candidates.length){if(candidates.length===1)values.push(candidates[0]);else ambiguous=true;found=true;break;}
+   }
+  }
+  const unique=[...new Set(values)];return {channel,category:!ambiguous&&unique.length===1?unique[0]:'',candidates:unique,needsReview:ambiguous||unique.length!==1};
+ });
+}
+export function brandsForCategory(state,id='',products=state.products||[]){const values=new Map();for(const p of products)if((!id||productInCategories(state,p,[id]))&&p.brand&&!values.has(labelKey(p.brand)))values.set(labelKey(p.brand),p.brand);return [...values.values()].sort((a,b)=>a.localeCompare(b,'es'));}
+export function categorySearch(state,query='',product={}){
+ const raw=labelKey(query||product.name),normalize=v=>labelKey(v).replace(/[^a-z0-9]+/g,' ').trim();
+ const input=normalize(raw),tokens=input.split(/\s+/).filter(Boolean),brand=normalize(product.brand)||taxonomyBrands(state).map(normalize).filter(b=>b.length>2&&(' '+input+' ').includes(' '+b+' ')).sort((a,b)=>b.length-a.length)[0]||'',model=normalize(product.model);
+ const families=[[/\b(?:funda|cargador|adaptador|accesorio|accesorios)\b/,'accesorios'],[/\b(?:iphone|celular|smartphone|galaxy a\d|galaxy s\d)\b/,'celulares'],[/\b(?:ipad|tablet|tableta|tab)\b/,'tablet'],[/\b(?:macbook|laptop|portatil)\b/,'laptops'],[/\b(?:airpods|audifono|audifonos|headphone)\b/,'audifonos'],[/\b(?:smartwatch|watch)\b/,'smartwatches'],[/\b(?:perfume|perfumes|parfum|toilette|fragancia)\b/,'perfumes'],[/\b(?:xbox|playstation|consola|switch)\b/,'consolas'],[/\b(?:aspiradora|vacuum)\b/,'aspiradoras'],[/\b(?:botella|botellas|termo|termos)\b/,'termos y botellas']];
+ const family=families.find(([re])=>re.test(input))?.[1]||'';
+ const candidates=taxonomy(state).nodes.map(node=>{const path=categoryLabel(state,node.id),text=normalize(path),name=normalize(node.name);let score=0;
+  if(brand&&brand!=='apple'&&text.startsWith('apple'))return null;
+  if(family&&family!=='accesorios'&&text.includes('accesorios'))return null;
+  if(family==='celulares'&&name==='smartwatches')return null;
+  const familyTerms={tablet:['tablet','ipad'],laptops:['laptops','macbook'],audifonos:['audifonos','airpods'],smartwatches:['smartwatches','watch'],celulares:['celulares','iphone']};
+  if(family){if((familyTerms[family]||[family]).some(term=>text.includes(term)))score+=120;else if(name==='apple'&&/\b(?:iphone|ipad|macbook|airpods|watch)\b/.test(input))score+=15;else return null;}
+  const generation=name.match(/(?:iphone|watch|ipad)\s*(?:series\s*)?(\d+)/);if(generation&&!new RegExp('\\b'+generation[1]+'\\b').test(input))score-=80;
+  const variants=name.match(/\b(?:m[1-9]|a1[67]|\d+(?:a|va)? gen)\b/g)||[];if(variants.some(v=>!input.includes(v)))score-=80;
+  for(const token of tokens)if(token.length>=2&&text.includes(token))score+=name.includes(token)?12:4;
+  if(brand&&text.includes(brand))score+=8;if(model&&text.includes(model))score+=6;
+  if(name===family)score+=20;score+=Math.min(categoryPath(state,node.id).length,6);
+  return score>5?{id:node.id,path,score,reason:family?'Tipo de producto primero; después marca y modelo.':'Coincidencia de palabras en la ruta.'}:null;
+ }).filter(Boolean).sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path,'es'));
+ return raw?candidates.slice(0,12):[];
 }

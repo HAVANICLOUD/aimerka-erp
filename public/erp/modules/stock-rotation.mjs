@@ -1,5 +1,5 @@
 /** Rotation is measured per product across all channels, independently of price viability. */
-import {commerciallySelectable} from './product-lifecycle.mjs';
+import {commerciallySelectable} from './product-lifecycle.mjs?v=20261115-product-routing';
 export const ROTATION_LEVELS=Object.freeze([
  {level:1,minMonths:1,color:'#2563eb',label:'Vigilar',tone:'blue'},
  {level:2,minMonths:2,color:'#087f8c',label:'Impulsar',tone:'teal'},
