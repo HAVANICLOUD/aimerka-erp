@@ -1,3 +1,4 @@
+import {isProductImageMime} from './product-image-formats.mjs';
 import {validateClassification,validateMarketCategories} from './product-taxonomy.mjs?v=20261115-simple-mapping';
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
 import {commerciallySelectable} from './product-lifecycle.mjs?v=20261115-product-routing';
@@ -196,7 +197,7 @@ export function applyInventory(state,action,context={}){
     base.images=p.images.map(image=>{
      const original=existing?.images?.find(i=>i.source==='V43'&&i.id===image.id&&i.url===image.url);
      if(image.source==='V43'){if(!original)fail('Imagen original no encontrada.');return {...original,primary:image.primary===true};}
-     const verified=ctx.verifiedImages?.find(i=>i.id===image.id);if(!verified||!['image/jpeg','image/png'].includes(verified.mime))fail('Vuelve a cargar la imagen antes de guardar.');
+     const verified=ctx.verifiedImages?.find(i=>i.id===image.id);if(!verified||!isProductImageMime(verified.mime))fail('Vuelve a cargar la imagen antes de guardar.');
      return {...verified,url:'/api/documents/'+verified.id+'?workspace='+encodeURIComponent(ctx.workspace),source:'upload',primary:image.primary===true};
     });
     if(new Set(base.images.map(i=>i.id)).size!==base.images.length)fail('No repitas la misma imagen.');

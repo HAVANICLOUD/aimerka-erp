@@ -105,12 +105,12 @@ function mediaHarness(){
  const values={imageUrl:{value:''},name:{value:'Producto'}};
  const gallery={innerHTML:''},preview={innerHTML:''},submit={disabled:false},progress={textContent:''};
  const form={isConnected:true,elements:{namedItem:k=>values[k]},querySelector(s){return {'#catalog43-gallery':gallery,'#pt29-preview-photo':preview,'[type="submit"]':submit,'#catalog43-progress':progress,'.pt29-form-preview':{insertAdjacentHTML(where,html){insertions.push({where,html});}},'.modal-actions':{insertAdjacentHTML(){}},'[name="imageUrl"]':{closest(){return {legacy:true};}},'.catalog43-url':{append(node){insertions.push(node);}}}[s];},closest(){return {addEventListener(type,fn){closeCallbacks.push(fn);}};}};
- const context={esc,structuredClone,AbortController,FormData:class{append(){}},URL:{createObjectURL(){return 'blob:test-'+(++nextBlob);},revokeObjectURL(url){revoked.push(url);}},state:{products:[]},ERP:{workspace:'v43'},ProductTrace28:{safeImage:v=>v.startsWith('https://')||v.startsWith('/')?v:'',thumb:()=>'<fallback>'},productDetails(){},toast(){},document:{addEventListener(type,handler){(handlers[type]??=[]).push(handler);}},fetch(url,options){const d=deferred();requests.push({url,options,...d});return d.promise;}};
+ const context={esc,structuredClone,AbortController,FormData:class{entries=[];append(...args){this.entries.push(args)}},URL:{createObjectURL(){return 'blob:test-'+(++nextBlob);},revokeObjectURL(url){revoked.push(url);}},state:{products:[]},ERP:{workspace:'v43'},ProductMedia:{html:p=>'<img src="'+esc(p.images?.[0]?.url||p.imageUrl||'')+'">',optimized:async(file,size)=>({size,type:'image/webp'})},ProductTrace28:{safeImage:v=>v.startsWith('https://')||v.startsWith('/')?v:'',thumb:()=>'<fallback>'},productDetails(){},toast(){},document:{addEventListener(type,handler){(handlers[type]??=[]).push(handler);}},fetch(url,options){const d=deferred();requests.push({url,options,...d});return d.promise;}};
  context.window=context;vm.runInNewContext(mediaSource,context);const catalog=context.Catalog43;
  const change=files=>{const target={id:'catalog43-files',files,value:'selected',closest:()=>form};return handlers.change[0]({target});};
  const click=(attribute,index)=>{const b={dataset:{catalog43Primary:String(index),catalog43Remove:String(index)},closest:()=>form,hasAttribute:k=>k===attribute};handlers.click[0]({target:{closest:()=>b}});};
  return {catalog,form,values,gallery,preview,submit,progress,requests,revoked,insertions,closeCallbacks,context,change,click,
-  async reply(index,id,ok=true){requests[index].resolve({ok,json:async()=>ok?{document:{id,mime:'image/png',name:id+'.png'}}:{error:'Falló carga'}});await flush();}
+  async reply(index,id,ok=true){await flush();requests[index].resolve({ok,json:async()=>ok?{document:{id,mime:'image/png',name:id+'.png'}}:{error:'Falló carga'}});await flush();}
  };
 }
 const file=(name='test.png',size=100)=>({name,size,type:'image/png'});
@@ -128,7 +128,7 @@ test('local multiple thumbnails appear before upload resolves; principals/remova
  assert.equal(h.catalog.images.length,2);assert.match(h.gallery.innerHTML,/blob:test-1/);assert.match(h.gallery.innerHTML,/blob:test-2/);assert.equal(h.submit.disabled,true);
  assert.throws(()=>h.catalog.readForm(h.form,{}),/Espera/);
  h.click('data-catalog43-primary',1);assert.match(h.preview.innerHTML,/blob:test-2/);
- await h.reply(0,'one');assert.equal(h.requests.length,2);await h.reply(1,'two');await uploading;
+ await h.reply(0,'one');assert.deepEqual(h.requests[0].options.body.entries.map(e=>e[0]),['file','thumbnail','preview']);assert.equal(h.requests.length,2);await h.reply(1,'two');await uploading;
  assert.equal(h.submit.disabled,false);const saved={unitSat:'H87',channelIdentifiers:{'T1 Comercios':{custom:'keep'}}};h.catalog.readForm(h.form,saved);
  assert.equal(saved.images[1].primary,true);assert.ok(saved.images.every(i=>!('preview' in i)&&!i.url.startsWith('blob:')));assert.equal(saved.unitSat,'H87');assert.equal(saved.channelIdentifiers['T1 Comercios'].custom,'keep');
  h.click('data-catalog43-remove',1);assert.equal(h.catalog.images[0].primary,true);assert.ok(h.revoked.includes('blob:test-2'));

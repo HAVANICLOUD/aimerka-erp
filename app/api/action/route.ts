@@ -1,3 +1,4 @@
+import {isProductImageMime} from '../../../lib/product-image-formats.mjs';
 import {currentWorkspaceWrite} from '../../../lib/workspace-policy.mjs';
 import {readState,workspaceId,priorAction,hashInput,commitState,createSeed} from '../../../lib/store';
 import {applyCommand} from '../../../lib/commands.mjs';
@@ -41,13 +42,13 @@ export async function POST(request:Request){
       const images=rows.flatMap((r:any)=>r.images||[]),unique=[...new Map(images.map((image:any)=>[image.id,image])).values()];
       if(unique.length>300)throw new Error('Importa hasta 300 fotografías por lote.');
       verifiedImages=[];for(let i=0;i<unique.length;i+=12)verifiedImages.push(...await verifyDocuments(id,unique.slice(i,i+12)));
-      if(verifiedImages.some((image:any)=>!['image/jpeg','image/png'].includes(image.mime)))throw new Error('La galería solo admite imágenes JPG y PNG.');
+      if(verifiedImages.some((image:any)=>!isProductImageMime(image.mime)))throw new Error('La galería admite JPG, PNG, WebP, GIF y AVIF.');
     }
     if(command.type==='product.save'&&command.payload?.product?.images){
       const images=command.payload.product.images;if(!Array.isArray(images)||images.length>100)throw new Error('Galería inválida.');
       const uploads=images.filter((image:any)=>image.source!=='V43');
       verifiedImages=uploads.length?await verifyDocuments(id,uploads):[];
-      if(verifiedImages.some((image:any)=>!['image/jpeg','image/png'].includes(image.mime)))throw new Error('La galería solo admite imágenes JPG y PNG.');
+      if(verifiedImages.some((image:any)=>!isProductImageMime(image.mime)))throw new Error('La galería admite JPG, PNG, WebP, GIF y AVIF.');
     }
     if(command.type==='settlement.statement'){const parsed=parseBankStatement(command.payload?.text,current.state.config.bankReconciliation);accountHash=await hashInput(parsed.account);}
     const result=applyCommand(next,command,{workspace:id,requireFiscalValidation:true,satCatalogues,now:new Date().toISOString(),actor,ownerEmail:OWNER_EMAIL,verifiedDocuments,verifiedRetentions,verifiedImages,accountHash,createPractice:()=>createSeed('practice')});
