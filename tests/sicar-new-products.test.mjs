@@ -14,3 +14,8 @@ test('a failed record rolls back the entire import, and only the owner may perfo
 test('unverified image references cannot be linked to imported products',()=>{
  const s=state(),before=structuredClone(s);assert.throws(()=>importSicarNewProducts(s,command([{...row,images:[{id:'fake',primary:true}]}]),ctx),/cargar la imagen/);assert.deepEqual(s,before);
 });
+test('reviewed SICAR imports retain their own category route and per-channel mappings for campaign filters',()=>{
+ const s=state();const product={...row,classification:{categoryIds:['dd-0ddb0c7b3210']}};
+ const result=importSicarNewProducts(s,command([product]),ctx);assert.equal(result.added.length,1);assert.deepEqual(s.products[0].classification,{categoryIds:['dd-0ddb0c7b3210'],origin:'manual'});assert.equal(s.products[0].review,'');
+ const bad=state(),before=structuredClone(bad);assert.throws(()=>importSicarNewProducts(bad,command([{...row,classification:{categoryIds:['missing-category']}}]),ctx),/categorías existentes/);assert.deepEqual(bad,before);
+});

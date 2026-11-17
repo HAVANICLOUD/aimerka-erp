@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request, context: {params: Promise<{id:string}>}) {
   try {
     const id = documentId((await context.params).id), workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
-    const current = await readState(workspace);
+    const current = await readState(workspace,false);
     const access=await requestAccess(request,current);
     if(!access.active)return new Response('Acceso no disponible.',{status:403});
     const financial=(current.state.settlementLedger?.documents||[]).find((row:any)=>row.id===id);
@@ -17,7 +17,7 @@ export async function GET(request: Request, context: {params: Promise<{id:string
     const object = await documentBucket().get(documentKey(workspace,id));
     if (!object) return new Response('Archivo no disponible.',{status:404});
     const headers = new Headers({'Content-Type':object.httpMetadata?.contentType || doc.mime,
-      'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',
+      'Cache-Control':!financial&&image?'private, max-age=3600':'private, no-store','X-Content-Type-Options':'nosniff',
       'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(doc.name || 'Documento'),
       'Content-Length':String(object.size)});
     if((object.httpMetadata?.contentType||doc.mime)==='application/xml'){headers.set('Content-Disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(doc.name||'retencion.xml'));headers.set('Content-Security-Policy',"default-src 'none'; sandbox");}

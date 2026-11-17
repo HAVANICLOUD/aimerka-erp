@@ -26,7 +26,7 @@
    feedback('Validando y guardando productos en el ERP…');
    const result=await ERP.command('inventory.importSicarNewProducts',{manifest:{...bundle,products}});
    if(!result?.ok)throw Error(result?.error||'No se pudo completar la importación.');
-   bundle=null;feedback(result.result?.message||'Productos nuevos importados.');
+   for(const row of products)window.ProductMedia?.ensureImages(row);bundle=null;feedback(result.result?.message||'Productos nuevos importados.');
   }catch(error){feedback(error.message||'No se pudo importar.');}finally{busy=false;const button=document.getElementById('sicar-new-apply');if(button)button.disabled=!bundle;}
  });
  document.addEventListener('change',async event=>{

@@ -30,6 +30,7 @@
   }
 
   function thumb(p,options={}) {
+    if(window.ProductMedia)return window.ProductMedia.html(p,options);
     const source=safeImage(p?.imageUrl),large=options.large===true;
     return `<span class="pt29-thumb${large?' pt29-thumb-large':''}${source?' pt29-has-image':''}" aria-label="${esc(p?.name||'Producto')}">${source?`<img src="${esc(source)}" alt="${esc(p?.name||'Producto')}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:''}<span class="pt29-thumb-fallback" aria-hidden="true">${icon('box')}</span></span>`;
   }
@@ -337,7 +338,7 @@
     formError(form,'');form.dataset.submitting='true';const submit=form.querySelector('[type="submit"]');submit.disabled=true;
     try {
       const result=await ERP.command('product.save',{originalSku:originalSku||null,product:p});
-      if(result.ok){const sku=result.result?.sku||originalSku;form.closest('dialog').close();if(sku)showProduct(sku);}
+      if(result.ok){window.ProductMedia?.ensureImages(p);const sku=result.result?.sku||originalSku;form.closest('dialog').close();if(sku)showProduct(sku);}
       else formError(form,result.error||'No se pudo guardar el producto. Revisa los datos e intenta de nuevo.');
     }catch(error){formError(form,error.message||'No se pudo guardar el producto.');}
     finally{delete form.dataset.submitting;submit.disabled=false;}
