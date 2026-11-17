@@ -6,6 +6,11 @@ const markets = ['Liverpool','Sears','Sanborns','Coppel','Elektra','Tienda Nube'
 const marketColors = {'Liverpool':'#df4d98','Sears':'#d14753','Sanborns':'#789854','Coppel':'#edbf34','Elektra':'#d86857','Tienda Nube':'#4d9aca','Mercado Libre':'#d9b421'};
 const nav = [['dashboard','Resumen','grid'],['orders','Pedidos y ventas','bag'],['inventory','Inventario','box'],['products','Productos','tag'],['pricing','Calculadora de precios','calculator'],['settlements','Conciliación','wallet'],['incidents','Incidencias','alert'],['integrations','Integraciones','plug'],['project','Diseño del proyecto','layers']];
 const icons = {
+ image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',
+ calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6m10-6v6M3 11h18m-14 4h3m4 0h3"/>',
+ store:'<path d="M3 10v11h18V10M2 10l3-7h14l3 7M2 10c0 3 5 3 5 0 0 3 5 3 5 0 0 3 5 3 5 0 0 3 5 3 5 0M9 21v-7h6v7"/>',
+ file:'<path d="M5 2h9l5 5v15H5V2Zm9 0v6h5M8 12h8m-8 4h8"/>',
+
  expense:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 7h6M9 11h6M9 15h3"/>',
  receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 7h6M9 11h6M9 15h3"/>',
  supplierPayment:'<path d="m3 6 6-3 6 3-6 3-6-3ZM3 6v8l6 3 3-1.5M9 9v8"/><circle cx="17" cy="17" r="5"/><path d="M15 17h4m-2-2 2 2-2 2"/>',

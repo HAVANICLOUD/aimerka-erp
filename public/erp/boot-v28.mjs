@@ -13,7 +13,7 @@ import * as productIdentity from './modules/product-identity.mjs?v=20261105-rest
 import * as inventoryWorkspace from './modules/inventory-workspace.mjs?v=20261114-pool-details';
 import * as purchaseCatalogs from './modules/purchase-catalogs.mjs?v=20261105-fiscal';
 import * as purchases from './modules/purchase-workspace.mjs?v=20261105-fiscal';
-import * as payments from './modules/payment-reconciliation.mjs?v=20261106-sat';
+import * as payments from './modules/payment-reconciliation.mjs?v=20261117-quality-ranking-20261106-sat';
 import * as pricing from './modules/pricing-v28.mjs?v=20261115-product-routing';
 import * as warehouses from './modules/warehouses.mjs';
 import * as payouts from './modules/payout-schedules.mjs';

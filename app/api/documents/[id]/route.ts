@@ -22,7 +22,7 @@ export async function GET(request: Request, context: {params: Promise<{id:string
     if (!object) return new Response('Archivo no disponible.',{status:404});
     const headers = new Headers({'Content-Type':object.httpMetadata?.contentType || doc.mime,
       'Cache-Control':!financial&&image?'private, max-age=3600':'private, no-store','X-Content-Type-Options':'nosniff',
-      'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(doc.name || 'Documento'),
+      'Content-Disposition':(new URL(request.url).searchParams.get('download')==='1'?"attachment":"inline")+"; filename*=UTF-8''"+encodeURIComponent(doc.name || 'Documento'),
       'Content-Length':String(object.size)});
     if((object.httpMetadata?.contentType||doc.mime)==='application/xml'){headers.set('Content-Disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(doc.name||'retencion.xml'));headers.set('Content-Security-Policy',"default-src 'none'; sandbox");}
     return new Response(object.body,{headers});

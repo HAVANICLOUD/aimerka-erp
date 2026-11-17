@@ -41,7 +41,7 @@ window.Catalog43={images:[],uploading:false,blobs:[],form:null,session:0,
  }
 };
 const catalog43OriginalDetails=productDetails;
-productDetails=function(sku,...args){catalog43OriginalDetails(sku,...args);const p=state.products.find(p=>p.sku===sku),hero=document.querySelector('#drawer .pt29-product-hero');if(!hero||!p?.images?.length)return;hero.insertAdjacentHTML('afterend',`<section><h3>Galería del producto</h3><div class="catalog43-gallery">${p.images.map((i,n)=>`<a class="catalog43-photo" href="${esc(i.url)}" target="_blank" rel="noopener">${window.ProductMedia.html({name:p.name,images:[i]},{className:'catalog43-image'})}<small>${i.primary?'Principal':'Imagen '+(n+1)} · Ver original</small></a>`).join('')}</div></section>`);};
+productDetails=function(sku,...args){catalog43OriginalDetails(sku,...args);const p=state.products.find(p=>p.sku===sku),hero=document.querySelector('#drawer .pt29-product-hero');if(!hero||!(p?.images?.length||p?.imageUrl))return;if(window.ProductImageQuality){hero.insertAdjacentHTML('afterend',window.ProductImageQuality.gallery(p));window.ProductImageQuality.mount(document.querySelector('#drawer'));return;}hero.insertAdjacentHTML('afterend',`<section><h3>Galería del producto</h3><div class="catalog43-gallery">${p.images.map((i,n)=>`<a class="catalog43-photo" href="${esc(i.url)}" target="_blank" rel="noopener">${window.ProductMedia.html({name:p.name,images:[i]},{className:'catalog43-image'})}<small>${i.primary?'Principal':'Imagen '+(n+1)} · Ver original</small></a>`).join('')}</div></section>`);};
 window.ProductTrace28.show=productDetails;
 document.addEventListener('change',async e=>{
  if(e.target.id!=='catalog43-files')return;

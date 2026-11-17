@@ -1,3 +1,4 @@
+import {originalDimensions,checkedDimensions} from '../../../lib/image-original-info.mjs';
 import {detectProductImageMime} from '../../../lib/product-image-formats.mjs';
 import {thumbnailKey,validateThumbnail} from '../../../lib/product-image-policy.mjs';
 import { workspaceId } from '../../../lib/store';
@@ -32,7 +33,8 @@ export async function POST(request: Request) {
     let object = await bucket.head(key);
     if (!object) {
       const name = file.name.replace(/[\u0000-\u001f\u007f/\\]/g,'_').slice(0,200) || 'Documento';
-      object = await bucket.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:'private, no-store'},customMetadata:{name:encodeURIComponent(name),createdAt:new Date().toISOString()}});
+      const dimensions=checkedDimensions(originalDimensions(bytes,mime));
+      object = await bucket.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:'private, no-store'},customMetadata:{name:encodeURIComponent(name),createdAt:new Date().toISOString(),...(dimensions?{width:String(dimensions.width),height:String(dimensions.height)}:{})}});
     }
     if(purpose==='image')for(const variant of ['thumbnail','preview']){
       const derived=form.get(variant);if(!(derived instanceof File))continue;

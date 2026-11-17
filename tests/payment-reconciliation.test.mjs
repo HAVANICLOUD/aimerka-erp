@@ -53,7 +53,7 @@ test('classified document parts and tax allocation conserve all 363 per-sale doc
  assert.equal(paymentRows(s).filter(r=>r.documentaryRefund&&r.confirmed).length,5);assert.equal(paymentSummary(paymentRows(s)).depositCents,239852305);
 });
 test('documentary date has priority and creation date is preserved',()=>{
- const s=seed(),o=s.orders.find(o=>o.id==='V000996'),r=paymentRow(o,s);assert.ok(r.date.startsWith('2026-10-06'));assert.ok(r.documentDate.startsWith('2026-10-06'));assert.equal(r.dateLabel,'Fecha documental');const source={id:'only-document',documentDate:'2026-01-01'};assert.equal(saleDate(source),'2026-01-01');
+ const s=seed(),o=s.orders.find(o=>o.id==='V000996'),r=paymentRow(o,s);assert.ok(r.date.startsWith('2026-10-06'));assert.ok(r.documentDate.startsWith('2026-10-06'));assert.equal(r.dateLabel,'Fecha del pedido en marketplace');const source={id:'only-document',documentDate:'2026-01-01'};assert.equal(saleDate(source),'2026-01-01');
 });
 
 test('Excel creation-date serials are normalized for display, ordering and date filters without replacing the originals',()=>{
