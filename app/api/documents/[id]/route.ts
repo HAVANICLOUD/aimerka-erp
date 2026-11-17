@@ -1,3 +1,4 @@
+import {productImages} from '../../../../lib/product-images';
 import {canReadFinance} from '../../../../lib/access-control.mjs';
 import { workspaceId, readState } from '../../../../lib/store';
 import { documentBucket, documentId, documentKey } from '../../../../lib/documents';
@@ -6,13 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request, context: {params: Promise<{id:string}>}) {
   try {
     const id = documentId((await context.params).id), workspace = workspaceId(new URL(request.url).searchParams.get('workspace'));
-    const current = await readState(workspace,false);
-    const access=await requestAccess(request,current);
+    const access=await requestAccess(request);
     if(!access.active)return new Response('Acceso no disponible.',{status:403});
-    const financial=(current.state.settlementLedger?.documents||[]).find((row:any)=>row.id===id);
+    const index=await productImages(workspace),image=index.get(id);
+    let financial:any=image?.financial,doc:any=image;
+    if(!doc){
+      const current=await readState(workspace,false);
+      financial=(current.state.settlementLedger?.documents||[]).find((row:any)=>row.id===id);
+      doc=financial||(current.state.documents||[]).find((row:any)=>row.id===id);
+    }
     if(financial&&!canReadFinance(access))return new Response('Se requiere permiso de finanzas.',{status:403});
-    const image=(current.state.products||[]).flatMap((p:any)=>p.images||[]).find((i:any)=>i.id===id);
-    const doc = financial||image||(current.state.documents || []).find((row:any)=>row.id===id);
     if (!doc) return new Response('Documento no encontrado en este espacio.',{status:404});
     const object = await documentBucket().get(documentKey(workspace,id));
     if (!object) return new Response('Archivo no disponible.',{status:404});
