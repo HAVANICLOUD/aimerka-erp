@@ -16,8 +16,8 @@
     feedback(`Guardando fotografías: producto ${index+1} de ${bundle.products.length} · ${row.name}`);
     const images=[];
     for(const [n,image] of (row.images||[]).entries()){
-     const raw=atob(image.base64),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0)),data=new FormData();data.append('file',new File([bytes],image.name,{type:image.mime}));
-     const response=await fetch('/api/documents?workspace='+encodeURIComponent(ERP.workspace)+'&purpose=image',{method:'POST',body:data}),result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo cargar una fotografía.');
+     const raw=atob(image.base64),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0)),file=new File([bytes],image.name,{type:image.mime});
+     const result={document:await window.ProductImageQuality.upload(file)};
      if(!images.some(i=>i.id===result.document.id))images.push({...result.document,primary:n===0,source:'upload'});
     }
     products.push({...row,images});
