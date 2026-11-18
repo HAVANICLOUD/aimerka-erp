@@ -221,3 +221,5 @@ test('inline mini reads all pools and warehouse balances without commands or sta
   context.InventoryWorkspace={openProduct:sku=>calls.push(['jump',sku])};await emit('click',button({pcsInventoryJump:'A'}));
   assert.deepEqual(calls,[['jump','A']]);assert.deepEqual(s,before);
 });
+
+test('product listing keeps its thumbnail and identifiers but no photo diagnostics or replacement controls',()=>{const {studio,context}=setup();context.ProductImageQuality={summary:()=>({low:1,total:1,images:[{info:{width:120,height:120}}]}),complete:()=>true};const html=studio.render();assert.match(html,/pcs-thumb/);assert.match(html,/Ver ficha/);assert.match(html,/Calidad de imágenes/);assert.doesNotMatch(html,/pcs-image-summary|Reemplazar imágenes|data-pcs-images|Imágenes · resolución original/);});
