@@ -1,3 +1,4 @@
+import {migrateT1Commission14} from './t1-commission-policy.mjs';
 import {correctLiverpoolSmartwatches} from './marketplace-mapping-maintenance.mjs';
 import {migrateBuenFinFamily,backfillCampaignRestorations,restoreExpiredCampaignPrices} from './campaign-lifecycle.mjs';
 import {resolveWorkspace} from './workspace-policy.mjs';
@@ -13,7 +14,7 @@ import {planV43Recovery,v43RecoveryWrites} from './v43-recovery.mjs';
 export function database(){if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
 export const workspaceId=resolveWorkspace;
 export function createSeed(id:string){
-  if(id==='v43')return structuredClone(seed43);
+  if(id==='v43'){const state=structuredClone(seed43);migrateT1Commission14(state);return state;}
   if(id==='v28'){const state:any=structuredClone(seed);state.config=structuredClone(pricingConfig);return state;}
   const state:any=legacy.createState();
   const defaults:any=seed;
@@ -53,10 +54,11 @@ export async function readState(id:string,maintain=true){
   }
   if(id==='v43'&&maintain){
     const next=structuredClone(state),now=new Date().toISOString(),actionId='campaign-maintenance-'+crypto.randomUUID();
+    const commissionCorrection=migrateT1Commission14(next,{now,requestId:actionId,actor:'Sistema · instrucción del propietario'});
     const mappingCorrection=correctLiverpoolSmartwatches(next,{now,requestId:actionId,actor:'Sistema · revisión del propietario'});
     const linked=migrateBuenFinFamily(next,{now,requestId:actionId}),backfilled=backfillCampaignRestorations(next,now),closed=restoreExpiredCampaignPrices(next,now);
-    if(mappingCorrection||linked||backfilled||closed){
-      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed,mappingCorrection}};
+    if(commissionCorrection||mappingCorrection||linked||backfilled||closed){
+      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed,mappingCorrection,commissionCorrection}};
       const saved=await commitState(id,row.revision,state,next,command,{ok:true},'Sistema',await hashInput(command.payload));
       return saved||readState(id,false);
     }

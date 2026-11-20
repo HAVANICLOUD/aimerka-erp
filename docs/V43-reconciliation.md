@@ -19,3 +19,25 @@ This is an adaptation of the workbook's business data and calculations to the ex
 Additional parity checks cover every cheque-linked documentary amount, including signed withholding allocation on returns and SI/SV adjustments. Eight sale-level results differ by one cent from independently rounded Excel values because the bank allocation conserves the cheque total exactly; original fractional values remain in source fields. Orders without a cheque use the expected net in debt, and later adjustments remain pending until bank proof arrives.
 
 Persistence repair: display calculations now operate on cloned orders/ledger and never mutate the raw state used for fragment comparisons. Regression tests reproduce the original third-document failure and verify four saves with reloads. A one-time recovery is restricted to V43 revision 3, its exact last action UUID and workbook fingerprint; only orders, documentary ledger and audit events are restored from the complete owner-exported snapshot. SQLite tests verify rollback and concurrent guards. Local D1/API QA verifies recovery to revision 4, October save to revision 5, a fresh reload, duplicate replay and preservation of stock and other workspaces.
+
+## Comisión vigente Sears y Sanborns — 20/11/2026
+
+Por instrucción del propietario, la tarifa operativa compartida T1 es 14% en
+calculadoras, comparador, eventos comerciales, liquidaciones y estimaciones de
+conciliación. El 18% deja de ser tarifa vigente y no se ofrece como alternativa.
+La retención estimada conserva su base independiente: venta sin IVA, antes de
+comisión. Este cambio de tarifa no modifica la regla fiscal.
+
+`migrateT1Commission14` aplica una sola vez la tarifa a los catálogos persistidos
+y retira los pronósticos importados o guardados que fueron calculados al 18%.
+Los originales de esos pronósticos quedan en `commissionPolicyHistory`, separado
+de la estimación activa y restringido a consulta financiera. Los nuevos valores
+visibles se calculan con la tarifa vigente; no se presentan pronósticos del 18%
+como datos actuales. La marca evita repetir la migración o sobrescribir una
+configuración que el propietario cambie posteriormente.
+
+Los depósitos, comprobantes bancarios, cheques, certificados SAT, retenciones
+documentales, comisiones inferidas, conciliaciones y snapshots históricos de
+precios no se reescriben. Una venta cuya evidencia resulte en 18% conserva ese
+porcentaje real. Un depósito aislado no prueba por sí mismo la comisión: se
+mantiene la diferenciación de calidad documental en `commissionEvidence`.

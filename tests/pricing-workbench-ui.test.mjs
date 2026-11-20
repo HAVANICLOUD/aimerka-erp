@@ -42,8 +42,8 @@ test('cost and UPC clearing stay editable without restoring an example',()=>{
 });
 test('nominal tax rates, monetary base and effective coefficients have distinct labels',()=>{
   const h=harness();h.run(`globalThis.result={valid:true,status:'RENTABLE',channel:'T1 Comercios',withholdingBaseMode:'after_commission_ex_vat',commissionSource:'inferred14',commissionRate:.14,includedVat:.16,nominalVatRate:.08,nominalIsrRate:.025,vatRate:.05931,isrRate:.01853,discount:{price:2000,priceExVat:1724.14,commissionExVat:241.38,withholdingBase:1482.76,vat:118.62,isr:37.07,profit:300,netPayout:1300,margin:.15},regular:{price:2200}}`);
-  const html=h.run('price28Result(result)');assert.match(html,/Base = \(P − comisión\) \/ \(1 \+ IVA\)/);assert.match(html,/14% inferido · simulación/);assert.match(html,/Retención IVA \(8% sobre base\)/);assert.match(html,/Retención ISR \(2.5% sobre base\)/);assert.match(html,/Depósito estimado/);assert.match(html,/Base de retención/);
-  assert.match(h.run("price28Forms.calculadora.t1CommissionMode='inferred14';price28T1Controls(price28Forms.calculadora)"),/[Cc]omisión inferida/);
+  const html=h.run('price28Result(result)');assert.match(html,/Base = \(P − comisión\) \/ \(1 \+ IVA\)/);assert.match(html,/Comisión vigente Sears \/ Sanborns/);assert.match(html,/Retención IVA \(8% sobre base\)/);assert.match(html,/Retención ISR \(2.5% sobre base\)/);assert.match(html,/Depósito estimado/);assert.match(html,/Base de retención/);
+  assert.match(h.run("price28Forms.calculadora.t1CommissionMode='inferred14';price28T1Controls(price28Forms.calculadora)"),/[Cc]omisión vigente/);
   assert.match(h.run("price28Forms.calculadora.channel='Coppel';price28T1Controls(price28Forms.calculadora)"),/^$/);
 });
 test('settings, saved scenario and publication draft actions remain wired',()=>{

@@ -1,4 +1,4 @@
-import {allocateCents} from './settlement-documents.mjs';
+import {allocateCents} from './settlement-documents.mjs?v=20261120-t1-current14';
 const RET='http://www.sat.gob.mx/esquemas/retencionpago/2',TFD='http://www.sat.gob.mx/TimbreFiscalDigital',PLAT='http://www.sat.gob.mx/esquemas/retencionpago/1/PlataformasTecnologicas10';
 const fail=m=>{throw new Error(m);};
 const uuidPattern=/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;

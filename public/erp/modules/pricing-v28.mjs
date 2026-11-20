@@ -162,7 +162,7 @@ export function resolveCommission(config, input = {}) {
   for (const [name, value] of [['commission', baseRate], ['msi', msiRate], ['commission', rate], ['vatRate', vatRate], ['isrRate', isrRate],['vatRate',nominalVatRate],['isrRate',nominalIsrRate]]) {
     if (!Number.isFinite(value) || value < 0 || value >= 1) errors.push(issue(name, 'Las tasas configuradas deben estar entre 0% y menos de 100%.'));
   }
-  return {valid: !errors.length, errors, channel, category, baseRate, msiRate, rate, vatRate, isrRate, path, configuredCommissionRate,withholdingBaseMode,includedVat,nominalVatRate,nominalIsrRate,retentionTreatment,t1CommissionMode,commissionSource:isT1&&t1CommissionMode==='inferred14'?'Escenario 14% · referencia inferida en conciliación':'Comisión configurada',context:'Calculadora V43'};
+  return {valid: !errors.length, errors, channel, category, baseRate, msiRate, rate, vatRate, isrRate, path, configuredCommissionRate,withholdingBaseMode,includedVat,nominalVatRate,nominalIsrRate,retentionTreatment,t1CommissionMode,commissionSource:isT1&&t1CommissionMode==='inferred14'?'Comisión vigente Sears / Sanborns':'Comisión configurada',context:'Calculadora V43'};
 }
 
 export function pricePolicy(config = {}) {

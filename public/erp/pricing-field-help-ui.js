@@ -27,7 +27,7 @@
     inflation: ['rates', 'percent', 'Captura el porcentaje de aumento para generar el precio regular a partir del precio con descuento. Por ejemplo, 10 significa 10%; no es el margen de utilidad.'],
     zeroMarginInflation: ['rates', 'percent', 'Con utilidad objetivo de 0%, elige por separado el porcentaje de inflado del precio regular. Por ejemplo, 10 significa 10%.'],
     competitiveInflation: ['rates', 'percent', 'Elige el porcentaje para generar el precio regular sobre la referencia competitiva. El precio de venta competitivo sigue la referencia de mercado.'],
-    t1CommissionMode: ['rules', 'layers', 'Usa la comisión configurada de T1 o el 14% inferido para simular este escenario. La simulación no modifica la tarifa general guardada.']
+    t1CommissionMode: ['rules', 'layers', 'La comisión vigente de Sears y Sanborns es 14%. Los pagos históricos conservan la comisión inferida de su evidencia documental.']
   };
   // Static paths only; labels and help text are always assigned as textContent.
   const paths = {

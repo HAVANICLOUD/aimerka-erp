@@ -7,13 +7,14 @@ import {quote, recommend, compareChannels, resolveCategory, resolveCommission, r
 const config = JSON.parse(readFileSync(new URL('../data/pricing-config.json', import.meta.url)));
 // These stored reference outputs describe the original V28 gross-price base.
 config.parameters.t1IncludedVat=0;config.parameters.t1RetentionBase='gross_ex_vat';
+const historicalConfig=structuredClone(config);for(const row of historicalConfig.commissions['T1 Comercios'])row.rate=.18;
 const copy = value => structuredClone(value);
 const close = (actual, expected, tolerance = 1e-8) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} differs from ${expected}`);
 const iphone = {sku:'TEST-IPHONE',upc:'195950638011',name:'Apple iPhone 17 Pro Max 256GB 12GB RAM Azul Profundo',brand:'APPLE',category:'CELULARES SMARTPHONE',
   costCents:2794800,priceCents:3099900,good:1,categories:{},categoryOverrides:{},shippingType:'Pequeño',shippingException:'Automático',status:'OK'};
 
 test('CALCULADORA V28 matches stored reference prices and deduction amounts', () => {
-  const r = quote(config,{context:'calculadora',cost:8434,marketPrice:12799,channel:'T1 Comercios',category:'Electrónica',shippingType:'Mediano',margin:.1,inflation:.2,mode:'tasas'});
+  const r = quote(historicalConfig,{context:'calculadora',cost:8434,marketPrice:12799,channel:'T1 Comercios',category:'Electrónica',shippingType:'Mediano',margin:.1,inflation:.2,mode:'tasas'});
   assert.equal(r.valid,true); assert.equal(r.discount.price,14199); assert.equal(r.regular.price,16999);
   close(r.theoreticalPrice,14152.845528455282); close(r.discount.profit,1448.285); close(r.regular.profit,3450.285);
   close(r.discount.commission,2555.82); close(r.discount.vat,1135.92); close(r.discount.isr,354.975);
@@ -23,10 +24,10 @@ test('CALCULADORA V28 matches stored reference prices and deduction amounts', ()
 });
 
 test('Saved automatic V28 reference is preserved; competitive shows market loss without raising price', () => {
-  const r = recommend(config,iphone,{channel:'T1 Comercios',mode:'automatico',margin:0});
+  const r = recommend(historicalConfig,iphone,{channel:'T1 Comercios',mode:'automatico',margin:0});
   assert.equal(r.valid,true); assert.equal(r.discount.price,39299); assert.equal(r.regular.price,39299);
   close(r.discount.profit,20.785); close(r.discount.netPayout,27968.785); close(r.discount.margin,.0005288938649838468);
-  const competitive = recommend(config,iphone,{channel:'T1 Comercios',mode:'competitivo'});
+  const competitive = recommend(historicalConfig,iphone,{channel:'T1 Comercios',mode:'competitivo'});
   assert.equal(competitive.discount.price,30999);assert.ok(competitive.discount.profit<0);assert.match(competitive.status,/PÉRDIDA/);assert.equal(competitive.competitive.minimumProfitable,39299);
   close(competitive.competitive.maximumAllowed,30999);
 });
@@ -85,9 +86,9 @@ test('manual-price TN cotizador uses regular price band; UPC uses market price b
 
 test('UPC and Cotizador keep competitive market price even below cash break-even', () => {
   const product={...iphone,costCents:100000,priceCents:156900};
-  const u=recommend(config,product,{channel:'T1 Comercios',mode:'competitivo'});
+  const u=recommend(historicalConfig,product,{channel:'T1 Comercios',mode:'competitivo'});
   assert.equal(u.discount.price,1499);assert.ok(u.discount.profit<0);assert.match(u.status,/CAJA NEGATIVA/);assert.equal(u.competitive.minimumCash,1599);
-  const q=quote(config,{cost:1000,marketPrice:1569,channel:'T1 Comercios',shippingType:'Pequeño',mode:'competitivo'});
+  const q=quote(historicalConfig,{cost:1000,marketPrice:1569,channel:'T1 Comercios',shippingType:'Pequeño',mode:'competitivo'});
   assert.equal(q.discount.price,1499);assert.ok(q.discount.profit<0);assert.match(q.status,/CAJA NEGATIVA/);
 });
 
@@ -120,7 +121,7 @@ test('catalogue validators preserve UPC identity, mapping completeness and premi
   assert.equal(validateCommission(config,{channel:'Mercado Libre',category:'Celulares',baseRate:.2,premiumRate:.1}).valid,false);
   const c=applyCommissionUpdate(config,{channel:'T1 Comercios',category:'Todas las categorías',baseRate:19});
   assert.ok(c.config.commissions['T1 Comercios'].every(r=>r.rate===.19));
-  close(config.commissions['T1 Comercios'][0].rate,.18);
+  close(config.commissions['T1 Comercios'][0].rate,.14);
 });
 
 test('category suggestion follows known product family and six-channel comparison has no API side effects', () => {
