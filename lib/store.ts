@@ -3,6 +3,7 @@ import {correctLiverpoolSmartwatches} from './marketplace-mapping-maintenance.mj
 import {migrateBuenFinFamily,backfillCampaignRestorations,restoreExpiredCampaignPrices} from './campaign-lifecycle.mjs';
 import {resolveWorkspace} from './workspace-policy.mjs';
 import { env } from 'cloudflare:workers';
+import { postgresDatabase } from './pg-d1';
 import { splitState, joinState, diffFragments } from './state-codec.mjs';
 import seed from '../data/seed-v28.json';
 import seed43 from '../data/seed-v43.json';
@@ -11,7 +12,7 @@ import legacy from './legacy-domain.mjs';
 import recoverySnapshot from '../data/recovery-v43-revision3.json';
 import {planV43Recovery,v43RecoveryWrites} from './v43-recovery.mjs';
 
-export function database(){if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
+export function database():D1Database{const pg=postgresDatabase();if(pg)return pg as unknown as D1Database;if(!env.DB)throw new Error('El almacenamiento del ERP no está disponible.');return env.DB;}
 export const workspaceId=resolveWorkspace;
 export function createSeed(id:string){
   if(id==='v43'){const state=structuredClone(seed43);migrateT1Commission14(state);return state;}
@@ -31,11 +32,11 @@ async function init(id:string){
   if(row?.initialized)return;
   const fragments=splitState(createSeed(id));
   const statements=[db.prepare('UPDATE erp_workspaces SET initialized=1, last_action=?, updated_at=? WHERE id=? AND initialized=0').bind(action,now,id)];
-  for(const r of fragments)statements.push(db.prepare('INSERT OR IGNORE INTO erp_fragments(workspace,name,part,body) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM erp_workspaces WHERE id=? AND initialized=1 AND last_action=?)').bind(id,r.name,r.part,r.body,id,action));
+  for(const r of fragments)statements.push(db.prepare('INSERT OR IGNORE INTO erp_fragments(workspace,name,part,body) SELECT ?,?,CAST(? AS INTEGER),? WHERE EXISTS(SELECT 1 FROM erp_workspaces WHERE id=? AND initialized=1 AND last_action=?)').bind(id,r.name,r.part,r.body,id,action));
   await db.batch(statements);
 }
 
-export async function readState(id:string,maintain=true){
+export async function readState(id:string,maintain=true):Promise<any>{
   const db=database();
   const fetchBatch=()=>db.batch([db.prepare('SELECT revision, initialized, updated_at, last_action FROM erp_workspaces WHERE id=?').bind(id),db.prepare('SELECT name,part,body FROM erp_fragments WHERE workspace=? ORDER BY name,part').bind(id)]);
   let batch=await fetchBatch();
@@ -71,9 +72,9 @@ export async function commitState(id:string,revision:number,before:any,after:any
   const db=database(),next=revision+1,now=new Date().toISOString(),diff=diffFragments(before,after);
   const guard='EXISTS(SELECT 1 FROM erp_workspaces WHERE id=? AND revision=? AND last_action=?)';
   const statements=[db.prepare('UPDATE erp_workspaces SET revision=?,last_action=?,updated_at=? WHERE id=? AND revision=?').bind(next,command.id,now,id,revision)];
-  for(const row of diff.upserts)statements.push(db.prepare(`INSERT INTO erp_fragments(workspace,name,part,body) SELECT ?,?,?,? WHERE ${guard} ON CONFLICT(workspace,name,part) DO UPDATE SET body=excluded.body`).bind(id,row.name,row.part,row.body,id,next,command.id));
+  for(const row of diff.upserts)statements.push(db.prepare(`INSERT INTO erp_fragments(workspace,name,part,body) SELECT ?,?,CAST(? AS INTEGER),? WHERE ${guard} ON CONFLICT(workspace,name,part) DO UPDATE SET body=excluded.body`).bind(id,row.name,row.part,row.body,id,next,command.id));
   for(const row of diff.deletes)statements.push(db.prepare(`DELETE FROM erp_fragments WHERE workspace=? AND name=? AND part=? AND ${guard}`).bind(id,row.name,row.part,id,next,command.id));
-  statements.push(db.prepare(`INSERT INTO erp_actions(workspace,id,type,input_hash,result,revision,actor,created_at) SELECT ?,?,?,?,?,?,?,? WHERE ${guard}`).bind(id,command.id,command.type,inputHash,JSON.stringify(result),next,actor,now,id,next,command.id));
+  statements.push(db.prepare(`INSERT INTO erp_actions(workspace,id,type,input_hash,result,revision,actor,created_at) SELECT ?,?,?,?,?,CAST(? AS INTEGER),?,? WHERE ${guard}`).bind(id,command.id,command.type,inputHash,JSON.stringify(result),next,actor,now,id,next,command.id));
   const response=await db.batch(statements);
   if(response[0].meta.changes!==1)return null;
   return {workspace:id,revision:next,updatedAt:now,state:after,result};

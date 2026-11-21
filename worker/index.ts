@@ -1,5 +1,6 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
+import { runWithPostgres } from "../lib/pg-d1";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 const worker = {
@@ -23,7 +24,10 @@ const worker = {
         },
       };
     }
-    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    // Con DATABASE_URL (Supabase/Postgres) cada solicitud usa su propia conexión;
+    // sin ella se usa el binding D1 como antes.
+    const databaseUrl = (env as unknown as { DATABASE_URL?: string }).DATABASE_URL;
+    return runWithPostgres(databaseUrl, ctx, async () => runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx)));
   },
 };
 

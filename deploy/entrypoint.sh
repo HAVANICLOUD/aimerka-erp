@@ -14,8 +14,14 @@ if [ ! -f "$MARK" ]; then
   touch "$MARK"
 fi
 
+# Con DATABASE_URL (Supabase/Postgres) el ERP guarda ahí; sin ella usa D1 local.
+EXTRA=""
+if [ -n "$DATABASE_URL" ]; then
+  echo "[aimerka] Usando Postgres (DATABASE_URL)."
+  EXTRA="--var DATABASE_URL:$DATABASE_URL"
+fi
 $WRANGLER dev --config dist/server/wrangler.json --local --persist-to "$STATE" \
-  --ip 0.0.0.0 --port 8787 --inspector-port 0 &
+  --ip 0.0.0.0 --port 8787 --inspector-port 0 $EXTRA &
 PID=$!
 
 # Espera al servidor y siembra v43 (la primera lectura inicializa el workspace).
