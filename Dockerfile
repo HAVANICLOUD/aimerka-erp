@@ -22,5 +22,5 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 8787
 VOLUME ["/app/.wrangler/state"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
-  CMD curl -fsS -H "oai-authenticated-user-email: geovanyjk@msn.com" http://127.0.0.1:8787/api/revision >/dev/null || exit 1
+  CMD curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/api/revision | grep -qE "200|401|403" || exit 1
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

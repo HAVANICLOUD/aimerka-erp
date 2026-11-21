@@ -1,4 +1,0 @@
-# Un usuario por línea: <correo> <hash bcrypt>
-# El correo debe coincidir con el dueño (OWNER_EMAIL) o con los usuarios de Equipo.
-# Generar hash:  docker run --rm caddy:2.8 caddy hash-password --plaintext 'CONTRASEÑA'
-dueno@ejemplo.com $2a$14$REEMPLAZA_CON_EL_HASH

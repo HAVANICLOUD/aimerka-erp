@@ -1,13 +1,9 @@
-# HTTPS automático (Let's Encrypt) + login.
-# El ERP toma la identidad del encabezado oai-authenticated-user-email;
-# Caddy lo borra si viene del cliente y lo pone con el usuario autenticado.
+# HTTPS automático (Let's Encrypt). El login lo hace el ERP con Supabase Auth;
+# Caddy descarta cualquier encabezado de identidad que mande el navegador.
 {$DOMAIN} {
 	encode gzip
-	basic_auth {
-		import /etc/caddy/users.caddy
-	}
 	request_header -oai-authenticated-user-email
 	reverse_proxy app:8787 {
-		header_up oai-authenticated-user-email {http.auth.user.id}
+		header_up X-Forwarded-Host {host}
 	}
 }

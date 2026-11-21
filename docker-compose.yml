@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL:-}  # Supabase/Postgres; vacío = D1 local
+      - SUPABASE_URL=${SUPABASE_URL:-}  # Login con Supabase Auth
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
     volumes:
       - erp-data:/app/.wrangler/state   # D1 (SQLite) + R2 (documentos)
     expose:
@@ -19,7 +21,6 @@ services:
       - DOMAIN=${DOMAIN:?Define DOMAIN en .env}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./deploy/users.caddy:/etc/caddy/users.caddy:ro
       - caddy-data:/data
     depends_on:
       - app

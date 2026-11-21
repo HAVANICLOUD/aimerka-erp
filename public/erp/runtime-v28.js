@@ -2,7 +2,9 @@
 const ERP={
  workspace:'v43',revision:null,engines:{},ready:false,busy:false,lastCommand:null,updatedAt:null,
  async reload(options={}){
-   const response=await fetch('/api/state?workspace='+encodeURIComponent(this.workspace),{cache:'no-store'}),data=await response.json();
+   const response=await fetch('/api/state?workspace='+encodeURIComponent(this.workspace),{cache:'no-store'});
+   if(response.status===401){location.assign('/login?next='+encodeURIComponent(location.pathname+location.hash));return {skipped:true};}
+   this.session=response.headers.get('x-aimerka-session')==='1';const data=await response.json();
    if(!response.ok)throw new Error(data.error||'No se pudo cargar la operación.');
    if(options.passive&&(this.busy||this.hasOpenDraft?.()||data.revision<this.revision))return {...data,skipped:true};
    state=data.state;this.access=data.access;this.revision=data.revision;this.updatedAt=data.updatedAt;this.ready=true;render();return data;
@@ -12,7 +14,9 @@ const ERP={
    const command=options.command||{id:this.makeId(),type,payload,workspace:this.workspace,revision:this.revision};
    this.busy=true;this.setStatus('Guardando…','saving');
    try{
-     const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)}),data=await response.json();
+     const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});
+     if(response.status===401){toast('Tu sesión terminó. Vuelve a iniciar sesión; el cambio no se guardó.',true);setTimeout(()=>location.assign('/login'),1500);throw new Error('Sesión terminada.');}
+     const data=await response.json();
      if(data.state){state=data.state;this.access=data.access||this.access;this.revision=data.revision;this.updatedAt=data.updatedAt;}
      if(!response.ok){if(data.state)render();throw new Error(data.error||'No se pudo guardar.');}
      this.lastCommand=command;render();toast(data.result?.message||'Cambios guardados.');this.setStatus('Guardado','saved');return {ok:true,result:data.result,state:data.state};
@@ -41,6 +45,7 @@ render=function(){
  const pill=document.querySelector('.demo-pill');if(pill)pill.innerHTML=`<span></span>ERP compartido`;
  document.querySelector('.app-footer').innerHTML=`<span>AiMerka · ERP compartido</span><span>Versión de datos ${ERP.revision} · Guardado en servidor · APIs por conectar</span>`;
  if(!document.getElementById('save-status')){const s=document.createElement('span');s.id='save-status';s.className='save-status saved';s.textContent='Guardado';document.querySelector('.topbar').insertBefore(s,document.querySelector('.demo-pill'));}
+ if(ERP.session&&!document.getElementById('logout-link')){const a=document.createElement('a');a.id='logout-link';a.href='/logout';a.className='btn';a.textContent='Cerrar sesión';a.title=ERP.access?.email||'';document.querySelector('.topbar').appendChild(a);}
 };
 persist=function(){toast('Utiliza Guardar en el formulario para registrar los cambios en el servidor.',true);};
 primaryNew=function(){return `<button class="btn primary" data-v28="sale-new">${icon('plus')} Registrar venta</button>`;};

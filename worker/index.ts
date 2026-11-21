@@ -1,6 +1,7 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import { runWithPostgres } from "../lib/pg-d1";
+import { withAuth } from "../lib/auth-gate";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 const worker = {
@@ -27,7 +28,10 @@ const worker = {
     // Con DATABASE_URL (Supabase/Postgres) cada solicitud usa su propia conexión;
     // sin ella se usa el binding D1 como antes.
     const databaseUrl = (env as unknown as { DATABASE_URL?: string }).DATABASE_URL;
-    return runWithPostgres(databaseUrl, ctx, async () => runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx)));
+    // Con SUPABASE_URL/SUPABASE_ANON_KEY la sesión se valida aquí (lib/auth-gate.ts).
+    return runWithPostgres(databaseUrl, ctx, () =>
+      withAuth(request, env as unknown as Record<string, unknown>, authed =>
+        Promise.resolve(runWithConnectorBinding(binding, () => handler.fetch(authed, env, ctx)))));
   },
 };
 
