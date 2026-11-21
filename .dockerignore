@@ -1,0 +1,12 @@
+node_modules
+dist
+.wrangler
+.vinext
+.next
+.git
+.env*
+.dev.vars*
+*.pem
+outputs
+work
+.DS_Store

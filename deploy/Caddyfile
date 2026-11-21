@@ -1,0 +1,13 @@
+# HTTPS automático (Let's Encrypt) + login.
+# El ERP toma la identidad del encabezado oai-authenticated-user-email;
+# Caddy lo borra si viene del cliente y lo pone con el usuario autenticado.
+{$DOMAIN} {
+	encode gzip
+	basic_auth {
+		import /etc/caddy/users.caddy
+	}
+	request_header -oai-authenticated-user-email
+	reverse_proxy app:8787 {
+		header_up oai-authenticated-user-email {http.auth.user.id}
+	}
+}
