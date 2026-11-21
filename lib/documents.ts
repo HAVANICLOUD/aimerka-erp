@@ -1,7 +1,11 @@
 import { env } from 'cloudflare:workers';
+import { SupabaseBucket, storageConfig } from './supabase-storage';
 
 export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
-export function documentBucket() {
+export function documentBucket(): any {
+  // Con SUPABASE_SERVICE_ROLE_KEY los archivos viven en Supabase Storage.
+  const supabase = storageConfig(env as unknown as Record<string, unknown>);
+  if (supabase) return new SupabaseBucket(supabase);
   const bucket = (env as any).BUCKET;
   if (!bucket) throw new Error('El archivo documental no está disponible. Intenta nuevamente.');
   return bucket;

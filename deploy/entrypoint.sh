@@ -17,7 +17,7 @@ fi
 # Con DATABASE_URL (Supabase/Postgres) el ERP guarda ahí; sin ella usa D1 local.
 # Con SUPABASE_URL/SUPABASE_ANON_KEY el login es de Supabase Auth.
 EXTRA=""
-for NAME in DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY; do
+for NAME in DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
   VALUE=$(printenv "$NAME" || true)
   [ -n "$VALUE" ] && EXTRA="$EXTRA --var $NAME:$VALUE"
 done
