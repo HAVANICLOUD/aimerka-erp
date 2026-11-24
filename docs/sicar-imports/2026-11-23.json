@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-23",
+  "workspace": "v43",
+  "sourceFile": "SICAR_Catalogo_20261123_Actual.xlsx",
+  "sourceSha256": "b588f423588a28f101ade4a776c31d941a7c5f6527a33a5749173a0695cc324c",
+  "products": [
+    {
+      "sku": "VEREAUTOILBRIGCRYSTA90ML",
+      "upc": "8011003891092",
+      "name": "Eau de Toilette Versace Bright Crystal para Dama 90 ml",
+      "stockOnImport": 0,
+      "photoCount": 4,
+      "satCode": "53131620"
+    },
+    {
+      "sku": "VEREAUPARFBRIGCRYSTAB90ML",
+      "upc": "8011003818112",
+      "name": "Eau de Parfum Versace Bright Crystal Absolu para Dama 90 ml",
+      "stockOnImport": 0,
+      "photoCount": 4,
+      "satCode": null
+    },
+    {
+      "sku": "VEREAUTOILCABFRAICH200ML",
+      "upc": "8011003803132",
+      "name": "Eau de Toilette Versace Eau Fraiche para Caballero 200 ml",
+      "stockOnImport": 0,
+      "photoCount": 4,
+      "satCode": null
+    },
+    {
+      "sku": "VEREAUPARFBRIGCRYSTA90ML",
+      "upc": "8011003993826",
+      "name": "Eau de Parfum Versace Bright Crystal para Dama 90 ml",
+      "stockOnImport": 0,
+      "photoCount": 4,
+      "satCode": "53131620"
+    }
+  ]
+}
