@@ -68,7 +68,7 @@ test('classifiers never mutate order data and browser classifier exactly matches
  test('generic delivered followup or incident is not a return and retains recorded physical status',()=>{
  for(const extra of [{followupStatus:'Pendiente'},{followupStatus:'En seguimiento'},{incident:'Llamar al comprador'},{review:'Verificar datos'}]) {
   const o=order({status:'delivered',...extra}),c=classifyOrder(o);
-  assert.equal(c.returns,false);assert.equal(c.delivered,true);assert.equal(matchesOrderCategory(o,'delivered'),true);assert.equal(matchesOrderCategory(o,'returns'),false);assert.equal(c.incidence,true);
+  assert.equal(c.returns,false);assert.equal(c.delivered,true);assert.equal(matchesOrderCategory(o,'delivered'),true);assert.equal(matchesOrderCategory(o,'returns'),false);assert.equal(c.incidence,!extra.review);
  }
  const returned=classifyOrder(order({status:'delivered',returnStatus:'requested',incident:'Daño'}));assert.equal(returned.returns,true);assert.equal(returned.incidence,true);assert.equal(returned.receivingPending,true);
  for(const status of ['shipped','delivered']) {const c=classifyOrder(order({stockMode:'historical',status}));assert.equal(c.historical,true);assert.ok(c.categories.includes(status));assert.match(c.stateLabel,/registrado en ERP/);}

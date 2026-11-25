@@ -1,3 +1,4 @@
+import {fiscalCatalogResults,FISCAL_CATALOG_SOURCE} from '../lib/sat-fiscal-catalog.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -19,6 +20,7 @@ function route({email='operator@example.com',suspended=false,failPolicy=false}={
   async readTeamPolicy(){policyReads++;if(failPolicy)throw new Error('private DB error');return {revision:4,state:{security:{users:[{email:'operator@example.com',roleId:'operations',active:!suspended}]}}};}
  },s=>s.replace('import.meta.env.DEV','false'));
  const {GET}=load('../app/api/sat-catalog/route.ts',{
+  fiscalCatalogResults,FISCAL_CATALOG_SOURCE,
   requestAccess,
   readState(){workspaceReads++;throw new Error('Catalogue must not read workspace state');},
   workspaceId(){throw new Error('Catalogue must not initialize workspaces');}
@@ -67,3 +69,5 @@ test('route selections validate against actual bundled engine maps and never cre
  const selected=state.products.find(p=>p.sku==='SELECTED');assert.equal(selected.unitSatDescription,unit.description);assert.equal(selected.satDescription,product.description);
  const before=structuredClone(state);assert.throws(()=>save({sku:'BAD',unitSat:'ZZZ'}),/SAT vigente/);assert.deepEqual(state,before);
 });
+
+test('fiscal catalogue API returns official full labels, filters moral RFCs and validates regime usage compatibility',async()=>{const api=route();let r=await api.query('kind=regimes&rfc=AAA010101AAA&browse=1');assert.equal(r.response.status,200);assert.ok(r.data.results.some(r=>r.code==='626'&&r.description==='Régimen Simplificado de Confianza'));assert.ok(!r.data.results.some(r=>r.code==='605'));r=await api.query('kind=usages&rfc=AAA010101AAA&regime=626&browse=1');assert.ok(r.data.results.some(r=>r.code==='G01'));assert.ok(!r.data.results.some(r=>r.code==='D01'));assert.equal(api.counts().workspaceReads,0);});

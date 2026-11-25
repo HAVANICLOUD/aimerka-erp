@@ -7,6 +7,7 @@ import * as warehouses from '../lib/warehouses.mjs';
 import * as inventory from '../lib/inventory-v28.mjs';
 
 const source = readFileSync(new URL('../public/erp/commercial-events-ui.js', import.meta.url), 'utf8');
+const datePresentation = readFileSync(new URL('../public/erp/date-presentation-ui.js', import.meta.url), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
 const campaign = overrides => ({ id: 'e1', name: 'Navidad', startDate: '2026-12-01', endDate: '2026-12-25', markets: ['Sears', 'Coppel'], selection: { brands: [], departments: [], skus: [], warehouseId: '', onlyPublished: false }, rules: { mode: 'margin', margin: .1, discount: .1, retentionTreatment: 'pass_through', t1CommissionMode: 'configured', mlType: 'CLASICA', msi: 'Sin MSI', marketReferences: [] }, ...overrides });
 const row = (sku, color = 'green', valid = true) => ({ sku, name: 'Producto ' + sku, brand: 'Marca', department: 'Audio', market: 'Sears', valid, traffic: { color, reason: color }, regularCents: 199900, discountCents: 179900, actualMargin: .12, targetMargin: .1, result: { discount: { cashProfit: 100, commercialProfit: 150, withholdingTotal: 50, objectiveMargin: .12 } } });
@@ -22,6 +23,7 @@ function harness({ saved = true, rows = [row('A'), row('B', 'yellow'), row('C', 
     return { ok: true };
   } };
   const context = createContext({ window: { ERP }, showModal:html=>{calls.push({type:'modal',html});}, state: data, renderers: {}, document: { addEventListener(name, fn) { listeners[name] = fn; }, getElementById() { return { reportValidity: () => true }; }, querySelector() { return null; } }, render() {}, icon: () => '', money: cents => `$${(cents / 100).toFixed(2)}`, Intl, Date: FixedDate, structuredClone, console });
+  runInContext(datePresentation, context);
   runInContext(source, context);
   const api = context.window.CommercialEventsUI;
   const click = async (action, extra = {}) => listeners.click({ target: { closest: () => ({ dataset: { ceAction: action, ...extra } }) } });
@@ -367,14 +369,31 @@ test('campaign removal waits for explicit in-app choice, keeps history and permi
  await h.click('restore',{ceEventId:'e1'});assert.equal(h.calls[1].type,'pricing.event.restore');assert.equal(h.data.commercialEvents[0].deletedAt,undefined);assert.match(h.html(),/data-ce-edit="e1"/);
 });
 
-test('one accumulated campaign block displays all discount groups and product images in its consolidated view',async()=>{
+test('campaign header stays compact and consolidated prices show each latest save in Mexico City time',async()=>{
  const h=harness();
- h.data.commercialEventRuns=[{id:'r25',eventId:'e1',event:campaign({selection:{brands:['Apple']},rules:{mode:'discount',discount:.25}}),targets:[{...row('A'),brand:'Apple',imageUrl:'/api/media/product-a',regularCents:100000,discountCents:75000}]},{id:'r10',eventId:'e1',event:campaign({selection:{departments:['Audio']},rules:{mode:'discount',discount:.1}}),targets:[{...row('B'),brand:'Other',imageUrl:'javascript:alert(1)',regularCents:100000,discountCents:90000}]}];
+ const latest = '2026-11-15T07:44:00Z', earlier = '2026-11-14T03:15:00Z';
+ h.data.commercialEventRuns=[
+   {id:'r25',eventId:'e1',date:latest,event:campaign({selection:{brands:['Apple']},rules:{mode:'discount',discount:.25}}),targets:[
+     {...row('A'),brand:'Apple',imageUrl:'/api/media/product-a',regularCents:100000,discountCents:75000}
+   ]},
+   {id:'r10',eventId:'e1',date:earlier,event:campaign({selection:{departments:['Audio']},rules:{mode:'discount',discount:.1}}),targets:[
+     row('A'), {...row('B'),brand:'Other',imageUrl:'javascript:alert(1)',regularCents:100000,discountCents:90000}
+   ]},
+   {id:'undated',eventId:'e1',event:campaign(),targets:[row('C')]}
+ ];
  assert.equal((h.html().match(/data-ce-campaign="e1"/g)||[]).length,1);
- assert.match(h.html(),/Descuento 25%/);assert.match(h.html(),/Descuento 10%/);assert.match(h.html(),/Departamentos: Audio/);
+ const header = h.html().split('data-ce-campaign="e1"')[1].split('</header>')[0];
+ assert.doesNotMatch(header,/Último guardado|Descuento|ce-scope-summary/);
+ assert.match(h.html(),/<details class="ce-campaign-audit"\s*>/);
  await h.click('history-campaign',{ceEventId:'e1'});
- assert.match(h.html(),/src="\/api\/media\/product-a"/);assert.doesNotMatch(h.html(),/src="javascript:/);
- assert.match(h.html(),/Campaña · pasarela \/ MSI: 25%/);assert.match(h.html(),/Campaña · pasarela \/ MSI: 10%/);assert.match(h.html(),/SKU A/);assert.match(h.html(),/SKU B/);
+ const html = h.html();
+ const savedRow = sku => html.split('<tr>').find(rowHtml => rowHtml.includes(`SKU ${sku}</small>`));
+ assert.match(html,/src="\/api\/media\/product-a"/);assert.doesNotMatch(html,/src="javascript:/);
+ assert.match(html,/Campaña · pasarela \/ MSI: 25%/);assert.match(html,/Campaña · pasarela \/ MSI: 10%/);
+ assert.match(savedRow('A'),/Último guardado: <time datetime="2026-11-15T07:44:00Z">15\/11\/2026 01:44<\/time>/);
+ assert.match(savedRow('B'),/Último guardado: <time datetime="2026-11-14T03:15:00Z">13\/11\/2026 21:15<\/time>/);
+ assert.match(savedRow('C'),/Fecha de guardado sin registrar/);
+ assert.equal((html.match(/SKU A<\/small>/g)||[]).length,1);
 });
 
 test('reopened campaign picker omits completed products and retains chosen brand filters for deselection',()=>{

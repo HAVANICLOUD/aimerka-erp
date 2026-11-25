@@ -1,4 +1,4 @@
-import {validateInvoiceFiscal} from './purchase-catalogs.mjs?v=20261105-fiscal';
+import {validateInvoiceFiscal} from './purchase-catalogs.mjs?v=20261125-wizard';
 /** Shared, side-effect-free validation of the complete documentary purchase file. */
 import {normalizeSupplier,normalizeSupplierOrder,isTemporalSupplierOrder} from './purchase-document-parser.mjs?v=20261105-fiscal';
 

@@ -1,3 +1,4 @@
+import {assertFiscalSelection,fiscalLabel} from './sat-fiscal-catalog.mjs?v=20261125-wizard';
 import {normalizeSupplier} from './purchase-document-parser.mjs?v=20261105-fiscal';
 const text=v=>String(v??'').trim();
 const norm=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9Ñ&]+/g,' ').trim().replace(/\s+/g,' ');
@@ -26,17 +27,18 @@ export function saveSupplierEquivalence(state,command,ctx={}){
  return {ok:true,message:'Equivalencia guardada. Se usará en las siguientes órdenes y facturas.'};
 }
 export function saveFiscalProfile(state,command,ctx={}){
- const p=command.payload||{},rfc=text(p.rfc).toUpperCase(),legalName=text(p.legalName).replace(/\s+/g,' '),postalCode=text(p.postalCode),taxRegime=text(p.taxRegime);
+ const p=command.payload||{},rfc=text(p.rfc).toUpperCase(),legalName=text(p.legalName).replace(/\s+/g,' '),postalCode=text(p.postalCode),taxRegime=text(p.taxRegime),purchaseUsage=text(p.purchaseUsage||'G01').toUpperCase();
  if(!/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc)||['XAXX010101000','XEXX010101000'].includes(rfc))fail('Registra el RFC específico de la empresa compradora.');
  if(legalName.length<3||legalName.length>200||!/^\d{5}$/.test(postalCode)||!/^\d{3}$/.test(taxRegime))fail('Completa razón social, código postal de cinco dígitos y clave de régimen fiscal.');
+ assertFiscalSelection({rfc,taxRegime,purchaseUsage},ctx.today||String(ctx.now||new Date().toISOString()).slice(0,10));
  const config=structuredClone(state.config?.purchaseFiscal||{profiles:[],defaultProfileId:null}),prior=config.profiles.find(x=>x.id===p.id),id=prior?.id||'FISCAL-'+command.id;
  if(p.id&&!prior)fail('Empresa fiscal no encontrada.');if(config.profiles.some(x=>x.id!==id&&x.rfc===rfc))fail('Ese RFC ya está registrado en el catálogo.');
- const profile={id,label:text(p.label||legalName).slice(0,150),rfc,legalName,postalCode,taxRegime,purchaseUsage:'G01',active:p.active!==false,revision:(prior?.revision||0)+1,updatedAt:ctx.now,actor:ctx.actor};
+ const profile={id,label:text(p.label||legalName).slice(0,150),rfc,legalName,postalCode,taxRegime,purchaseUsage,active:p.active!==false,revision:(prior?.revision||0)+1,updatedAt:ctx.now,actor:ctx.actor};
  if(prior)Object.assign(prior,profile);else config.profiles.push(profile);
  if(p.makeDefault||!config.defaultProfileId)config.defaultProfileId=id;
  state.config??={};state.config.purchaseFiscal=config;
  (state.events??=[]).unshift({id:command.id,type:command.type,date:ctx.now,actor:ctx.actor,result:'ok',message:'Datos fiscales de empresa compradora guardados: '+profile.label});
- return {ok:true,id,message:'Datos fiscales guardados. Las facturas de mercancía se cotejarán con esta empresa y uso G01.'};
+ return {ok:true,id,message:'Datos fiscales guardados. Las facturas se cotejarán con esta empresa y el uso '+fiscalLabel('usages',purchaseUsage)+'.'};
 }
 export function validateInvoiceFiscal(documents,config,{profileId,required=true,allowStoredSnapshots=false}={}){
  const invoices=(documents||[]).filter(d=>(d.parsed||d).kind==='invoice'),profile=config?.profiles?.find(p=>p.id===(profileId||config.defaultProfileId)&&p.active!==false),issues=[],checks=[];

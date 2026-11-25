@@ -105,7 +105,7 @@ function mediaHarness(){
  const values={imageUrl:{value:''},name:{value:'Producto'}};
  const gallery={innerHTML:''},preview={innerHTML:''},submit={disabled:false},progress={textContent:''};
  const form={isConnected:true,elements:{namedItem:k=>values[k]},querySelector(s){return {'#catalog43-gallery':gallery,'#pt29-preview-photo':preview,'[type="submit"]':submit,'#catalog43-progress':progress,'.pt29-form-preview':{insertAdjacentHTML(where,html){insertions.push({where,html});}},'.modal-actions':{insertAdjacentHTML(){}},'[name="imageUrl"]':{closest(){return {legacy:true};}},'.catalog43-url':{append(node){insertions.push(node);}}}[s];},closest(){return {addEventListener(type,fn){closeCallbacks.push(fn);}};}};
- const context={esc,structuredClone,AbortController,FormData:class{entries=[];append(...args){this.entries.push(args)}},URL:{createObjectURL(){return 'blob:test-'+(++nextBlob);},revokeObjectURL(url){revoked.push(url);}},state:{products:[]},ERP:{workspace:'v43'},ProductMedia:{html:p=>'<img src="'+esc(p.images?.[0]?.url||p.imageUrl||'')+'">',optimized:async(file,size)=>({size,type:'image/webp'})},ProductTrace28:{safeImage:v=>v.startsWith('https://')||v.startsWith('/')?v:'',thumb:()=>'<fallback>'},productDetails(){},toast(){},document:{addEventListener(type,handler){(handlers[type]??=[]).push(handler);}},fetch(url,options){const d=deferred();requests.push({url,options,...d});return d.promise;}};
+ const context={esc,structuredClone,AbortController,FormData:class{entries=[];append(...args){this.entries.push(args)}},URL:{createObjectURL(){return 'blob:test-'+(++nextBlob);},revokeObjectURL(url){revoked.push(url);}},state:{products:[]},ERP:{workspace:'v43'},ProductMedia:{html:p=>'<img src="'+esc(p.images?.[0]?.url||p.imageUrl||'')+'">',uploadForm:async file=>({entries:[['file',file],['thumbnail'],['preview']]})},ProductTrace28:{safeImage:v=>v.startsWith('https://')||v.startsWith('/')?v:'',thumb:()=>'<fallback>'},productDetails(){},toast(){},document:{addEventListener(type,handler){(handlers[type]??=[]).push(handler);}},fetch(url,options){const d=deferred();requests.push({url,options,...d});return d.promise;}};
  context.window=context;vm.runInNewContext(mediaSource,context);const catalog=context.Catalog43;
  const change=files=>{const target={id:'catalog43-files',files,value:'selected',closest:()=>form};return handlers.change[0]({target});};
  const click=(attribute,index)=>{const b={dataset:{catalog43Primary:String(index),catalog43Remove:String(index)},closest:()=>form,hasAttribute:k=>k===attribute};handlers.click[0]({target:{closest:()=>b}});};
@@ -136,15 +136,15 @@ test('local multiple thumbnails appear before upload resolves; principals/remova
 });
 
 test('removing pending images and closing during upload never attaches stale images to another form',async()=>{
- const h=mediaHarness();h.catalog.attachForm(h.form,{});const uploading=h.change([file()]);h.click('data-catalog43-remove',0);
+ const h=mediaHarness();h.catalog.attachForm(h.form,{});const uploading=h.change([file()]);await flush();h.click('data-catalog43-remove',0);
  await h.reply(0,'removed');await uploading;assert.equal(h.catalog.images.length,0);assert.equal(h.values.imageUrl.value,'');
- const pending=h.change([file()]);h.catalog.attachForm(h.form,{images:[{id:'keep',source:'V43',url:'/erp/keep.jpg',primary:true}]});
+ const pending=h.change([file()]);await flush();h.catalog.attachForm(h.form,{images:[{id:'keep',source:'V43',url:'/erp/keep.jpg',primary:true}]});
  await h.reply(1,'stale');await pending;assert.equal(h.catalog.images[0].id,'keep');assert.equal(h.catalog.uploading,false);
 });
 
 test('failed/oversized images cannot save and partial uploads remain reviewable',async()=>{
  const h=mediaHarness();h.catalog.attachForm(h.form,{});await h.change([file('large.png',16*1024*1024)]);assert.equal(h.requests.length,0);
  const pending=h.change([file()]);await h.reply(0,'bad',false);await pending;
- assert.match(h.gallery.innerHTML,/No se cargó/);assert.throws(()=>h.catalog.readForm(h.form,{}),/no se cargaron/);
+ assert.match(h.gallery.innerHTML,/No se cargó: Falló carga/);assert.throws(()=>h.catalog.readForm(h.form,{}),/no se cargaron/);
  h.click('data-catalog43-remove',0);const saved={};h.catalog.readForm(h.form,saved);assert.equal(saved.images,undefined);
 });

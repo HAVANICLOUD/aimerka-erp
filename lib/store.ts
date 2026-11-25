@@ -1,3 +1,13 @@
+import {maintainSaleComments} from './sale-aftercare.mjs';
+import {maintainSaleIdentifiers} from './sale-identifiers.mjs';
+import {maintainSalePromotions} from './sale-promotion-maintenance.mjs';
+import liverpoolPromotions from '../data/liverpool-promotions-20261124.json';
+import {maintainOrderReference} from './order-reference-maintenance.mjs';
+import marketplaceOrderReference from '../data/marketplace-order-reference-20261124.json';
+import {maintainOrderGross} from './order-gross-maintenance.mjs';
+import marketplaceGrossEvidence from '../data/marketplace-gross-evidence-20261124.json';
+import {applyMarketplaceOrderEvidence} from './marketplace-order-status.mjs';
+import marketplaceOrderEvidence from '../data/marketplace-order-evidence-20261124.json';
 import {migrateT1Commission14} from './t1-commission-policy.mjs';
 import {correctLiverpoolSmartwatches} from './marketplace-mapping-maintenance.mjs';
 import {migrateBuenFinFamily,backfillCampaignRestorations,restoreExpiredCampaignPrices} from './campaign-lifecycle.mjs';
@@ -54,11 +64,17 @@ export async function readState(id:string,maintain=true){
   }
   if(id==='v43'&&maintain){
     const next=structuredClone(state),now=new Date().toISOString(),actionId='campaign-maintenance-'+crypto.randomUUID();
+    const saleIdentifiers=maintainSaleIdentifiers(next,{now});
+    const salePromotions=maintainSalePromotions(next,liverpoolPromotions,{now,requestId:actionId,actor:'Propietario · cotejo autorizado de promociones'});
+    const orderReference=maintainOrderReference(next,marketplaceOrderReference,{now,requestId:actionId,actor:'Propietario · cotejo autorizado de pedidos y consecutivo SICAR'});
+    const orderGross=maintainOrderGross(next,marketplaceGrossEvidence,{now,requestId:actionId,actor:'Propietario · corrección autorizada'});
+    const orderEvidence=applyMarketplaceOrderEvidence(next,marketplaceOrderEvidence,{now,requestId:actionId,actor:'Sistema · cotejo autorizado por el propietario'});
     const commissionCorrection=migrateT1Commission14(next,{now,requestId:actionId,actor:'Sistema · instrucción del propietario'});
     const mappingCorrection=correctLiverpoolSmartwatches(next,{now,requestId:actionId,actor:'Sistema · revisión del propietario'});
     const linked=migrateBuenFinFamily(next,{now,requestId:actionId}),backfilled=backfillCampaignRestorations(next,now),closed=restoreExpiredCampaignPrices(next,now);
-    if(commissionCorrection||mappingCorrection||linked||backfilled||closed){
-      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed,mappingCorrection,commissionCorrection}};
+    const commentCleanup=maintainSaleComments(next,{now,requestId:actionId,actor:'Sistema · limpieza autorizada de comentarios'});
+    if(commentCleanup||saleIdentifiers||salePromotions||orderReference||orderGross||orderEvidence||commissionCorrection||mappingCorrection||linked||backfilled||closed){
+      const command={id:actionId,type:'pricing.event.maintenance',payload:{linked,backfilled,closed,mappingCorrection,commissionCorrection,orderEvidence,orderGross,orderReference,salePromotions,saleIdentifiers,commentCleanup}};
       const saved=await commitState(id,row.revision,state,next,command,{ok:true},'Sistema',await hashInput(command.payload));
       return saved||readState(id,false);
     }

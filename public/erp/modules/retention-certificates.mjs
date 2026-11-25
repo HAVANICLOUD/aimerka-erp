@@ -58,7 +58,7 @@ export function autoCertificateLink(cert,state){
  const taxOnly=candidates.filter(c=>c.exactTax);if(taxOnly.length===1)return {status:'review',chequeIds:[],basis:'Retención coincidente; revisar neto y ajustes del cheque',candidates};
  return {status:candidates.length?'review':'unmatched',chequeIds:[],basis:candidates.length?'Más de una coincidencia o neto por revisar':'Sin cheque coincidente en la operación',candidates};
 }
-function allocateTax(cert,cheque,state){
+export function allocateTax(cert,cheque,state){
  const groups=new Map();for(const l of cheque.lines.filter(l=>l.orderId&&['LP','NP','NT','LD','ND'].includes(l.code))){const sign=['LD','ND'].includes(l.code)?-1:1,key=l.orderId+'|'+sign;const group=groups.get(key)||{id:l.orderId,sign,lines:[]};group.lines.push(l);groups.set(key,group);}
  const weights=new Map();for(const group of groups.values()){const o=state.orders.find(o=>o.id===group.id),explicit=group.lines.every(l=>Number.isSafeInteger(l.allocationBaseGrossCents)),weight=explicit?group.lines.reduce((s,l)=>s+l.allocationBaseGrossCents,0):group.sign*(o?.totalCents||0);weights.set(group.id,(weights.get(group.id)||0)+weight);}
  const entries=[...weights].map(([id,weight])=>({id,weight}));if(!entries.length||entries.reduce((s,e)=>s+e.weight,0)<=0)return {};

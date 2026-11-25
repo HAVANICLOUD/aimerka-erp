@@ -43,12 +43,12 @@ test('uses real legacy search/date/market filters and real settlement order; res
  assert.equal(JSON.stringify(orders),before);
 });
 
-test('page contains six vector categories, visible provisional note, historical badges and existing actions',async()=>{
+test('page contains six operational categories and actions without documentary consultation clutter',async()=>{
  const {context:c,events}=await harness([order('U1','historical',{number:'123',stockMode:'historical'}),order('U2','reserved',{number:''})]);
  const html=c.renderers.orders();assert.match(html,/data-ow-category="shipped"/);assert.match(html,/Devoluciones y reembolsos/);
- assert.doesNotMatch(html,/Histórico V28/);assert.match(html,/Histórico · sin consulta en vivo/);assert.match(html,/estados actuales de VentiApp no se han podido verificar/);
- assert.match(html,/Pedido 123/);assert.match(html,/Pedido sin número registrado/);assert.match(html,/Pago conciliado con banco/);assert.match(html,/data-existing-create/);assert.match(html,/data-v28="orders-export"/);
- c.c28.orderPage=2;events.click({target:{closest:()=>({dataset:{owCategory:'reserved'}})}});assert.equal(c.statusFilter,'reserved');assert.equal(c.c28.orderPage,1);
+ assert.doesNotMatch(html,/Histórico V28/);assert.doesNotMatch(html,/Histórico · sin consulta en vivo|cotejo documental de T1, Liverpool y Coppel|Cotejado/);
+ assert.match(html,/aria-label="Ver venta 123"/);assert.doesNotMatch(html,/>Pedido 123</);assert.match(html,/>Sin número</);assert.match(html,/Pago conciliado con banco/);assert.match(html,/data-existing-create/);assert.match(html,/data-v28="orders-export"/);
+ c.c28.orderPage=2;events.click({target:{closest:selector=>selector==='[data-ow-category]'?{dataset:{owCategory:'reserved'}}:null}});assert.equal(c.statusFilter,'reserved');assert.equal(c.c28.orderPage,1);
  assert.equal(c.filteredOrders().length,1);
 });
 
@@ -85,3 +85,5 @@ test('install is idempotent, safe before ERP readiness and retains category on d
  c.ERP.ready=false;assert.deepEqual(Array.from(c.issues()),[]);
  c.statusFilter='reserved';c.orderQuery=null;assert.throws(()=>c.filteredOrders());assert.equal(c.statusFilter,'reserved');
 });
+
+test('sale detail shows promotion once and only meaningful differences, not verification cards',async()=>{const o=order('1','delivered',{market:'Liverpool',marketplace34:{promotion:{description:'Primer día',amountCents:100,grossCents:1000,customerAmountCents:900,funding:'marketplace'}}});const {api}=await harness([o]);const html=api.nativeDetail(o);assert.match(html,/Promociones registradas/);assert.match(html,/Primer día/);assert.doesNotMatch(html,/Cotejo|Venta bruta verificada|Estado cotejado|Consulta documental/);});

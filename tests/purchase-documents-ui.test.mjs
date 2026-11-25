@@ -10,7 +10,7 @@ import {generateProductSku} from '../lib/inventory-v28.mjs';
 const source=fs.readFileSync(new URL('../public/erp/purchase-documents-ui.js',import.meta.url),'utf8')
   .replace(/const parser=\(\)=>parserPromise\?\?=import\([^;]+;/,'const parser=async()=>(parserModule=parserEngine);')
   .replace(/const validator=\(\)=>validationPromise\?\?=import\([^;]+;/,'const validator=()=>{validationEngine=validationModule;return Promise.resolve(validationModule);};')
-   .replace('window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder,addFiles}};');
+   .replace('window.PurchaseDocs28={open,section,docUrl,close,productCosts:sku=>validationEngine?.productInvoiceCosts(state,sku)};','window.PurchaseDocs28={open,section,docUrl,close,__test:{getDraft:()=>draft,capture,recompute,refreshValidation,validationFor,setDocumentReference,save,blockers,refreshDerivedOrder,addFiles,goStep,pickerRows,selectProduct}};');
 const product={sku:'DYSV12M03L',upc:'885609037998',name:'Dyson V12',brand:'Dyson',supplierCodes:[{supplier:'Costco',item:'701577'}]};
 const line={sku:product.sku,name:product.name,supplierItem:'701577',qty:2,unitCostCents:null,totalCents:null,documentIds:[]};
 const order=(id='order')=>({id,name:'orden.pdf',parsed:{kind:'order',supplier:'Costco',supplierOrder:'599633002',currency:'MXN',date:'2026-10-19',totalCents:null,lines:[{supplierItem:'701577',name:'Dyson V12',qty:2}]}});
@@ -70,7 +70,7 @@ test('attaching an order to a pre-existing purchase retains the original PDF ord
   const draft=ui.helpers.getDraft();draft.documents.push(order());
   await ui.helpers.recompute(draft);
   assert.equal(draft.purchase.supplierOrder,'599633002');assert.equal(draft.lines[0].qty,2);assert.equal(draft.lines[0].receivedQty,1);
-  assert.equal(draft.validation.valid,true);assert.match(ui.html,/Número de orden en este documento/);assert.match(ui.html,/599633002/);
+  assert.equal(draft.validation.valid,true);assert.match(ui.html,/Referencia en este documento · orden o ticket/);assert.match(ui.html,/599633002/);
   assert.equal(purchase.supplierOrder,'');
 });
 
@@ -266,4 +266,15 @@ test('Subir facturación still rejects an OCR order and keeps the saved purchase
   await ui.helpers.addFiles([new File(['Orden de compra\nNúmero de orden: 599633002\nDescripción | Cantidad\nDyson V12 | 2'],'orden.pdf',{type:'application/pdf'})]);
   assert.equal(ui.helpers.getDraft().documents.length,0);assert.equal(JSON.stringify(ui.helpers.getDraft().lines),before);
   assert.match(ui.toasts.at(-1).message,/No se reconoció una factura/);assert.equal(ui.uploads,0);
+});
+
+
+test('wizard navigation keeps the draft, references and line quantities intact between all four stages',async()=>{
+ const ui=setup();await ui.api.open({mode:'order'});const d=ui.helpers.getDraft();assert.equal(d.step,1);ui.helpers.goStep(d,2);assert.equal(d.step,1);
+ d.documents.push(order());await ui.helpers.recompute(d);const original=structuredClone(d.lines);ui.helpers.goStep(d,2);assert.equal(d.step,2);ui.helpers.goStep(d,3);assert.equal(d.step,3);ui.helpers.goStep(d,4);assert.equal(d.step,4);ui.helpers.goStep(d,2);assert.equal(JSON.stringify(d.lines),JSON.stringify(original));assert.equal(d.purchase.supplierOrder,'599633002');assert.equal(ui.commands,0);assert.equal(ui.uploads,0);
+ assert.match(ui.html,/data-doc-stage="1" hidden/);assert.match(ui.html,/data-doc-stage="2" >/);assert.match(ui.html,/data-doc-next/);assert.match(ui.html,/data-doc-previous/);
+});
+test('inventory picker includes zero-stock products, paginates beyond the first 24 and changes only the chosen draft line',async()=>{
+ const products=Array.from({length:55},(_,i)=>({...product,sku:'SKU'+i,upc:String(100000000000+i),good:0,name:'Producto '+i}));const ui=setup({products,purchases:[],documents:[],catalogs:{suppliers:['Costco']}});await ui.api.open();const d=ui.helpers.getDraft();d.lines=[{...structuredClone(line),sku:''},{...structuredClone(line),sku:'SKU1'}];d.pickerLine=0;d.pickerQuery='';d.pickerPage=3;
+ assert.match(ui.helpers.pickerRows(d),/55 productos/);assert.match(ui.helpers.pickerRows(d),/SKU54/);ui.helpers.selectProduct(d,'SKU54');assert.equal(d.lines[0].sku,'SKU54');assert.equal(d.lines[1].sku,'SKU1');assert.equal(ui.state.products[54].good,0);assert.equal(ui.commands,0);
 });

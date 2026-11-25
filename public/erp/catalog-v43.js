@@ -8,7 +8,7 @@ window.Catalog43={images:[],uploading:false,blobs:[],form:null,session:0,
  revoke(url){if(!url)return;URL.revokeObjectURL(url);this.blobs=this.blobs.filter(item=>item!==url);},
  renderGallery(){
   const el=this.form?.querySelector('#catalog43-gallery');if(!el)return;
-  el.innerHTML=this.images.map((i,n)=>`<div class="catalog43-photo">${i.preview?`<img src="${esc(i.preview)}" alt="Imagen ${n+1} del producto">`:window.ProductMedia.html({name:this.form.elements.namedItem('name')?.value,images:[i]},{className:'catalog43-image'})}<small>${i.primary?'✓ Principal':'Imagen '+(n+1)}${i.pending?' · Cargando…':i.error?' · No se cargó':''}</small><button class="btn small" type="button" data-catalog43-primary="${n}" aria-pressed="${i.primary===true}">Principal</button><button class="btn small" type="button" data-catalog43-remove="${n}" aria-label="Quitar imagen ${n+1}">Quitar</button></div>`).join('');
+  el.innerHTML=this.images.map((i,n)=>`<div class="catalog43-photo">${i.preview?`<img src="${esc(i.preview)}" alt="Imagen ${n+1} del producto">`:window.ProductMedia.html({name:this.form.elements.namedItem('name')?.value,images:[i]},{className:'catalog43-image'})}<small>${i.primary?'✓ Principal':'Imagen '+(n+1)}${i.pending?' · Cargando…':i.error?' · No se cargó: '+esc(i.error):''}</small><button class="btn small" type="button" data-catalog43-primary="${n}" aria-pressed="${i.primary===true}">Principal</button><button class="btn small" type="button" data-catalog43-remove="${n}" aria-label="Quitar imagen ${n+1}">Quitar</button></div>`).join('');
   const url=this.form.elements.namedItem('imageUrl')?.value.trim(),source=this.images.find(i=>i.primary)||this.images[0];
   const safeUrl=window.ProductTrace28.safeImage(url);
   if(!this.images.length)el.innerHTML=safeUrl?`<div class="catalog43-photo">${window.ProductMedia.html({imageUrl:safeUrl,name:this.form.elements.namedItem('name')?.value},{className:'catalog43-image'})}<small>Principal · URL existente</small><button type="button" class="btn small" data-catalog43-remove-url>Quitar</button></div>`:'<p class="tiny">Selecciona una o varias fotografías. Podrás elegir la principal antes de guardar.</p>';
@@ -62,9 +62,12 @@ document.addEventListener('change',async e=>{
   let failures=0;
   for(const [n,file] of files.entries()){
    const image=added[n];if(!Catalog43.images.includes(image))continue;
-   progress.textContent='Guardando fotografía: '+file.name;
    try{
-    const data=new FormData();data.append('file',file);progress.textContent='Preparando versiones optimizadas: '+file.name;data.append('thumbnail',await window.ProductMedia.optimized(file,256),'thumbnail.webp');data.append('preview',await window.ProductMedia.optimized(file,1280),'preview.webp');
+    progress.textContent='Preparando fotografía: '+file.name;
+    const data=await window.ProductMedia.uploadForm(file);
+    if(!active())return;
+    if(!Catalog43.images.includes(image))continue;
+    progress.textContent='Guardando fotografía: '+file.name;
     const response=await fetch('/api/documents?workspace='+encodeURIComponent(workspace)+'&purpose=image',{method:'POST',body:data,signal:Catalog43.controller.signal}),result=await response.json();
     if(!active())return;
     if(!response.ok)throw new Error(result.error||'No se pudo cargar la fotografía.');

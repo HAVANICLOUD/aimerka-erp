@@ -3,7 +3,40 @@ const id='a'.repeat(64);
 test('thumbnail membership includes only actual product images, not PDFs or unrelated document identifiers',()=>{const index=productImageIndex([{images:[{id,mime:'image/jpeg'},{id:'b'.repeat(64),mime:'application/pdf'},{id:'../../file',mime:'image/png'}]}]);assert.deepEqual([...index.keys()],[id]);assert.ok(thumbnailKey('v43',id).startsWith('v43/thumbnails/'));assert.throws(()=>thumbnailKey('v43','../'))});
 test('private image caching revalidates originals while thumbnails can be reused by the same browser',()=>{const object={size:100,httpEtag:'"hash"',httpMetadata:{contentType:'image/jpeg'}};assert.equal(imageResponseHeaders(object).ETag,'"hash"');assert.match(imageResponseHeaders(object)['Cache-Control'],/private, no-cache/);assert.match(imageResponseHeaders(object,{thumbnail:true})['Cache-Control'],/private, max-age=3600/);assert.equal(imageResponseHeaders(object,{thumbnail:true})['Content-Type'],'image/webp');});
 test('thumbnail validation reads real generated WebP files and rejects wrong formats, oversized dimensions and payloads',()=>{const file=fs.readdirSync('public/erp/catalog-thumbs')[0],bytes=new Uint8Array(fs.readFileSync('public/erp/catalog-thumbs/'+file)),dimensions=validateThumbnail(bytes);assert.ok(dimensions.width<=256&&dimensions.height<=256);assert.throws(()=>validateThumbnail(new Uint8Array(100)),/WebP/);const fake=new Uint8Array(40);fake.set(Buffer.from('RIFF'),0);fake.set(Buffer.from('WEBPVP8X'),8);fake[24]=255;fake[25]=1;assert.throws(()=>validateThumbnail(fake),/256/);assert.throws(()=>validateThumbnail(new Uint8Array(300000)),/WebP/);});
-function browser(){const handlers={};const context={window:{ERP:{workspace:'v43',access:{owner:true}}},document:{addEventListener:(name,fn)=>handlers[name]=fn},location:{origin:'https://erp.test'},URL,setTimeout,clearTimeout,console};vm.createContext(context);vm.runInContext(fs.readFileSync('public/erp/product-media.js','utf8'),context);return {media:context.window.ProductMedia,handlers};}
+function browser({encodedType = 'image/webp', decodeError} = {}) {
+ const handlers = {};
+ const context = {
+  window: {ERP: {workspace: 'v43', access: {owner: true}}},
+  document: {
+   addEventListener: (name, fn) => handlers[name] = fn,
+   createElement: () => ({
+    getContext: () => ({drawImage() {}}),
+    toBlob: callback => callback(new Blob(['variant'], {type: encodedType}))
+   })
+  },
+  createImageBitmap: async () => {
+   if (decodeError) throw decodeError;
+   return {width: 940, height: 1215, close() {}};
+  },
+  FormData, location: {origin: 'https://erp.test'}, URL, setTimeout, clearTimeout, console
+ };
+ vm.createContext(context);
+ vm.runInContext(fs.readFileSync('public/erp/product-media.js', 'utf8'), context);
+ return {media: context.window.ProductMedia, handlers};
+}
+test('photo uploads retain the original when the browser encodes PNG instead of WebP', async () => {
+ const original = new File(['original'], 'producto.jpg', {type: 'image/jpeg'});
+ const {media} = browser({encodedType: 'image/png'});
+ const form = await media.uploadForm(original);
+ assert.deepEqual([...form.keys()], ['file']);
+ assert.equal(form.get('file'), original);
+ await assert.rejects(media.optimized(original), /no permite generar WebP/);
+ const normalForm = await browser().media.uploadForm(original);
+ assert.deepEqual([...normalForm.keys()], ['file', 'thumbnail', 'preview']);
+ assert.equal(normalForm.get('preview').type, 'image/webp');
+ const decodeError = Error('Fotografía ilegible');
+ await assert.rejects(browser({decodeError}).media.uploadForm(original), decodeError);
+});
 test('small images and ficha previews use separate WebP derivatives and retain original fallbacks',()=>{const {media}=browser(),path='/erp/catalog-v43/'+id+'.jpg',p={name:'Producto',imageUrl:'/erp/other.jpg',images:[{primary:true,url:path}]};assert.equal(media.smaller(path),'/erp/catalog-thumbs/'+id+'.webp');assert.match(media.html(p),/catalog-thumbs/);assert.match(media.html(p,{large:true}),/src="\/erp\/catalog-previews/);assert.match(media.html(p,{large:true}),/catalog-v43/);assert.match(media.smaller('/api/documents/'+id+'?workspace=v43'),/api\/product-images/);assert.equal(media.smaller(undefined),'');assert.equal(media.smaller('javascript:alert(1)'),'');assert.doesNotMatch(media.html({name:'Sin foto'}),/<img/);});
 test('a failed thumbnail tries its original instead of leaving a broken image',()=>{const {handlers}=browser();let stopped=false;const root={classList:{add(){}}},img={dataset:{imageCandidates:JSON.stringify(['tiny.webp','original.jpg']),imageAttempt:'0'},matches:()=>true,closest:()=>root};handlers.error({target:img,stopImmediatePropagation:()=>stopped=true});assert.equal(img.src,'original.jpg');assert.equal(stopped,true);});
 test('preview storage and validation are independent from thumbnails and originals',()=>{const file=fs.readdirSync('public/erp/catalog-previews')[0],bytes=new Uint8Array(fs.readFileSync('public/erp/catalog-previews/'+file));assert.equal(thumbnailKey('v43',id,'preview'),'v43/thumbnails/'+id+'/v1-1280.webp');assert.notEqual(thumbnailKey('v43',id,'preview'),thumbnailKey('v43',id));assert.ok(validateThumbnail(bytes,'preview').width<=1280);assert.throws(()=>thumbnailKey('v43',id,'original'));assert.throws(()=>validateThumbnail(bytes,'original'));});

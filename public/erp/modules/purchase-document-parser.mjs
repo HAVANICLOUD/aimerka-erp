@@ -1,4 +1,5 @@
-import {readInvoiceFiscal} from './invoice-fiscal-reader.mjs?v=20261105-fiscal';
+import {recognitionProfile,readSupplierTicket,PURCHASE_RECOGNITION_VERSION} from './purchase-recognition-profiles.mjs?v=20261124-retail';
+import {readInvoiceFiscal} from './invoice-fiscal-reader.mjs?v=20261124-retail';
 /**
  * Purchase document interpretation, independent of PDF/OCR transport and state.
  * All extracted money is in integer centavos; absent values remain null.
@@ -335,7 +336,7 @@ function readFulfillmentTable(source,warnings){
  * Supports the Costco order/CFDI layouts and conservative delimited tables.
  * It does not perform OCR, guarantee recognition, or confirm fiscal validity.
  */
-export function parsePurchaseDocument(text,{fileName='',kind}={}) {
+export function parsePurchaseDocument(text,{fileName='',kind,recognitionConfig={}}={}) {
   if (typeof text!=='string') throw new TypeError('El texto del documento debe ser una cadena.');
   if (text.length>2_000_000) throw new Error('El documento excede el límite de texto para revisión de compras.');
   const source=text.normalize('NFC').replace(/\r\n?/g,'\n').replace(/[\u00a0\u202f]/g,' ')
@@ -358,6 +359,9 @@ export function parsePurchaseDocument(text,{fileName='',kind}={}) {
     const supplier=source.match(/(?:^|\n)\s*(?:Proveedor|Supplier|Emisor)\s*:\s*([^\n|]{2,180})/i);
     if (supplier) record('supplier',supplier[1].trim(),supplier[0]);
   }
+  const recognition=recognitionProfile(result.supplier||'',recognitionConfig),ticket=readSupplierTicket(source,recognition);
+  result.recognitionProfile={id:recognition.id||null,version:recognition.version||PURCHASE_RECOGNITION_VERSION,supplier:result.supplier};
+  if(ticket.value)record('ticketNumber',ticket.value,ticket.evidence);
   const orderReference=readSupplierOrder(source);
   result.supplierOrderCandidates=orderReference.candidates;result.supplierOrderConflict=orderReference.conflict;
   result.supplierOrderNeedsReview=!orderReference.value;
@@ -365,6 +369,7 @@ export function parsePurchaseDocument(text,{fileName='',kind}={}) {
   if(orderReference.value){record('supplierOrder',orderReference.value,orderReference.evidence);result.supplierOrderSource=orderReference.source;}
   else if(orderReference.conflict)warnings.push('El documento muestra números de orden contradictorios: '+orderReference.candidates.join(', ')+'. Revisa la referencia antes de vincularlo.');
   else if(orderReference.ambiguous)warnings.push('Las columnas del documento contienen varios números posibles de orden: '+orderReference.candidates.join(', ')+'. Confirma la referencia; no se eligió el primer número.');
+  else if(ticket.value&&!orderReference.ambiguous){record('supplierOrder',ticket.value,ticket.evidence);result.supplierReferenceType='ticket';result.supplierOrderSource='ticket-label';result.supplierOrderNeedsReview=false;result.supplierOrderCandidates=[ticket.value];}
   else warnings.push('No se reconoció el número de orden del proveedor. Confirma la referencia antes de vincular el documento a una compra.');
   if(orderReference.rejected.some(candidate=>candidate.reason==='date_time_context'))warnings.push('Se descartó un número junto a la fecha de compra porque puede ser la hora sin separadores. Revisa la referencia detectada en el documento.');
   const currency=flat.match(/\b(?:Moneda|Currency|Importes en|Precios en)\s*:?\s*(MXN|USD|CAD|EUR)\b/i);
@@ -400,6 +405,7 @@ export function parsePurchaseDocument(text,{fileName='',kind}={}) {
     if (dated?.value) record('date',dated.value,dated.evidence);
     const orderDate=flat.match(/\bOrden\s*:.{0,150}?\bFecha\s*:\s*(\d{1,2}\/\d{1,2}\/20\d{2})/i);
     if (orderDate) record('orderDate',dateIn(orderDate[1])?.value,orderDate[0]);
+    const transaction=flat.match(/Fecha\s+de\s+la\s+transacci[oó]n\s*:\s*(\d{1,2}\/\d{1,2}\/20\d{2})/i);if(transaction&&result.supplierReferenceType==='ticket')record('orderDate',dateIn(transaction[1])?.value,transaction[0]);
     const method=flat.match(/M[eé]todo de Pago\s*:\s*(PUE|PPD)\b/i);
     if (method) {
       record('paymentMethod',method[1].toUpperCase(),method[0]);
@@ -672,6 +678,7 @@ export function combinePurchaseDocuments(documents=[]) {
     money(order?.parsed[field]) ? order.parsed[field] : complete && !blockingWarnings.length ? invoiceTotals[field] : null]));
   return {supplier:reference?.parsed.supplier || docs.find(doc=>doc.parsed.supplier)?.parsed.supplier || null,
     supplierOrder:normalizeSupplierOrder(reference?.parsed.supplierOrder) || (refs.length===1 ? refs[0] : null),date:order?.parsed.date || invoices.find(doc=>doc.parsed.orderDate)?.parsed.orderDate || reference?.parsed.date || null,
+    supplierReferenceType:reference?.parsed.supplierReferenceType||'order',ticketNumber:reference?.parsed.ticketNumber||null,
     currency:currencies.length===1 ? currencies[0] : null,lines,...totals,invoiceTotals,
     invoiceNumbers:unique(invoices.map(doc=>doc.parsed.invoiceNumber)),documentIds:docs.map(doc=>doc.id),
     invoiceDocumentIds:invoices.map(doc=>doc.id),orderDocumentIds:orders.map(doc=>doc.id),duplicates,unmatchedInvoiceLines,

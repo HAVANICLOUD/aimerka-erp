@@ -82,11 +82,10 @@ test('UI summary identifies every folio/reference and removes only the wrong dra
  const ui=setup(),before=structuredClone(ui.state);await ui.api.open({purchaseId:purchase.id,mode:'invoice'});
  const d=ui.api.__test.draft();d.documents.push(invoice('correct'),invoice('alien',foreignRef));await ui.api.__test.recompute(d);
  assert.equal(d.purchase.supplierOrder,ref);assert.equal(d.validation.valid,false);assert.equal(d.validation.summary.invoicedQty,2);
- const summary=ui.html.match(/<ul class="doc-batch-summary">(.*?)<\/ul>/s)[1];
- assert.match(summary,/Fact|Folio/);assert.match(summary,/Orden esperada: 599633002/);assert.match(summary,/Orden del archivo: 599633999/);assert.match(summary,/BMG-alien/);
- assert.match(ui.html,/Facturas coincidentes: 2 · Excluidas del cálculo: 1/);
- for(const id of ['stored','correct'])assert.match(summary.match(new RegExp('<li data-doc-summary="'+id+'">(.*?)</li>','s'))[1],/Orden coincidente/);
- assert.doesNotMatch(summary,/data-doc-remove="stored"/);assert.match(summary,/data-doc-remove="alien"/);
+ for(const id of ['stored','correct','alien'])assert.match(ui.html,new RegExp('data-doc-summary="'+id+'"'));
+ assert.match(ui.html,/BMG-alien/);assert.match(ui.html,/599633999/);assert.match(ui.html,/599633002/);
+ assert.match(ui.html,/2 facturas coincidentes/);assert.match(ui.html,/1 documento excluido/);
+ assert.doesNotMatch(ui.html,/data-doc-remove="stored"/);assert.match(ui.html,/data-doc-remove="alien"/);
  assert.match(ui.html,/docs-save[^>]*disabled/);
  const button={dataset:{docRemove:'alien'},hasAttribute:name=>name==='data-doc-remove'};
  for(const handler of ui.events.get('click'))await handler({target:{closest:()=>button}});

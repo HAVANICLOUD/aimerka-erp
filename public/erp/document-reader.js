@@ -98,8 +98,9 @@
   }
 
   /** Preserve the row boundaries supplied by PDF.js instead of flattening them. */
-  function extractPDFText(content, layout = false) {
-    const items = Array.isArray(content) ? content : content?.items || [];
+  function extractPDFText(content, layout = false, viewportTransform = null) {
+    let items = Array.isArray(content) ? content : content?.items || [];
+    if(layout&&Array.isArray(viewportTransform)&&viewportTransform.length===6){const [a,b,c,d,e,f]=viewportTransform;items=items.map(item=>{if(!item.transform)return item;const t=[...item.transform],x=t[4],y=t[5];t[4]=a*x+c*y+e;t[5]=-(b*x+d*y+f);return {...item,transform:t};});}
     if(layout && items.some(item=>item.transform)){
       const rows=[];
       for(const item of items.filter(item=>typeof item?.str==='string'&&item.transform).sort((a,b)=>b.transform[5]-a.transform[5]||a.transform[4]-b.transform[4])){
@@ -114,7 +115,7 @@
   }
 
   async function readPDFText(page, layout = false) {
-    if (typeof page.streamTextContent !== 'function') return extractPDFText(await page.getTextContent(),layout);
+    if (typeof page.streamTextContent !== 'function') return extractPDFText(await page.getTextContent(),layout,page.getViewport?.({scale:1})?.transform);
     const reader = page.streamTextContent().getReader();
     const items = [];
     try {
@@ -123,7 +124,7 @@
         if (chunk.done) break;
         if (Array.isArray(chunk.value?.items)) items.push(...chunk.value.items);
       }
-      return extractPDFText(items,layout);
+      return extractPDFText(items,layout,page.getViewport?.({scale:1})?.transform);
     } catch (error) {
       try { Promise.resolve(reader.cancel(error)).catch(() => {}); } catch (_) {}
       throw error;

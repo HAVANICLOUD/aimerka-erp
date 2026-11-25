@@ -1,3 +1,6 @@
+import {physicalCostUnits,valuePurchaseReceipt,consumeReceiptValuation} from './purchase-average-cost.mjs?v=20261124-cost';
+import {assignSaleIdentifiers} from './sale-identifiers.mjs?v=20261124-sale-editor';
+import {salePromotion} from './sale-promotion.mjs?v=20261124-promotions';
 import {isProductImageMime} from './product-image-formats.mjs';
 import {validateClassification,validateMarketCategories} from './product-taxonomy.mjs?v=20261115-simple-mapping';
 import {assertSupplierCodes,syncSupplierCodes} from './purchase-catalogs.mjs?v=20261105-fiscal';
@@ -111,6 +114,12 @@ function move(state,product,pool,delta,reference,ctx,trace={}){const before=Numb
 function recon(){return {conditions:{publication:'CLASICA',msi:'Sin MSI',shippingCents:null},estimate:null,depositCents:null,depositDate:null,status:'Sin revisar',notes:'',selected:false,draft:null,history:[]};}
 function newId(state,prefix,collection){let n=Number(state.nextOrder||1);while(collection.some(x=>x.id===prefix+String(n).padStart(6,'0')))n++;state.nextOrder=n+1;return prefix+String(n).padStart(6,'0');}
 export function applyInventory(state,action,context={}){
+ const before=new Map((state.products||[]).map(p=>[p.sku,physicalCostUnits(p)]));
+ const result=applyInventoryInternal(state,action,context);
+ for(const product of state.products||[]){const prior=before.get(product.sku);if(prior!=null)consumeReceiptValuation(state,product.sku,prior,physicalCostUnits(product));}
+ return result;
+}
+function applyInventoryInternal(state,action,context={}){
  const payload=action.payload||{},ctx={now:new Date().toISOString(),...context,type:action.type,requestId:action.id||context.requestId};
  const dateParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ctx.now));
  const today=['year','month','day'].map(type=>dateParts.find(part=>part.type===type).value).join('-');
@@ -124,8 +133,11 @@ export function applyInventory(state,action,context={}){
    const date=text(payload.documentDate||today,10),parsedDate=new Date(date+'T12:00:00.000Z');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==date||date>today)fail('La fecha de venta debe ser válida y no futura.');
    const input=payload.items||[],seen=new Set();if(!input.length)fail('Agrega al menos una partida.');
    const items=input.map((line,i)=>{const p=findProduct(state,line.sku||line.upc),qty=quantity(line.qty),price=amount(line.unitPriceCents,'Precio unitario');if(seen.has(p.sku))fail('Agrupa las unidades del mismo producto en una sola partida.');seen.add(p.sku);if(qty>available(p))fail(p.name+': solo hay '+available(p)+' unidades disponibles.');return {id:'',sku:p.sku,upc:p.upc,name:p.name,qty,unitPriceCents:price,totalCents:qty*price,costCents:p.costCents,returnedQty:0,restockedQty:0,rejectedQty:0};});
+   const promotion=salePromotion(payload.promotion,items.reduce((sum,line)=>sum+line.totalCents,0));
    const shipping=amount(payload.shippingChargedCents||0,'Envío cobrado'),id=newId(state,'AIM-',state.orders);
    const o={id,number,literalNumber:number,market,account,sicar,ventiId:'',sicarUuid:'',date:date+'T12:00:00',documentDate:date,creationDate:ctx.now,totalCents:items.reduce((s,l)=>s+l.totalCents,shipping),shippingChargedCents:shipping,items:items.map((l,i)=>({...l,id:id+'-'+(i+1)})),sku:items[0].sku,qty:items.reduce((s,l)=>s+l.qty,0),unitPriceCents:items[0].unitPriceCents,status:'reserved',commercialStatus:'Activa',paymentStatus:payload.paymentStatus==='paid'?'paid':'unknown',returnStatus:'none',stockMode:'operational',source:'AIMERKA',comments:text(payload.comments,4000),priority:payload.priority==='Importante'?'Importante':'Normal',followupStatus:payload.followupStatus==='Pendiente'?'Pendiente':'Sin pendiente',history:[],incident:'',commissionBps:0,msiBps:0,shippingCents:0,withholdingCents:0,paidCents:null,reconciliation:recon(),partsStatus:'Capturadas en AIMERKA'};
+   if(promotion)o.marketplace34={promotion};
+   assignSaleIdentifiers(o);
    for(const item of o.items)move(state,findProduct(state,item.sku),'reserved',item.qty,id,ctx);
    state.orders.unshift(o);return log(state,o,'Venta registrada y existencias reservadas; conserva el pedido original.',ctx);
  }
@@ -144,9 +156,9 @@ export function applyInventory(state,action,context={}){
    const resolved=requested.map(input=>{const line=purchase.items.find(l=>l.id===input.lineId);if(!line)fail('Partida de compra no encontrada.');if(seen.has(line.id))fail('Partida de recepción repetida.');seen.add(line.id);const qty=quantity(input.qty),p=findProduct(state,input.sku||line.sku||line.skuOrUpc);if(qty>line.qty-(line.receivedQty||0))fail('La recepción supera las unidades pendientes.');if(line.receivedQty>0&&line.sku!==p.sku)fail('Esta partida ya tiene recepciones para otro SKU. Conserva el producto asignado.');if(input.upc)verifyUpcAssignment(state,p,input.upc,upcs);return {line,p,qty,documents:documentIds(line.documentIds)};});
    // Validate the entire batch before assigning any barcode or stock movement.
    for(const [sku,upc] of upcs){const p=state.products.find(p=>p.sku===sku);p.upc=upc;p.barcodeStatus='Registrado';p.updatedAt=ctx.now;}
-   for(const {line,p,qty,documents} of resolved){move(state,p,'good',qty,purchase.id,ctx,{purchaseId:purchase.id,lineId:line.id,receiptId,documentIds:documents});line.receivedQty=(line.receivedQty||0)+qty;line.sku=p.sku;line.upc=p.upc||'';p.stockStatus='Verificado en AIMERKA';p.updatedAt=ctx.now;}
+   for(const row of resolved){const {line,p,qty,documents}=row;row.costValuation=valuePurchaseReceipt(state,p,{qty,unitCostCents:line.unitCostCents,purchaseId:purchase.id,lineId:line.id,receiptId},ctx);move(state,p,'good',qty,purchase.id,ctx,{purchaseId:purchase.id,lineId:line.id,receiptId,documentIds:documents});line.receivedQty=(line.receivedQty||0)+qty;line.sku=p.sku;line.upc=p.upc||'';p.stockStatus='Verificado en AIMERKA';p.updatedAt=ctx.now;}
    purchase.receiptMode='physical';purchase.receiptStatus=purchase.items.every(l=>(l.receivedQty||0)>=l.qty)?'Recibida completa':'Recibida parcialmente';purchase.updatedAt=ctx.now;
-   const receipts=state.purchaseReceipts??=[],receipt={id:receiptId,purchaseId:purchase.id,number:'REC-'+String(receipts.length+1).padStart(6,'0'),date:ctx.now,actor:ctx.actor||'Operador',reason:text(payload.reason,2000),items:resolved.map(({line,p,qty,documents})=>({lineId:line.id,sku:p.sku,upc:p.upc||'',name:p.name,qty,unitCostCents:line.unitCostCents??null,documentIds:documents})),receiptStatus:purchase.receiptStatus,source:'AIMERKA'};receipts.unshift(receipt);
+   const receipts=state.purchaseReceipts??=[],receipt={id:receiptId,purchaseId:purchase.id,number:'REC-'+String(receipts.length+1).padStart(6,'0'),date:ctx.now,actor:ctx.actor||'Operador',reason:text(payload.reason,2000),items:resolved.map(({line,p,qty,documents,costValuation})=>({costValuation,lineId:line.id,sku:p.sku,upc:p.upc||'',name:p.name,qty,unitCostCents:line.unitCostCents??null,documentIds:documents})),receiptStatus:purchase.receiptStatus,source:'AIMERKA'};receipts.unshift(receipt);
    return {...log(state,null,'Recepción física registrada para '+(purchase.number||purchase.id)+'. '+purchase.receiptStatus+'.',ctx),id:purchase.id,receiptId,receiptStatus:purchase.receiptStatus,receivedUnits:resolved.reduce((sum,row)=>sum+row.qty,0)};
  }
  if(action.type==='product.assignUpc'){
@@ -237,7 +249,7 @@ export function applyInventory(state,action,context={}){
  case 'sale.refund':{
    if(!reason)fail('Escribe el motivo del reembolso.');const refunded=amount(payload.amountCents??orderTotal(order),'Reembolso');if(refunded<=0||refunded>orderTotal(order))fail('El reembolso debe ser positivo y no superar la venta.');
    if(order.refundCents===refunded&&order.paymentStatus==='refunded')fail('Ese reembolso ya está registrado.');
-   order.refundCents=refunded;order.paymentStatus=refunded===orderTotal(order)?'refunded':'partially_refunded';order.refundedAt=ctx.now;order.followupStatus='Pendiente';return log(state,order,'Reembolso registrado por '+(refunded/100).toFixed(2)+' MXN, sin entrada al inventario. '+reason,ctx);
+   order.refundReason=reason;order.refundCents=refunded;order.paymentStatus=refunded===orderTotal(order)?'refunded':'partially_refunded';order.refundedAt=ctx.now;order.followupStatus='Pendiente';return log(state,order,'Reembolso registrado por '+(refunded/100).toFixed(2)+' MXN, sin entrada al inventario. '+reason,ctx);
  }
  case 'sale.return_request':
    if(order.status==='reserved')fail('Cancela la reserva de un pedido que todavía no fue enviado.');if(['inspection','restocked','rejected'].includes(order.returnStatus))fail('La devolución ya tiene recepción o resolución.');order.returnStatus='requested';order.followupStatus='Pendiente';order.priority='Importante';order.incident=reason||'Devolución en camino.';return log(state,order,'Devolución solicitada. '+reason,ctx);
