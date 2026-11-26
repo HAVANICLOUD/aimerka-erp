@@ -44,7 +44,7 @@ export async function POST(request:Request){
       verifiedImages=[];for(let i=0;i<unique.length;i+=12)verifiedImages.push(...await verifyDocuments(id,unique.slice(i,i+12)));
       if(verifiedImages.some((image:any)=>!isProductImageMime(image.mime)))throw new Error('La galería admite JPG, PNG, WebP, GIF y AVIF.');
     }
-    if(command.type==='product.image.replace'){
+    if(command.type==='product.image.replace'||command.type==='product.imageBank.upload'){
       verifiedImages=await verifyDocuments(id,[command.payload?.image]);
       if(verifiedImages.some((image:any)=>!isProductImageMime(image.mime)))throw Error('Selecciona una fotografía válida.');
     }

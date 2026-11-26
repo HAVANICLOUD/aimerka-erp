@@ -1,3 +1,4 @@
+import * as imageBanks from './modules/product-image-banks.mjs?v=20261125-channel';
 import * as fiscalCatalog from './modules/sat-fiscal-catalog.mjs?v=20261125-wizard';
 import * as saleAftercare from './modules/sale-aftercare.mjs?v=20261124-aftercare';
 import * as saleRecord from './modules/sale-record.mjs?v=20261124-aftercare';
@@ -24,7 +25,7 @@ import * as settlements from './modules/settlement-documents.mjs?v=20261120-t1-c
 import * as operations from './modules/operations-v28.mjs?v=20261029-documents';
 import * as reconciliation from './modules/reconciliation-v28.mjs?v=20261120-t1-current14';
 import * as inventory from './modules/inventory-v28.mjs?v=20261124-cost';
-ERP.engines={fiscalCatalog,saleAftercare,saleRecord,productSearch,productTaxonomy,stockRotation,orderWorkspace,dashboardSummary,workspacePresentation,productLifecycle,commercialEvents,pricingSignals,productPrices,retentions,productIdentity,inventoryWorkspace,purchaseCatalogs,purchases,payments,pricing,operations,reconciliation,inventory,warehouses,payouts,settlements};
+ERP.engines={imageBanks,fiscalCatalog,saleAftercare,saleRecord,productSearch,productTaxonomy,stockRotation,orderWorkspace,dashboardSummary,workspacePresentation,productLifecycle,commercialEvents,pricingSignals,productPrices,retentions,productIdentity,inventoryWorkspace,purchaseCatalogs,purchases,payments,pricing,operations,reconciliation,inventory,warehouses,payouts,settlements};
 window.OrderWorkspace?.install?.(orderWorkspace);
 D.available=inventory.available;D.orderTotal=inventory.orderTotal;D.expectedNet=inventory.expectedNet;
 document.getElementById('main').innerHTML='<div class="loading-state"><div class="loader"></div><h2>Abriendo tu operación…</h2><p>Productos, pedidos, compras y gastos de AIMERKA.</p></div>';
